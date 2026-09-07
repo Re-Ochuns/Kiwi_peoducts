@@ -1,0 +1,24 @@
+{
+  "name": "kiwi-products",
+  "version": "1.0.0",
+  "description": "おおくま農園向けキウイ在庫管理システム。",
+  "scripts": {
+    "supabase": "supabase",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:status": "supabase status",
+    "db:reset": "supabase db reset",
+    "db:test": "supabase test db"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Re-Ochuns/Kiwi_peoducts.git"
+  },
+  "private": true,
+  "engines": {
+    "node": "24.19.0"
+  },
+  "devDependencies": {
+    "supabase": "2.117.0"
+  }
+}
