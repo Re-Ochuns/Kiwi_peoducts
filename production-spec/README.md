@@ -30,6 +30,8 @@
 | [06_SCREEN_REQUIREMENTS.md](06_SCREEN_REQUIREMENTS.md) | スマホ・PCの画面一覧と表示要件 |
 | [07_NON_FUNCTIONAL_SECURITY.md](07_NON_FUNCTIONAL_SECURITY.md) | セキュリティ、性能、バックアップ、外部連携 |
 | [08_DESIGN_REQUIREMENTS.md](08_DESIGN_REQUIREMENTS.md) | スマホ・PCの情報設計、表示、操作、レスポンシブ、受け入れ基準 |
+| [09_DEVELOPMENT_WORKFLOW.md](09_DEVELOPMENT_WORKFLOW.md) | 共同開発、Issue・PR、UI変更、レビュー運用 |
+| [10_ISSUE_BACKLOG.md](10_ISSUE_BACKLOG.md) | GitHubへ発行するIssue、依存関係、マイルストーン |
 
 既存のMOCK仕様は [../MOCK_SPEC.md](../MOCK_SPEC.md) を参照する。本番要件と矛盾する場合は、本ディレクトリの文書を優先する。
 
