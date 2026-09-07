@@ -48,7 +48,7 @@ make setup
 make doctor
 ```
 
-nvm未使用の場合も、.nvmrcと同じNode.jsを用意する。make doctorはFlutter、Node.js、Supabase CLIの完全一致を検査する。
+nvm未使用の場合も、.nvmrcと同じNode.jsを用意する。make doctorはFlutter、Dart、Node.js、Supabase CLIの完全一致を検査する。
 
 ## 5. Flutterアプリ
 
@@ -56,6 +56,12 @@ Chromeで起動する。
 
 ```bash
 make app-run
+```
+
+WSLやヘッドレス環境でChromeを直接起動できない場合は、Web Serverデバイスを指定する。
+
+```bash
+make app-run DEVICE=web-server
 ```
 
 品質確認はリポジトリルートから実行する。
@@ -78,7 +84,7 @@ make db-start
 make db-status
 ```
 
-初回起動時はコンテナイメージ取得に時間がかかる。表示されたAPI URLとpublishable keyをローカルの.envへ設定する。.envはGit管理対象外である。
+このリポジトリは他のSupabaseプロジェクトとの衝突を避けるため55321番台を使用する。初回起動時はコンテナイメージ取得に時間がかかる。表示されたAPI URLとpublishable keyをローカルの.envへ設定する。.envはGit管理対象外である。
 
 DBをmigrationとseedから再構築する。
 
