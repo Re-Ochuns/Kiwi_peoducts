@@ -2,6 +2,7 @@ APP_DIR := apps/kiwi_inventory
 FLUTTER ?= flutter
 DART ?= dart
 NPM ?= npm
+DEVICE ?= chrome
 
 .PHONY: setup doctor app-run format format-check analyze test build-web codegen check db-start db-stop db-status db-reset db-test
 
@@ -13,7 +14,7 @@ doctor:
 	FLUTTER_CMD="$(FLUTTER)" DART_CMD="$(DART)" NPM_CMD="$(NPM)" bash scripts/check_tool_versions.sh
 
 app-run:
-	cd $(APP_DIR) && $(FLUTTER) run -d chrome
+	cd $(APP_DIR) && $(FLUTTER) run -d $(DEVICE)
 
 format:
 	cd $(APP_DIR) && $(DART) format lib test
