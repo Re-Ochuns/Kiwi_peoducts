@@ -33,6 +33,8 @@
 | [09_DEVELOPMENT_WORKFLOW.md](09_DEVELOPMENT_WORKFLOW.md) | 共同開発、Issue・PR、UI変更、レビュー運用 |
 | [10_ISSUE_BACKLOG.md](10_ISSUE_BACKLOG.md) | GitHubへ発行するIssue、依存関係、マイルストーン |
 
+システム構成と技術判断は [Architecture Decision Records](../docs/adr/README.md) に記録する。業務要件とADRが矛盾する場合は、本ディレクトリの要件を優先し、変更Issueで解消する。
+
 既存のMOCK仕様は [../MOCK_SPEC.md](../MOCK_SPEC.md) を参照する。本番要件と矛盾する場合は、本ディレクトリの文書を優先する。
 
 ## 構築順序
