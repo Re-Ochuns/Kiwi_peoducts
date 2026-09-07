@@ -1,0 +1,2 @@
+-- Local and Staging must use dummy data only.
+-- Add deterministic development seed data in feature-specific pull requests.
