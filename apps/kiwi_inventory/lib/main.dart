@@ -11,11 +11,7 @@ class KiwiInventoryApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return const MaterialApp(
       title: 'キウイ在庫管理',
-      home: Scaffold(
-        body: Center(
-          child: Text('キウイ在庫管理'),
-        ),
-      ),
+      home: Scaffold(body: Center(child: Text('キウイ在庫管理'))),
     );
   }
 }
