@@ -6,6 +6,7 @@
 
 - [本番要件書](production-spec/README.md)
 - [Architecture Decision Records](docs/adr/README.md)
+- [RPC・DTO契約](contracts/README.md)
 - [ローカル開発ガイド](docs/development/README.md)
 
 ## クイックスタート
