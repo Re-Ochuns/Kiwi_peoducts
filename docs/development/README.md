@@ -79,7 +79,10 @@ make build-web
 
 Docker Desktopを起動し、Settings > Resources > WSL Integrationで利用中のUbuntuを有効にする。
 
+Google OAuthを含むローカル設定を作成します。資格情報はGitへコミットしません。詳細は [Google OAuth・プロフィール・RLS運用ガイド](../auth/google-oauth.md) を参照してください。
+
 ```bash
+cp .env.example .env
 make db-start
 make db-status
 ```
