@@ -6,7 +6,9 @@ import 'core/app_theme.dart';
 void main() => runApp(const KiwiInventoryApp());
 
 class KiwiInventoryApp extends StatelessWidget {
-  const KiwiInventoryApp({super.key});
+  const KiwiInventoryApp({this.currentDate, super.key});
+
+  final DateTime? currentDate;
 
   @override
   Widget build(BuildContext context) {
@@ -14,21 +16,23 @@ class KiwiInventoryApp extends StatelessWidget {
       title: 'キウイ在庫管理',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      home: const ResponsiveHomePage(),
+      home: ResponsiveHomePage(currentDate: currentDate),
     );
   }
 }
 
 class ResponsiveHomePage extends StatelessWidget {
-  const ResponsiveHomePage({super.key});
+  const ResponsiveHomePage({this.currentDate, super.key});
+
+  final DateTime? currentDate;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) =>
           constraints.maxWidth >= AppBreakpoints.manager
-          ? const ManagerHomePage()
-          : const WorkerHomePage(),
+          ? ManagerHomePage(currentDate: currentDate)
+          : WorkerHomePage(currentDate: currentDate),
     );
   }
 }
@@ -92,7 +96,9 @@ const todayTasks = [
 ];
 
 class WorkerHomePage extends StatelessWidget {
-  const WorkerHomePage({super.key});
+  const WorkerHomePage({this.currentDate, super.key});
+
+  final DateTime? currentDate;
 
   @override
   Widget build(BuildContext context) {
@@ -109,7 +115,7 @@ class WorkerHomePage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    formattedToday(),
+                    formattedToday(currentDate),
                     style: const TextStyle(
                       fontSize: 14,
                       color: Color(0xFF56605A),
@@ -175,7 +181,9 @@ class WorkerHomePage extends StatelessWidget {
 }
 
 class ManagerHomePage extends StatelessWidget {
-  const ManagerHomePage({super.key});
+  const ManagerHomePage({this.currentDate, super.key});
+
+  final DateTime? currentDate;
 
   @override
   Widget build(BuildContext context) {
@@ -203,7 +211,7 @@ class ManagerHomePage extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        formattedToday(),
+                        formattedToday(currentDate),
                         style: const TextStyle(
                           fontSize: 14,
                           color: Color(0xFF56605A),
@@ -826,8 +834,8 @@ AppBar _plainAppBar(String title) => AppBar(
   ),
 );
 
-String formattedToday() {
-  final now = DateTime.now();
+String formattedToday([DateTime? currentDate]) {
+  final now = currentDate ?? DateTime.now();
   const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
   return '${now.year}年${now.month}月${now.day}日（${weekdays[now.weekday - 1]}）';
 }
