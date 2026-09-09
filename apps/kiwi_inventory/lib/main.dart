@@ -1,87 +1,38 @@
 import 'package:flutter/material.dart';
 
+import 'core/app_breakpoints.dart';
+import 'core/app_theme.dart';
+
 void main() => runApp(const KiwiInventoryApp());
 
 class KiwiInventoryApp extends StatelessWidget {
-  const KiwiInventoryApp({super.key});
+  const KiwiInventoryApp({this.currentDate, super.key});
+
+  final DateTime? currentDate;
 
   @override
   Widget build(BuildContext context) {
-    const green = Color(0xFF205C3B);
-    const ink = Color(0xFF1A1D1B);
-    const line = Color(0xFFCBD1CD);
-    final scheme =
-        ColorScheme.fromSeed(
-          seedColor: green,
-          surface: const Color(0xFFF7F8F7),
-        ).copyWith(
-          primary: green,
-          onPrimary: Colors.white,
-          onSurface: ink,
-          outline: line,
-          error: const Color(0xFFB3261E),
-        );
-
     return MaterialApp(
       title: 'キウイ在庫管理',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.from(colorScheme: scheme).copyWith(
-        scaffoldBackgroundColor: const Color(0xFFF7F8F7),
-        dividerColor: line,
-        textTheme: ThemeData.light().textTheme.apply(
-          bodyColor: ink,
-          displayColor: ink,
-        ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: ink,
-            backgroundColor: Colors.white,
-            minimumSize: const Size(0, 56),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            side: const BorderSide(color: Color(0xFF8D9690)),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-            ),
-            textStyle: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(0, 56),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-            ),
-            textStyle: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        snackBarTheme: const SnackBarThemeData(
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(6)),
-          ),
-        ),
-      ),
-      home: const ResponsiveHomePage(),
+      theme: buildAppTheme(),
+      home: ResponsiveHomePage(currentDate: currentDate),
     );
   }
 }
 
 class ResponsiveHomePage extends StatelessWidget {
-  const ResponsiveHomePage({super.key});
+  const ResponsiveHomePage({this.currentDate, super.key});
+
+  final DateTime? currentDate;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (context, constraints) => constraints.maxWidth >= 900
-          ? const ManagerHomePage()
-          : const WorkerHomePage(),
+      builder: (context, constraints) =>
+          constraints.maxWidth >= AppBreakpoints.manager
+          ? ManagerHomePage(currentDate: currentDate)
+          : WorkerHomePage(currentDate: currentDate),
     );
   }
 }
@@ -145,7 +96,9 @@ const todayTasks = [
 ];
 
 class WorkerHomePage extends StatelessWidget {
-  const WorkerHomePage({super.key});
+  const WorkerHomePage({this.currentDate, super.key});
+
+  final DateTime? currentDate;
 
   @override
   Widget build(BuildContext context) {
@@ -162,7 +115,7 @@ class WorkerHomePage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    formattedToday(),
+                    formattedToday(currentDate),
                     style: const TextStyle(
                       fontSize: 14,
                       color: Color(0xFF56605A),
@@ -228,7 +181,9 @@ class WorkerHomePage extends StatelessWidget {
 }
 
 class ManagerHomePage extends StatelessWidget {
-  const ManagerHomePage({super.key});
+  const ManagerHomePage({this.currentDate, super.key});
+
+  final DateTime? currentDate;
 
   @override
   Widget build(BuildContext context) {
@@ -256,7 +211,7 @@ class ManagerHomePage extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        formattedToday(),
+                        formattedToday(currentDate),
                         style: const TextStyle(
                           fontSize: 14,
                           color: Color(0xFF56605A),
@@ -879,8 +834,8 @@ AppBar _plainAppBar(String title) => AppBar(
   ),
 );
 
-String formattedToday() {
-  final now = DateTime.now();
+String formattedToday([DateTime? currentDate]) {
+  final now = currentDate ?? DateTime.now();
   const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
   return '${now.year}年${now.month}月${now.day}日（${weekdays[now.weekday - 1]}）';
 }
