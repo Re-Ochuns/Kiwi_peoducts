@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'core/app_breakpoints.dart';
+import 'core/app_theme.dart';
+
 void main() => runApp(const KiwiInventoryApp());
 
 class KiwiInventoryApp extends StatelessWidget {
@@ -7,67 +10,10 @@ class KiwiInventoryApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const green = Color(0xFF205C3B);
-    const ink = Color(0xFF1A1D1B);
-    const line = Color(0xFFCBD1CD);
-    final scheme =
-        ColorScheme.fromSeed(
-          seedColor: green,
-          surface: const Color(0xFFF7F8F7),
-        ).copyWith(
-          primary: green,
-          onPrimary: Colors.white,
-          onSurface: ink,
-          outline: line,
-          error: const Color(0xFFB3261E),
-        );
-
     return MaterialApp(
       title: 'キウイ在庫管理',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.from(colorScheme: scheme).copyWith(
-        scaffoldBackgroundColor: const Color(0xFFF7F8F7),
-        dividerColor: line,
-        textTheme: ThemeData.light().textTheme.apply(
-          bodyColor: ink,
-          displayColor: ink,
-        ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: ink,
-            backgroundColor: Colors.white,
-            minimumSize: const Size(0, 56),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            side: const BorderSide(color: Color(0xFF8D9690)),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-            ),
-            textStyle: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(0, 56),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-            ),
-            textStyle: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        snackBarTheme: const SnackBarThemeData(
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(6)),
-          ),
-        ),
-      ),
+      theme: buildAppTheme(),
       home: const ResponsiveHomePage(),
     );
   }
@@ -79,7 +25,8 @@ class ResponsiveHomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (context, constraints) => constraints.maxWidth >= 900
+      builder: (context, constraints) =>
+          constraints.maxWidth >= AppBreakpoints.manager
           ? const ManagerHomePage()
           : const WorkerHomePage(),
     );

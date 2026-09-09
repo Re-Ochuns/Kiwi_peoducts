@@ -81,6 +81,8 @@ Docker Desktopを起動し、Settings > Resources > WSL Integrationで利用中�
 
 Google OAuthを含むローカル設定を作成します。資格情報はGitへコミットしません。詳細は [Google OAuth・プロフィール・RLS運用ガイド](../auth/google-oauth.md) を参照してください。
 
+Flutterの画面追加、共通状態、レスポンシブ、認証設定は [Flutterフロントエンド開発ガイド](../frontend/README.md) を参照してください。
+
 ```bash
 cp .env.example .env
 make db-start
