@@ -1,13 +1,47 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import 'auth/auth_controller.dart';
+import 'auth/auth_gate.dart';
+import 'auth/auth_repository.dart';
+import 'auth/supabase_auth_repository.dart';
 import 'core/app_breakpoints.dart';
+import 'core/app_config.dart';
 import 'core/app_theme.dart';
+import 'core/common_state_view.dart';
 
-void main() => runApp(const KiwiInventoryApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final config = AppConfig.fromEnvironment();
+  final configurationError = config.validate();
+
+  if (configurationError != null) {
+    runApp(KiwiInventoryApp(startupError: configurationError));
+    return;
+  }
+
+  try {
+    final repository = await SupabaseAuthRepository.initialize(config);
+    runApp(KiwiInventoryApp(authRepository: repository));
+  } catch (_) {
+    runApp(
+      const KiwiInventoryApp(
+        startupError: '認証サービスへ接続できませんでした。接続設定と通信状況を確認してください。',
+      ),
+    );
+  }
+}
 
 class KiwiInventoryApp extends StatelessWidget {
-  const KiwiInventoryApp({this.currentDate, super.key});
+  const KiwiInventoryApp({
+    this.authRepository,
+    this.startupError,
+    this.currentDate,
+    super.key,
+  });
 
+  final AuthRepository? authRepository;
+  final String? startupError;
   final DateTime? currentDate;
 
   @override
@@ -16,23 +50,44 @@ class KiwiInventoryApp extends StatelessWidget {
       title: 'キウイ在庫管理',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      home: ResponsiveHomePage(currentDate: currentDate),
+      home: _buildHome(),
+    );
+  }
+
+  Widget _buildHome() {
+    final repository = authRepository;
+    if (repository == null) {
+      return Scaffold(
+        body: CommonStateView.error(
+          title: 'アプリを開始できません',
+          message: startupError ?? '認証設定を確認してください。',
+        ),
+      );
+    }
+
+    return ChangeNotifierProvider(
+      create: (_) => AuthController(repository),
+      child: AuthGate(
+        authenticatedBuilder: (_, signOut) =>
+            ResponsiveHomePage(onSignOut: signOut, currentDate: currentDate),
+      ),
     );
   }
 }
 
 class ResponsiveHomePage extends StatelessWidget {
-  const ResponsiveHomePage({this.currentDate, super.key});
-
+  const ResponsiveHomePage({this.onSignOut, this.currentDate, super.key});
   final DateTime? currentDate;
+
+  final VoidCallback? onSignOut;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) =>
           constraints.maxWidth >= AppBreakpoints.manager
-          ? ManagerHomePage(currentDate: currentDate)
-          : WorkerHomePage(currentDate: currentDate),
+          ? ManagerHomePage(onSignOut: onSignOut, currentDate: currentDate)
+          : WorkerHomePage(onSignOut: onSignOut, currentDate: currentDate),
     );
   }
 }
@@ -96,14 +151,15 @@ const todayTasks = [
 ];
 
 class WorkerHomePage extends StatelessWidget {
-  const WorkerHomePage({this.currentDate, super.key});
-
+  const WorkerHomePage({this.onSignOut, this.currentDate, super.key});
   final DateTime? currentDate;
+
+  final VoidCallback? onSignOut;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _plainAppBar('おおくま農園'),
+      appBar: _plainAppBar('おおくま農園', onSignOut: onSignOut),
       body: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
@@ -181,16 +237,17 @@ class WorkerHomePage extends StatelessWidget {
 }
 
 class ManagerHomePage extends StatelessWidget {
-  const ManagerHomePage({this.currentDate, super.key});
-
+  const ManagerHomePage({this.onSignOut, this.currentDate, super.key});
   final DateTime? currentDate;
+
+  final VoidCallback? onSignOut;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Row(
         children: [
-          const ManagerNavigation(),
+          ManagerNavigation(onSignOut: onSignOut),
           const VerticalDivider(width: 1),
           Expanded(
             child: SingleChildScrollView(
@@ -286,7 +343,9 @@ class ManagerHomePage extends StatelessWidget {
 }
 
 class ManagerNavigation extends StatelessWidget {
-  const ManagerNavigation({super.key});
+  const ManagerNavigation({this.onSignOut, super.key});
+
+  final VoidCallback? onSignOut;
   static const items = ['ホーム', '受注', '追熟計画', '在庫管理', '出荷', 'マスター'];
 
   @override
@@ -311,6 +370,19 @@ class ManagerNavigation extends StatelessWidget {
                 const SizedBox(height: 28),
                 for (final item in items)
                   NavigationItem(label: item, selected: item == 'ホーム'),
+                const Spacer(),
+                if (onSignOut != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: TextButton(
+                      onPressed: onSignOut,
+                      style: TextButton.styleFrom(
+                        alignment: Alignment.centerLeft,
+                        minimumSize: const Size(0, 48),
+                      ),
+                      child: const Text('ログアウト'),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -818,7 +890,7 @@ class DetailValue extends StatelessWidget {
   }
 }
 
-AppBar _plainAppBar(String title) => AppBar(
+AppBar _plainAppBar(String title, {VoidCallback? onSignOut}) => AppBar(
   automaticallyImplyLeading: false,
   backgroundColor: Colors.white,
   surfaceTintColor: Colors.transparent,
@@ -828,6 +900,14 @@ AppBar _plainAppBar(String title) => AppBar(
     title,
     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
   ),
+  actions: [
+    if (onSignOut != null)
+      TextButton(
+        onPressed: onSignOut,
+        style: TextButton.styleFrom(minimumSize: const Size(88, 48)),
+        child: const Text('ログアウト'),
+      ),
+  ],
   bottom: const PreferredSize(
     preferredSize: Size.fromHeight(1),
     child: Divider(height: 1),
