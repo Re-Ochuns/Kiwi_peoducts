@@ -14,3 +14,4 @@
 | ADR | 状態 | 内容 |
 |---|---|---|
 | [ADR-0001](0001-system-architecture-and-ownership.md) | 承認待ち | システム構成と担当境界 |
+| [ADR-0002](0002-a5-label-pdf-generation.md) | 承認待ち | A5ラベルPDFの生成場所と印刷境界 |

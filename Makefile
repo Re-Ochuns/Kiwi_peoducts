@@ -3,8 +3,9 @@ FLUTTER ?= flutter
 DART ?= dart
 NPM ?= npm
 DEVICE ?= chrome
+PDF_PYTHON ?= python3
 
-.PHONY: setup doctor app-run format format-check analyze test build-web codegen check db-start db-stop db-status db-reset db-test
+.PHONY: setup doctor app-run format format-check analyze test build-web codegen check db-start db-stop db-status db-reset db-test pdf-label-prototype pdf-label-verify
 
 setup:
 	$(NPM) ci
@@ -50,3 +51,9 @@ db-reset:
 
 db-test:
 	$(NPM) run db:test
+
+pdf-label-prototype:
+	$(PDF_PYTHON) experiments/fnd-07/generate_a5_label.py
+
+pdf-label-verify:
+	$(PDF_PYTHON) experiments/fnd-07/verify_a5_label.py
