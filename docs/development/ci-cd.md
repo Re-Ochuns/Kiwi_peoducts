@@ -32,7 +32,7 @@ Staging用の値はGitHub Environment `staging`へ登録する。
 | Environment variable | `SUPABASE_PROJECT_REF` | Staging Supabase識別子 |
 | Environment variable | `SUPABASE_URL` | Flutter Web公開設定 |
 | Environment variable | `SUPABASE_PUBLISHABLE_KEY` | Flutter Web公開設定 |
-| Environment variable | `FIREBASE_PROJECT_ID` | Staging Firebase識別子 |
+| Environment variable | `FIREBASE_PROJECT_ID` | 本番と分離したStaging専用Firebaseプロジェクト識別子 |
 
 `SUPABASE_SERVICE_ROLE_KEY`、Google OAuth client secret、Production資格情報はFlutter buildへ渡さない。
 
@@ -45,7 +45,7 @@ Staging用の値はGitHub Environment `staging`へ登録する。
 3. GitHub Environment `staging`の承認者が、実行者・対象SHA・変更内容を確認して承認する。
 4. WorkflowがFlutter WebをStaging用公開設定でbuildする。
 5. Supabaseの未適用migrationをStagingへ反映する。
-6. Firebase Hostingの`staging` Preview Channelへ30日間のリリースを反映する。
+6. Staging専用FirebaseプロジェクトのHosting Live Channelへリリースを反映する。
 7. Actions履歴へ実行者、対象SHA、実行結果を残す。
 
 GitHub Environmentには最低1名のRequired reviewerを設定する。可能な場合は、実装者以外を承認者とする。`develop`以外のDeployment branchを許可しない。
@@ -63,7 +63,7 @@ GitHub Environmentには最低1名のRequired reviewerを設定する。可能�
 
 ### Firebase Hosting
 
-Firebase ConsoleのHostingリリース履歴から、直前に確認済みのバージョンへロールバックする。実行者は対象バージョンと理由をIssueまたはPRへ記録する。
+Staging専用FirebaseプロジェクトのFirebase Consoleで、Hostingのリリース履歴から直前に確認済みのバージョンへロールバックする。実行者は対象バージョンと理由をIssueまたはPRへ記録する。本番FirebaseプロジェクトのLive Channelは操作しない。
 
 ### Supabase
 
@@ -75,13 +75,14 @@ Firebaseだけを戻しても、DB契約と非互換なら復旧にならない�
 
 リポジトリ管理者は初回だけ次を行う。
 
-1. GitHub Environment `staging`を作成し、Required reviewerと`develop`のDeployment branch ruleを設定する。
-2. 前述のEnvironment secretsとvariablesを登録する。
-3. `develop`のブランチ保護へ3つの必須チェックを登録する。
-4. ダミー変更のPRでFlutter解析エラーとpgTAP失敗を別々に発生させ、各ジョブが停止することを確認する。
-5. Stagingへデプロイし、対象SHAと画面・DB migrationを確認する。
-6. Firebase Hostingを直前のバージョンへ戻し、表示が復旧することを確認する。
-7. 必要なら前方修正migrationをStagingへ適用し、DB復旧手順を確認する。
-8. 実施日、実行者、Actions URL、結果をIssue #9へ記録する。
+1. 本番と分離したStaging専用Firebaseプロジェクトを作成し、Hostingを初期化する。
+2. GitHub Environment `staging`を作成し、Required reviewerと`develop`のDeployment branch ruleを設定する。
+3. 前述のEnvironment secretsとvariablesを登録し、`FIREBASE_PROJECT_ID`にはStaging専用プロジェクトを指定する。
+4. `develop`のブランチ保護へ3つの必須チェックを登録する。
+5. ダミー変更のPRでFlutter解析エラーとpgTAP失敗を別々に発生させ、各ジョブが停止することを確認する。
+6. Stagingへデプロイし、対象SHAと画面・DB migrationを確認する。
+7. Staging専用FirebaseプロジェクトのHostingを直前のバージョンへ戻し、表示が復旧することを確認する。
+8. 必要なら前方修正migrationをStagingへ適用し、DB復旧手順を確認する。
+9. 実施日、実行者、Actions URL、結果をIssue #9へ記録する。
 
-実環境の資格情報が未登録の場合、手順5〜7は実施済みにしない。
+実環境の資格情報が未登録の場合、手順6〜8は実施済みにしない。

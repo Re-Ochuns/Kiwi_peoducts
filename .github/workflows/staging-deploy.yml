@@ -64,11 +64,9 @@ jobs:
         run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
       - name: Apply pending database migrations
         run: supabase db push --linked --include-all
-      - name: Deploy Firebase Hosting staging channel
+      - name: Deploy Firebase Hosting staging project
         uses: FirebaseExtended/action-hosting-deploy@500ac625ca2dd40cbd15f7659af953801858032a # v0
         with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_STAGING }}
           projectId: ${{ vars.FIREBASE_PROJECT_ID }}
-          channelId: staging
-          expires: 30d
+          channelId: live
