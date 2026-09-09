@@ -33,10 +33,16 @@ Future<void> main() async {
 }
 
 class KiwiInventoryApp extends StatelessWidget {
-  const KiwiInventoryApp({this.authRepository, this.startupError, super.key});
+  const KiwiInventoryApp({
+    this.authRepository,
+    this.startupError,
+    this.currentDate,
+    super.key,
+  });
 
   final AuthRepository? authRepository;
   final String? startupError;
+  final DateTime? currentDate;
 
   @override
   Widget build(BuildContext context) {
@@ -63,14 +69,15 @@ class KiwiInventoryApp extends StatelessWidget {
       create: (_) => AuthController(repository),
       child: AuthGate(
         authenticatedBuilder: (_, signOut) =>
-            ResponsiveHomePage(onSignOut: signOut),
+            ResponsiveHomePage(onSignOut: signOut, currentDate: currentDate),
       ),
     );
   }
 }
 
 class ResponsiveHomePage extends StatelessWidget {
-  const ResponsiveHomePage({this.onSignOut, super.key});
+  const ResponsiveHomePage({this.onSignOut, this.currentDate, super.key});
+  final DateTime? currentDate;
 
   final VoidCallback? onSignOut;
 
@@ -79,8 +86,8 @@ class ResponsiveHomePage extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) =>
           constraints.maxWidth >= AppBreakpoints.manager
-          ? ManagerHomePage(onSignOut: onSignOut)
-          : WorkerHomePage(onSignOut: onSignOut),
+          ? ManagerHomePage(onSignOut: onSignOut, currentDate: currentDate)
+          : WorkerHomePage(onSignOut: onSignOut, currentDate: currentDate),
     );
   }
 }
@@ -144,7 +151,8 @@ const todayTasks = [
 ];
 
 class WorkerHomePage extends StatelessWidget {
-  const WorkerHomePage({this.onSignOut, super.key});
+  const WorkerHomePage({this.onSignOut, this.currentDate, super.key});
+  final DateTime? currentDate;
 
   final VoidCallback? onSignOut;
 
@@ -163,7 +171,7 @@ class WorkerHomePage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    formattedToday(),
+                    formattedToday(currentDate),
                     style: const TextStyle(
                       fontSize: 14,
                       color: Color(0xFF56605A),
@@ -229,7 +237,8 @@ class WorkerHomePage extends StatelessWidget {
 }
 
 class ManagerHomePage extends StatelessWidget {
-  const ManagerHomePage({this.onSignOut, super.key});
+  const ManagerHomePage({this.onSignOut, this.currentDate, super.key});
+  final DateTime? currentDate;
 
   final VoidCallback? onSignOut;
 
@@ -259,7 +268,7 @@ class ManagerHomePage extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        formattedToday(),
+                        formattedToday(currentDate),
                         style: const TextStyle(
                           fontSize: 14,
                           color: Color(0xFF56605A),
@@ -905,8 +914,8 @@ AppBar _plainAppBar(String title, {VoidCallback? onSignOut}) => AppBar(
   ),
 );
 
-String formattedToday() {
-  final now = DateTime.now();
+String formattedToday([DateTime? currentDate]) {
+  final now = currentDate ?? DateTime.now();
   const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
   return '${now.year}年${now.month}月${now.day}日（${weekdays[now.weekday - 1]}）';
 }

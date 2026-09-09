@@ -6,6 +6,7 @@ import 'package:kiwi_inventory/auth/auth_repository.dart';
 import 'package:kiwi_inventory/main.dart';
 
 void main() {
+  final goldenDate = DateTime(2026, 9, 8);
   testWidgets('390pxのログイン画面', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -24,7 +25,10 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
-      KiwiInventoryApp(authRepository: _GoldenAuthRepository()),
+      KiwiInventoryApp(
+        authRepository: _GoldenAuthRepository(),
+        currentDate: goldenDate,
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -38,7 +42,10 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1280, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
-      KiwiInventoryApp(authRepository: _GoldenAuthRepository()),
+      KiwiInventoryApp(
+        authRepository: _GoldenAuthRepository(),
+        currentDate: goldenDate,
+      ),
     );
     await tester.pumpAndSettle();
 
