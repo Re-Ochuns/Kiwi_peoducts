@@ -17,6 +17,7 @@ supabase/.temp/
 **/.flutter-plugins-dependencies
 **/build/
 **/coverage/
+**/test/failures/
 .fvm/
 
 # IDE / OS
@@ -25,3 +26,6 @@ supabase/.temp/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Local artifact previews
+/tmp/
