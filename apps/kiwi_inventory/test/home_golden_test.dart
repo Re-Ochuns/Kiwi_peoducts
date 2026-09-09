@@ -1,3 +1,6 @@
+@Tags(['golden'])
+library;
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -5,7 +8,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kiwi_inventory/auth/auth_repository.dart';
 import 'package:kiwi_inventory/main.dart';
 
-@Tags(['golden'])
 void main() {
   final goldenDate = DateTime(2026, 9, 8);
   testWidgets('390pxのログイン画面', (tester) async {
