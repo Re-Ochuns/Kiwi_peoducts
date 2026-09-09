@@ -31,9 +31,9 @@ on conflict (id) do nothing;
 insert into public.storage_locations (id, code, name, location_type) values
   ('a8000000-0000-0000-0000-000000000001', 'cold-1', '第一冷蔵庫', 'cold_storage')
 on conflict (id) do nothing;
-insert into public.sorting_deadline_rules (id, variety_id, deadline_days) values
-  ('a9000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000001', 30),
-  ('a9000000-0000-0000-0000-000000000002', 'a1000000-0000-0000-0000-000000000002', 30)
+insert into public.sorting_deadline_rules (id, harvest_year, harvest_month, variety_id, deadline_days) values
+  ('a9000000-0000-0000-0000-000000000001', 2027, 5, 'a1000000-0000-0000-0000-000000000001', 30),
+  ('a9000000-0000-0000-0000-000000000002', 2027, 5, 'a1000000-0000-0000-0000-000000000002', 30)
 on conflict (id) do nothing;
 
 insert into public.receiving_lots (

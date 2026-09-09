@@ -1,5 +1,8 @@
 begin;
 
+create extension if not exists pg_cron with schema pg_catalog;
+alter role authenticator set statement_timeout = '8s';
+
 create domain public.weight_kg as numeric
   check (value >= 0 and value <= 9999999999.99 and value = round(value, 2));
 
@@ -134,13 +137,16 @@ create table public.storage_locations (
 
 create table public.sorting_deadline_rules (
   id uuid primary key default gen_random_uuid(),
-  variety_id uuid not null unique references public.varieties(id) on delete restrict,
+  harvest_year smallint not null check (harvest_year between 2000 and 9999),
+  harvest_month smallint not null check (harvest_month between 1 and 12),
+  variety_id uuid not null references public.varieties(id) on delete restrict,
   deadline_days smallint not null default 30 check (deadline_days > 0),
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
   created_by uuid references public.profiles(id) on delete restrict,
   updated_at timestamptz not null default now(),
-  updated_by uuid references public.profiles(id) on delete restrict
+  updated_by uuid references public.profiles(id) on delete restrict,
+  unique (harvest_year, harvest_month, variety_id)
 );
 
 create table public.receiving_lots (
@@ -333,6 +339,76 @@ begin
 end;
 $$;
 
+create or replace function private.prevent_finalized_sorting_result_mutation()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  is_finalized boolean;
+begin
+  select r.status = 'sorted' into is_finalized
+  from public.receiving_lots r
+  where r.id = old.receiving_lot_id;
+
+  if coalesce(is_finalized, false) and (
+    tg_op = 'DELETE'
+    or row(new.receiving_lot_id, new.sorted_on, new.sorted_by, new.input_weight_kg, new.output_weight_kg, new.loss_weight_kg)
+      is distinct from row(old.receiving_lot_id, old.sorted_on, old.sorted_by, old.input_weight_kg, old.output_weight_kg, old.loss_weight_kg)
+  ) then
+    raise exception 'finalized sorting result cannot be changed' using errcode = '23514';
+  end if;
+
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function private.prevent_finalized_container_mutation()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  old_is_finalized boolean := false;
+  new_is_finalized boolean := false;
+begin
+  if tg_op <> 'INSERT' then
+    select r.status = 'sorted' into old_is_finalized
+    from public.sorting_results s
+    join public.receiving_lots r on r.id = s.receiving_lot_id
+    where s.id = old.sorting_result_id;
+  end if;
+
+  if tg_op <> 'DELETE' then
+    select r.status = 'sorted' into new_is_finalized
+    from public.sorting_results s
+    join public.receiving_lots r on r.id = s.receiving_lot_id
+    where s.id = new.sorting_result_id;
+  end if;
+
+  if tg_op = 'DELETE' and coalesce(old_is_finalized, false) then
+    raise exception 'finalized sorting container cannot be deleted' using errcode = '23514';
+  end if;
+  if tg_op = 'INSERT' and coalesce(new_is_finalized, false) then
+    raise exception 'container cannot be added to finalized sorting' using errcode = '23514';
+  end if;
+  if tg_op = 'UPDATE'
+    and (coalesce(old_is_finalized, false) or coalesce(new_is_finalized, false))
+    and row(new.sorting_result_id, new.variety_id, new.grade_id, new.original_weight_kg)
+      is distinct from row(old.sorting_result_id, old.variety_id, old.grade_id, old.original_weight_kg) then
+    raise exception 'finalized sorting container cannot be changed' using errcode = '23514';
+  end if;
+
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+  return new;
+end;
+$$;
+
 create or replace function private.validate_container_transition()
 returns trigger
 language plpgsql
@@ -387,6 +463,10 @@ create trigger receiving_lots_validate_references before insert or update on pub
 for each row execute function private.validate_receiving_lot_references();
 create trigger receiving_lots_validate_transition before update on public.receiving_lots
 for each row execute function private.validate_receiving_lot_transition();
+create trigger sorting_results_prevent_finalized_mutation before update or delete on public.sorting_results
+for each row execute function private.prevent_finalized_sorting_result_mutation();
+create trigger containers_prevent_finalized_mutation before insert or update or delete on public.containers
+for each row execute function private.prevent_finalized_container_mutation();
 create trigger containers_validate_transition before update on public.containers
 for each row execute function private.validate_container_transition();
 create trigger label_jobs_validate_transition before update on public.label_jobs
@@ -456,6 +536,12 @@ end;
 $$;
 revoke all on function private.delete_expired_idempotency_records() from public, anon, authenticated;
 grant execute on function private.delete_expired_idempotency_records() to service_role;
+
+select cron.schedule(
+  'delete-expired-idempotency-records',
+  '15 * * * *',
+  'select private.delete_expired_idempotency_records()'
+);
 
 comment on domain public.weight_kg is 'Non-negative kilogram quantity with 0.01 kg precision.';
 comment on table public.receiving_lots is 'Stage 1 harvest and purchase lots before whole-lot sorting.';

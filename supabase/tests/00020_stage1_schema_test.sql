@@ -19,6 +19,16 @@ select has_table('public', 'label_events', 'label events table exists');
 select has_table('public', 'change_history', 'change history table exists');
 select has_table('private', 'idempotency_records', 'idempotency records table exists');
 
+select ok(exists(select 1 from pg_extension where extname = 'pg_cron'), 'pg_cron is installed');
+select is((select count(*) from cron.job where jobname = 'delete-expired-idempotency-records'), 1::bigint, 'idempotency cleanup is scheduled once');
+select ok(exists (
+  select 1
+  from pg_db_role_setting s
+  join pg_roles r on r.oid = s.setrole
+  cross join lateral unnest(s.setconfig) setting
+  where r.rolname = 'authenticator' and setting = 'statement_timeout=8s'
+), 'API server statements have an eight second limit');
+
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at
@@ -45,8 +55,11 @@ insert into public.workers (id, code, display_name) values
   ('27000000-0000-0000-0000-000000000001', 'TEST-WORKER', 'テスト作業者');
 insert into public.storage_locations (id, code, name, location_type) values
   ('28000000-0000-0000-0000-000000000001', 'TEST-COLD', 'テスト冷蔵庫', 'cold_storage');
-insert into public.sorting_deadline_rules (id, variety_id, deadline_days) values
-  ('29000000-0000-0000-0000-000000000001', '21000000-0000-0000-0000-000000000001', 30);
+insert into public.sorting_deadline_rules (id, harvest_year, harvest_month, variety_id, deadline_days) values
+  ('29000000-0000-0000-0000-000000000001', 2027, 5, '21000000-0000-0000-0000-000000000001', 30),
+  ('29000000-0000-0000-0000-000000000002', 2027, 6, '21000000-0000-0000-0000-000000000001', 21);
+select is((select count(*) from public.sorting_deadline_rules where variety_id = '21000000-0000-0000-0000-000000000001'),
+  2::bigint, 'deadline rules support year and harvest month combinations');
 
 select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000002', true);
 update public.varieties set name = '更新済みテストヘイワード'
@@ -126,10 +139,34 @@ values (
   '28000000-0000-0000-0000-000000000001'
 );
 
+insert into public.containers (id, display_id, sorting_result_id, variety_id, grade_id, original_weight_kg, current_weight_kg)
+values (
+  '32000000-0000-0000-0000-000000000002', '選果-2027-TEST-TEMP', '31000000-0000-0000-0000-000000000001',
+  '21000000-0000-0000-0000-000000000001', 'a2000000-0000-0000-0000-000000000005', 1.00, 1.00
+);
+select lives_ok($$delete from public.containers where id = '32000000-0000-0000-0000-000000000002'$$, 'container can be deleted before sorting finalization');
+
 select lives_ok(
   $$update public.receiving_lots set status = 'sorted'
     where id = '30000000-0000-0000-0000-000000000001'$$,
   'consistent whole-lot sorting can be finalized'
+);
+
+select throws_ok(
+  $$update public.sorting_results set output_weight_kg = 8.50, loss_weight_kg = 1.50
+    where id = '31000000-0000-0000-0000-000000000001'$$,
+  '23514', 'finalized sorting result cannot be changed', 'finalized sorting weights are immutable'
+);
+
+select throws_ok(
+  $$update public.containers set original_weight_kg = 8.50, current_weight_kg = 8.50
+    where id = '32000000-0000-0000-0000-000000000001'$$,
+  '23514', 'finalized sorting container cannot be changed', 'finalized container origin is immutable'
+);
+
+select throws_ok(
+  $$delete from public.containers where id = '32000000-0000-0000-0000-000000000001'$$,
+  '23514', 'finalized sorting container cannot be deleted', 'finalized container cannot be deleted'
 );
 
 select throws_ok(
