@@ -6,9 +6,15 @@
 
 ```text
 lib/
-├── main.dart                         アプリ起動、画面シェル、既存画面
+├── main.dart                         アプリ起動、認証後のホーム、既存画面
+├── auth/
+│   ├── auth_repository.dart         ViewModelが利用する認証境界
+│   ├── supabase_auth_repository.dart Supabase Authとプロフィール参照
+│   ├── auth_controller.dart         認証状態と画面状態の変換
+│   └── auth_gate.dart               未認証・承認確認・認証後の振り分け
 └── core/
     ├── app_breakpoints.dart          画面幅の基準
+    ├── app_config.dart               公開可能な実行時設定
     ├── app_theme.dart                色、余白、角丸、共通テーマ
     └── common_state_view.dart        読み込み・空・エラー表示
 ```
@@ -20,7 +26,7 @@ lib/
 1. 対象Issueの画面状態と受け入れ条件を確認する。
 2. 機能ディレクトリへ画面とViewModelを追加する。
 3. 外部データが必要な場合はRepositoryインターフェースを先に定義する。
-4. 画面シェルから遷移できるようにし、直接開かれても必要な状態を復元できるようにする。
+4. 認証済み領域の画面だけを`AuthGate`の内側から開く。
 5. 読み込み・空・エラーには`CommonStateView`を使用する。
 6. 360px、390px、430px、900px、1280pxで表示を確認する。
 7. ViewModelのUnit Testと画面状態のWidget Testを追加する。
@@ -65,6 +71,21 @@ Repositoryの実装はアプリシェルで生成し、ViewModelのコンスト�
 
 エラー文は日本語で、利用者が次に行える操作を含めます。処理中は同じ操作を再度実行できるボタンを表示しません。
 
+## Google認証をローカルで確認する
+
+ルートの`.env`はSupabase CLI用です。Flutter Webには公開可能な値だけを`--dart-define`で渡します。
+
+```bash
+cd apps/kiwi_inventory
+flutter run -d chrome --web-port 58080 \
+  --dart-define=SUPABASE_URL=http://127.0.0.1:55321 \
+  --dart-define=SUPABASE_PUBLISHABLE_KEY=<local-publishable-key>
+```
+
+Google Client Secretと`service_role`キーをFlutterへ渡してはいけません。Google CloudとSupabase側の設定は`docs/auth/google-oauth.md`を参照してください。
+
+認証後、`profiles.access_status = active`をRLS経由で確認できた利用者だけをホームへ通します。RLSのため`pending`と`disabled`はクライアントから区別できないので、どちらも「利用承認を確認できません」と表示します。
+
 ## 検証
 
 ```bash
@@ -74,4 +95,4 @@ flutter test
 flutter build web --release
 ```
 
-画面状態の自動テストではFake Repositoryを使用し、読み込み、空、成功、業務エラー、通信エラーを再現します。
+実際のGoogleリダイレクトはLocalまたはStagingで確認します。自動テストではFake Repositoryを使用し、未認証、処理中、成功、承認確認不可、通信失敗を再現します。
