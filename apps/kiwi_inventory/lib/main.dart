@@ -1,87 +1,86 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-void main() => runApp(const KiwiInventoryApp());
+import 'auth/auth_controller.dart';
+import 'auth/auth_gate.dart';
+import 'auth/auth_repository.dart';
+import 'auth/supabase_auth_repository.dart';
+import 'core/app_breakpoints.dart';
+import 'core/app_config.dart';
+import 'core/app_theme.dart';
+import 'core/common_state_view.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final config = AppConfig.fromEnvironment();
+  final configurationError = config.validate();
+
+  if (configurationError != null) {
+    runApp(KiwiInventoryApp(startupError: configurationError));
+    return;
+  }
+
+  try {
+    final repository = await SupabaseAuthRepository.initialize(config);
+    runApp(KiwiInventoryApp(authRepository: repository));
+  } catch (_) {
+    runApp(
+      const KiwiInventoryApp(
+        startupError: '認証サービスへ接続できませんでした。接続設定と通信状況を確認してください。',
+      ),
+    );
+  }
+}
 
 class KiwiInventoryApp extends StatelessWidget {
-  const KiwiInventoryApp({super.key});
+  const KiwiInventoryApp({this.authRepository, this.startupError, super.key});
+
+  final AuthRepository? authRepository;
+  final String? startupError;
 
   @override
   Widget build(BuildContext context) {
-    const green = Color(0xFF205C3B);
-    const ink = Color(0xFF1A1D1B);
-    const line = Color(0xFFCBD1CD);
-    final scheme =
-        ColorScheme.fromSeed(
-          seedColor: green,
-          surface: const Color(0xFFF7F8F7),
-        ).copyWith(
-          primary: green,
-          onPrimary: Colors.white,
-          onSurface: ink,
-          outline: line,
-          error: const Color(0xFFB3261E),
-        );
-
     return MaterialApp(
       title: 'キウイ在庫管理',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.from(colorScheme: scheme).copyWith(
-        scaffoldBackgroundColor: const Color(0xFFF7F8F7),
-        dividerColor: line,
-        textTheme: ThemeData.light().textTheme.apply(
-          bodyColor: ink,
-          displayColor: ink,
+      theme: buildAppTheme(),
+      home: _buildHome(),
+    );
+  }
+
+  Widget _buildHome() {
+    final repository = authRepository;
+    if (repository == null) {
+      return Scaffold(
+        body: CommonStateView.error(
+          title: 'アプリを開始できません',
+          message: startupError ?? '認証設定を確認してください。',
         ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: ink,
-            backgroundColor: Colors.white,
-            minimumSize: const Size(0, 56),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            side: const BorderSide(color: Color(0xFF8D9690)),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-            ),
-            textStyle: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(0, 56),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-            ),
-            textStyle: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        snackBarTheme: const SnackBarThemeData(
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(6)),
-          ),
-        ),
+      );
+    }
+
+    return ChangeNotifierProvider(
+      create: (_) => AuthController(repository),
+      child: AuthGate(
+        authenticatedBuilder: (_, signOut) =>
+            ResponsiveHomePage(onSignOut: signOut),
       ),
-      home: const ResponsiveHomePage(),
     );
   }
 }
 
 class ResponsiveHomePage extends StatelessWidget {
-  const ResponsiveHomePage({super.key});
+  const ResponsiveHomePage({this.onSignOut, super.key});
+
+  final VoidCallback? onSignOut;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (context, constraints) => constraints.maxWidth >= 900
-          ? const ManagerHomePage()
-          : const WorkerHomePage(),
+      builder: (context, constraints) =>
+          constraints.maxWidth >= AppBreakpoints.manager
+          ? ManagerHomePage(onSignOut: onSignOut)
+          : WorkerHomePage(onSignOut: onSignOut),
     );
   }
 }
@@ -145,12 +144,14 @@ const todayTasks = [
 ];
 
 class WorkerHomePage extends StatelessWidget {
-  const WorkerHomePage({super.key});
+  const WorkerHomePage({this.onSignOut, super.key});
+
+  final VoidCallback? onSignOut;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _plainAppBar('おおくま農園'),
+      appBar: _plainAppBar('おおくま農園', onSignOut: onSignOut),
       body: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
@@ -228,14 +229,16 @@ class WorkerHomePage extends StatelessWidget {
 }
 
 class ManagerHomePage extends StatelessWidget {
-  const ManagerHomePage({super.key});
+  const ManagerHomePage({this.onSignOut, super.key});
+
+  final VoidCallback? onSignOut;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Row(
         children: [
-          const ManagerNavigation(),
+          ManagerNavigation(onSignOut: onSignOut),
           const VerticalDivider(width: 1),
           Expanded(
             child: SingleChildScrollView(
@@ -331,7 +334,9 @@ class ManagerHomePage extends StatelessWidget {
 }
 
 class ManagerNavigation extends StatelessWidget {
-  const ManagerNavigation({super.key});
+  const ManagerNavigation({this.onSignOut, super.key});
+
+  final VoidCallback? onSignOut;
   static const items = ['ホーム', '受注', '追熟計画', '在庫管理', '出荷', 'マスター'];
 
   @override
@@ -356,6 +361,19 @@ class ManagerNavigation extends StatelessWidget {
                 const SizedBox(height: 28),
                 for (final item in items)
                   NavigationItem(label: item, selected: item == 'ホーム'),
+                const Spacer(),
+                if (onSignOut != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: TextButton(
+                      onPressed: onSignOut,
+                      style: TextButton.styleFrom(
+                        alignment: Alignment.centerLeft,
+                        minimumSize: const Size(0, 48),
+                      ),
+                      child: const Text('ログアウト'),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -863,7 +881,7 @@ class DetailValue extends StatelessWidget {
   }
 }
 
-AppBar _plainAppBar(String title) => AppBar(
+AppBar _plainAppBar(String title, {VoidCallback? onSignOut}) => AppBar(
   automaticallyImplyLeading: false,
   backgroundColor: Colors.white,
   surfaceTintColor: Colors.transparent,
@@ -873,6 +891,14 @@ AppBar _plainAppBar(String title) => AppBar(
     title,
     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
   ),
+  actions: [
+    if (onSignOut != null)
+      TextButton(
+        onPressed: onSignOut,
+        style: TextButton.styleFrom(minimumSize: const Size(88, 48)),
+        child: const Text('ログアウト'),
+      ),
+  ],
   bottom: const PreferredSize(
     preferredSize: Size.fromHeight(1),
     child: Divider(height: 1),
