@@ -2,53 +2,46 @@ name: Database CI
 
 on:
   pull_request:
-    branches:
-      - develop
-      - main
-    paths:
-      - ".env.example"
-      - "supabase/**"
-      - ".github/workflows/database-ci.yml"
+    branches: [develop, main]
   push:
-    branches:
-      - develop
-      - main
-    paths:
-      - ".env.example"
-      - "supabase/**"
-      - ".github/workflows/database-ci.yml"
+    branches: [develop, main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: database-ci-${{ github.workflow }}-${{ github.ref }}
+  group: database-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  rls-tests:
-    name: Migration, RLS tests and lint
+  database:
+    name: database-migrations-lint-pgtap
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID: ci-placeholder-client-id
       SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET: ci-placeholder-client-secret
-
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
-
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Set up Supabase CLI
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
         with:
           version: 2.117.0
-
       - name: Start local database
         run: supabase db start
-
+      - name: Rebuild database from migrations
+        run: supabase db reset
+      - name: Lint database schemas
+        run: supabase db lint --local --fail-on warning
       - name: Run pgTAP tests
         run: supabase test db
-
-      - name: Lint database schemas
-        run: supabase db lint --local
+      - name: Show diagnostics on failure
+        if: failure()
+        run: |
+          supabase status || true
+          docker ps --all || true
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup
