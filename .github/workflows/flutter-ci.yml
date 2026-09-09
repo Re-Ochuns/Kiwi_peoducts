@@ -1,0 +1,98 @@
+name: Flutter CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: apps/kiwi_inventory
+
+jobs:
+  quality:
+    name: flutter-quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: 3.47.2
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Check formatting
+        run: dart format --output=none --set-exit-if-changed lib test
+      - name: Analyze
+        run: flutter analyze
+      - name: Run tests
+        run: flutter test --exclude-tags golden
+
+  golden:
+    name: flutter-golden-advisory
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: 3.47.2
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Run Golden tests
+        id: golden-tests
+        continue-on-error: true
+        run: flutter test test/home_golden_test.dart
+      - name: Upload Golden failure images
+        if: steps.golden-tests.outcome == 'failure'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: golden-test-failures-${{ github.sha }}
+          path: apps/kiwi_inventory/test/failures
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Report advisory failure
+        if: steps.golden-tests.outcome == 'failure'
+        run: echo "Golden images differ on the canonical runner. See the uploaded comparison artifact."
+
+  web-build:
+    name: flutter-web-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: 3.47.2
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Build web application
+        run: flutter build web --release
+      - name: Upload web build
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: kiwi-inventory-web-${{ github.sha }}
+          path: apps/kiwi_inventory/build/web
+          if-no-files-found: error
+          retention-days: 7
