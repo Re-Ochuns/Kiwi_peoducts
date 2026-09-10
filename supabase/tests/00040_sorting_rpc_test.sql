@@ -210,6 +210,33 @@ select set_config('test.sort_scalar',
   true);
 select is(current_setting('test.sort_scalar')::jsonb -> 'error' -> 'details' ->> 'reason', 'invalid_type', 'a scalar container value is an invalid type');
 
+-- Envelope keys must be UUID v4 (common contract section 3), like the receiving RPCs.
+select set_config('test.sort_key_v1',
+  public.sorting_confirm(jsonb_build_object(
+    'meta', jsonb_build_object('idempotency_key', '9f4c1e5a-7b2d-1c8e-9a31-5d2f8c6b1a90', 'correlation_id', '5c000000-0000-4000-8000-000000000070'),
+    'input', public.test_sorting_input('56000000-0000-0000-0000-000000000003', 1,
+      '[{"grade_id":"a2000000-0000-0000-0000-000000000005","weight_kg":1.00}]'::jsonb)))::text,
+  true);
+select is(current_setting('test.sort_key_v1')::jsonb -> 'error' ->> 'code', 'VALIDATION_FAILED', 'a version 1 idempotency key is rejected');
+select is(current_setting('test.sort_key_v1')::jsonb -> 'error' -> 'details' ->> 'field', 'meta.idempotency_key', 'non-v4 key names the idempotency field');
+select is(current_setting('test.sort_key_v1')::jsonb -> 'error' -> 'details' ->> 'reason', 'invalid_format', 'non-v4 key is an invalid format');
+
+select set_config('test.sort_key_nil',
+  public.sorting_confirm(jsonb_build_object(
+    'meta', jsonb_build_object('idempotency_key', '00000000-0000-0000-0000-000000000000', 'correlation_id', '5c000000-0000-4000-8000-000000000071'),
+    'input', public.test_sorting_input('56000000-0000-0000-0000-000000000003', 1,
+      '[{"grade_id":"a2000000-0000-0000-0000-000000000005","weight_kg":1.00}]'::jsonb)))::text,
+  true);
+select is(current_setting('test.sort_key_nil')::jsonb -> 'error' -> 'details' ->> 'field', 'meta.idempotency_key', 'the nil uuid is not a valid v4 key');
+
+select set_config('test.sort_corr_v1',
+  public.sorting_confirm(jsonb_build_object(
+    'meta', jsonb_build_object('idempotency_key', '59000000-0000-4000-8000-000000000072', 'correlation_id', '9f4c1e5a-7b2d-1c8e-9a31-5d2f8c6b1a90'),
+    'input', public.test_sorting_input('56000000-0000-0000-0000-000000000003', 1,
+      '[{"grade_id":"a2000000-0000-0000-0000-000000000005","weight_kg":1.00}]'::jsonb)))::text,
+  true);
+select is(current_setting('test.sort_corr_v1')::jsonb -> 'error' -> 'details' ->> 'field', 'meta.correlation_id', 'a non-v4 correlation id is rejected');
+
 select set_config('test.sort_precision',
   public.sorting_confirm(public.test_sorting_req('59000000-0000-4000-8000-000000000007', '5c000000-0000-4000-8000-000000000009',
     public.test_sorting_input('56000000-0000-0000-0000-000000000003', 1,

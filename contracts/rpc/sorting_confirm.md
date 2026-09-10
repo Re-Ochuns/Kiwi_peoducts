@@ -123,7 +123,7 @@
 
 ## 7. 冪等性
 
-共通契約どおり。受入RPCと同じく、保存済み応答の再生は同一利用者に限る。二重確定は冪等再生（同一キー）または`CONFLICT_STALE`（新キー）となり、二重在庫は生成されない。
+共通契約どおり。受入RPCと同じく、保存済み応答の再生は同一利用者に限る。二重確定は冪等再生（同一キー）または`CONFLICT_STALE`（新キー）となり、二重在庫は生成されない。`meta.idempotency_key`・`meta.correlation_id`は共通契約§3のUUID v4のみ受理し、非v4は`VALIDATION_FAILED / invalid_format`とする（受入RPCと同一の`private.rpc_try_uuid_v4`検証）。
 
 ## 8. 排他制御
 
