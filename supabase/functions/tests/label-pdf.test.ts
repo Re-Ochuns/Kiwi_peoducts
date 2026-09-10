@@ -1,0 +1,95 @@
+import { assert, assertEquals, assertRejects, assertThrows } from "jsr:@std/assert@1";
+import {
+  buildSortingLabelPdf,
+  formatJapaneseDate,
+  SortingLabelData,
+} from "../label-pdf/layout.ts";
+
+const fontBytes = await Deno.readFile(
+  new URL("../label-pdf/assets/NotoSansJP-VariableFont_wght.ttf", import.meta.url),
+);
+
+const sample: SortingLabelData = {
+  containerDisplayId: "選果-2027-001-1",
+  originName: "おおくま農園 第一圃場・A区画",
+  varietyName: "ヘイワード",
+  gradeCode: "M",
+  netWeightKg: "18.40",
+  sortedOn: "2027-10-15",
+  workerName: "大熊 太郎",
+};
+
+const A5_WIDTH_POINTS = 419.5276;
+const A5_HEIGHT_POINTS = 595.2756;
+
+function decodeBytes(pdf: Uint8Array): string {
+  let text = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < pdf.length; i += chunk) {
+    text += String.fromCharCode(...pdf.subarray(i, i + chunk));
+  }
+  return text;
+}
+
+Deno.test("generates a single A5 page", async () => {
+  const pdf = await buildSortingLabelPdf(sample, fontBytes);
+  const text = decodeBytes(pdf);
+  assert(text.startsWith("%PDF-"), "output must be a PDF");
+  const mediaBox = /\/MediaBox \[\s*0 0 ([\d.]+) ([\d.]+)\s*\]/.exec(text);
+  assert(mediaBox, "MediaBox must be present");
+  const width = Number(mediaBox![1]);
+  const height = Number(mediaBox![2]);
+  assert(Math.abs(width - A5_WIDTH_POINTS) < 0.2, `unexpected width: ${width}`);
+  assert(Math.abs(height - A5_HEIGHT_POINTS) < 0.2, `unexpected height: ${height}`);
+  const pageCount = /\/Type \/Pages[^>]*\/Count (\d+)/.exec(text);
+  assert(pageCount, "page tree must be present");
+  assertEquals(pageCount![1], "1", "PDF must contain exactly one page");
+});
+
+Deno.test("embeds a Noto Sans JP subset", async () => {
+  const pdf = await buildSortingLabelPdf(sample, fontBytes);
+  const text = decodeBytes(pdf);
+  assert(text.includes("/FontFile2"), "TrueType font program must be embedded");
+  assert(text.includes("NotoSansJP"), "embedded font must keep its fixed name");
+  assert(
+    pdf.byteLength < 1024 * 1024,
+    `embedded subset must stay far below the full 9 MB font: ${pdf.byteLength}`,
+  );
+});
+
+Deno.test("same input reproduces identical bytes", async () => {
+  const first = await buildSortingLabelPdf(sample, fontBytes);
+  const second = await buildSortingLabelPdf(sample, fontBytes);
+  assertEquals(first, second);
+});
+
+Deno.test("different input changes the bytes", async () => {
+  const first = await buildSortingLabelPdf(sample, fontBytes);
+  const second = await buildSortingLabelPdf(
+    { ...sample, netWeightKg: "18.50" },
+    fontBytes,
+  );
+  assert(decodeBytes(first) !== decodeBytes(second));
+});
+
+Deno.test("rejects blank fields", async () => {
+  await assertRejects(
+    () => buildSortingLabelPdf({ ...sample, originName: " " }, fontBytes),
+    Error,
+    "missing label field: originName",
+  );
+});
+
+Deno.test("rejects weights without two decimals", async () => {
+  await assertRejects(
+    () => buildSortingLabelPdf({ ...sample, netWeightKg: "18.4" }, fontBytes),
+    Error,
+    "two decimals",
+  );
+});
+
+Deno.test("formats sorted dates in Japanese", () => {
+  assertEquals(formatJapaneseDate("2027-10-15"), "2027年10月15日");
+  assertEquals(formatJapaneseDate("2028-05-01"), "2028年5月1日");
+  assertThrows(() => formatJapaneseDate("2028/05/01"));
+});

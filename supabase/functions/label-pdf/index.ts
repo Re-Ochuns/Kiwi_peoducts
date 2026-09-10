@@ -1,0 +1,188 @@
+// Stateless A5 label PDF generation for sorted containers.
+//
+// Authorization happens inside the function: the caller's JWT is verified and
+// all reads go through PostgREST with that JWT, so RLS decides visibility
+// (gateway verify_jwt is disabled to let browser CORS preflights through).
+// The function never writes to the database; print-state changes are the
+// label_* PostgreSQL RPCs, so a failed or retried generation cannot leave
+// inventory data inconsistent.
+import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import {
+  buildSortingLabelPdf,
+  LABEL_LAYOUT_VERSION,
+  SortingLabelData,
+} from "./layout.ts";
+
+const fontBytes = await Deno.readFile(
+  new URL("./assets/NotoSansJP-VariableFont_wght.ttf", import.meta.url),
+);
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-correlation-id",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+};
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+interface ContainerLabelRow {
+  display_id: string;
+  original_weight_kg: number | string;
+  grade: { code: string } | null;
+  variety: { name: string } | null;
+  sorting_result: {
+    sorted_on: string;
+    worker: { display_name: string } | null;
+    receiving_lot: { origin_name: string } | null;
+  } | null;
+}
+
+function logEvent(fields: Record<string, unknown>): void {
+  console.log(JSON.stringify({ fn: "label-pdf", ...fields }));
+}
+
+function errorResponse(
+  status: number,
+  code: string,
+  message: string,
+  correlationId: string,
+): Response {
+  return new Response(
+    JSON.stringify({
+      error: { code, message },
+      correlation_id: correlationId || null,
+    }),
+    {
+      status,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    },
+  );
+}
+
+Deno.serve(async (req) => {
+  const startedAt = performance.now();
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: CORS_HEADERS });
+  }
+
+  let containerId = "";
+  let correlationId = req.headers.get("x-correlation-id") ?? "";
+  if (req.method === "GET") {
+    containerId = new URL(req.url).searchParams.get("container_id") ?? "";
+  } else if (req.method === "POST") {
+    try {
+      const body = await req.json();
+      containerId = typeof body?.container_id === "string" ? body.container_id : "";
+      if (typeof body?.correlation_id === "string") {
+        correlationId = body.correlation_id;
+      }
+    } catch {
+      return errorResponse(400, "VALIDATION_FAILED", "JSON本文を読み取れません。", correlationId);
+    }
+  } else {
+    return errorResponse(405, "VALIDATION_FAILED", "GETまたはPOSTで呼び出してください。", correlationId);
+  }
+
+  if (!UUID_PATTERN.test(containerId)) {
+    logEvent({ outcome: "invalid_request", correlation_id: correlationId });
+    return errorResponse(400, "VALIDATION_FAILED", "container_id が正しくありません。", correlationId);
+  }
+
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const bearerToken = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (bearerToken === "") {
+    logEvent({ outcome: "auth_required", correlation_id: correlationId });
+    return errorResponse(401, "AUTH_REQUIRED", "ログインが必要です。", correlationId);
+  }
+
+  try {
+    const client = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      {
+        global: { headers: { Authorization: authHeader } },
+        auth: { persistSession: false, autoRefreshToken: false },
+      },
+    );
+
+    const { data: userData, error: userError } = await client.auth.getUser(bearerToken);
+    if (userError || !userData?.user) {
+      logEvent({ outcome: "auth_required", correlation_id: correlationId });
+      return errorResponse(401, "AUTH_REQUIRED", "ログインが必要です。", correlationId);
+    }
+
+    // RLS only exposes their own profile to active users.
+    const { data: profile } = await client
+      .from("profiles")
+      .select("id")
+      .eq("id", userData.user.id)
+      .maybeSingle();
+    if (!profile) {
+      logEvent({ outcome: "auth_forbidden", correlation_id: correlationId });
+      return errorResponse(403, "AUTH_FORBIDDEN", "この操作を行う権限がありません。", correlationId);
+    }
+
+    const { data: row, error: rowError } = await client
+      .from("containers")
+      .select(
+        `display_id, original_weight_kg,
+         grade:grades(code),
+         variety:varieties(name),
+         sorting_result:sorting_results(
+           sorted_on,
+           worker:workers(display_name),
+           receiving_lot:receiving_lots(origin_name)
+         )`,
+      )
+      .eq("id", containerId)
+      .maybeSingle<ContainerLabelRow>();
+    if (rowError) {
+      throw new Error(`container query failed: ${rowError.message}`);
+    }
+    if (!row || !row.sorting_result) {
+      logEvent({ outcome: "not_found", container_id: containerId, correlation_id: correlationId });
+      return errorResponse(404, "CONTAINER_NOT_FOUND", "対象のコンテナが見つかりません。", correlationId);
+    }
+
+    const labelData: SortingLabelData = {
+      containerDisplayId: row.display_id,
+      originName: row.sorting_result.receiving_lot?.origin_name ?? "",
+      varietyName: row.variety?.name ?? "",
+      gradeCode: row.grade?.code ?? "",
+      netWeightKg: Number(row.original_weight_kg).toFixed(2),
+      sortedOn: row.sorting_result.sorted_on,
+      workerName: row.sorting_result.worker?.display_name ?? "",
+    };
+    const pdf = await buildSortingLabelPdf(labelData, fontBytes);
+
+    logEvent({
+      outcome: "ok",
+      container_id: containerId,
+      correlation_id: correlationId,
+      layout_version: LABEL_LAYOUT_VERSION,
+      pdf_bytes: pdf.byteLength,
+      duration_ms: Math.round(performance.now() - startedAt),
+    });
+    return new Response(pdf.buffer as ArrayBuffer, {
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type": "application/pdf",
+        "Content-Disposition":
+          `inline; filename="label.pdf"; filename*=UTF-8''${encodeURIComponent(row.display_id)}.pdf`,
+        "Cache-Control": "no-store",
+        "X-Label-Layout-Version": String(LABEL_LAYOUT_VERSION),
+      },
+    });
+  } catch (cause) {
+    logEvent({
+      outcome: "error",
+      container_id: containerId,
+      correlation_id: correlationId,
+      message: cause instanceof Error ? cause.message : String(cause),
+      duration_ms: Math.round(performance.now() - startedAt),
+    });
+    return errorResponse(500, "UNEXPECTED", "ラベルの生成に失敗しました。再試行してください。", correlationId);
+  }
+});
