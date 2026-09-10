@@ -16,6 +16,8 @@
 make golden-test
 ```
 
+この実行は現在のOSでの差分確認用であり、macOSやWindowsでは文字ラスタライズの画素差が出る場合がある。合否の基準はUbuntu上の`Flutter CI / flutter-golden`とする。通常の`make check`はGolden以外のテストを実行する。
+
 ローカルで更新後の見た目を確認する場合は次を実行する。この画像はOSの文字ラスタライズ差を含むため、そのまま正式な基準画像にはしない。
 
 ```bash

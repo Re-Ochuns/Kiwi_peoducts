@@ -27,7 +27,7 @@ analyze:
 	cd $(APP_DIR) && $(FLUTTER) analyze
 
 test:
-	cd $(APP_DIR) && $(FLUTTER) test
+	cd $(APP_DIR) && $(FLUTTER) test --exclude-tags golden
 
 golden-test:
 	cd $(APP_DIR) && $(FLUTTER) test test/home_golden_test.dart
