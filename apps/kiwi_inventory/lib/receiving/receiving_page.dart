@@ -85,34 +85,39 @@ class _ReceivingPageState extends State<ReceivingPage> {
   @override
   Widget build(BuildContext context) {
     final masters = _masters;
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        titleSpacing: 8,
-        title: TextButton(
-          onPressed: _submitting ? null : () => Navigator.of(context).pop(),
-          style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
-          child: const Text('← ToDoへ戻る', style: TextStyle(fontSize: 16)),
-        ),
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1),
-        ),
-      ),
-      body: SafeArea(
-        child: switch ((masters, _loadFailure)) {
-          (null, null) => const CommonStateView.loading(title: '入力項目を読み込んでいます'),
-          (null, final failure?) => CommonStateView.error(
-            title: '入力項目を読み込めません',
-            message: failure.message,
-            actionLabel: '再試行',
-            onAction: _loadMasters,
+    return PopScope<void>(
+      canPop: !_submitting,
+      child: Scaffold(
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          titleSpacing: 8,
+          title: TextButton(
+            onPressed: _submitting ? null : () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+            child: const Text('← ToDoへ戻る', style: TextStyle(fontSize: 16)),
           ),
-          (final loaded?, _) => _buildForm(loaded),
-        },
+          bottom: const PreferredSize(
+            preferredSize: Size.fromHeight(1),
+            child: Divider(height: 1),
+          ),
+        ),
+        body: SafeArea(
+          child: switch ((masters, _loadFailure)) {
+            (null, null) => const CommonStateView.loading(
+              title: '入力項目を読み込んでいます',
+            ),
+            (null, final failure?) => CommonStateView.error(
+              title: '入力項目を読み込めません',
+              message: failure.message,
+              actionLabel: '再試行',
+              onAction: _loadMasters,
+            ),
+            (final loaded?, _) => _buildForm(loaded),
+          },
+        ),
       ),
     );
   }
@@ -361,6 +366,7 @@ class _ReceivingPageState extends State<ReceivingPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        scrollable: true,
         title: Text(correction == null ? '登録内容を確認' : '修正内容を確認'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -479,6 +485,7 @@ class _ReceivingPageState extends State<ReceivingPage> {
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
+          scrollable: true,
           title: Text(correction == null ? '登録が完了しました' : '修正が完了しました'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -513,12 +520,13 @@ class _ReceivingPageState extends State<ReceivingPage> {
       }
     } on ReceivingFailure catch (failure) {
       if (!mounted) return;
+      final showByField = _displayedErrorFields.contains(failure.field);
       setState(() {
-        _serverField = failure.field;
-        _serverFieldMessage = failure.field == null ? null : failure.message;
-        _screenError = failure.field == null
-            ? _failureMessage(failure)
-            : '入力内容を確認してください。';
+        _serverField = showByField ? failure.field : null;
+        _serverFieldMessage = showByField ? failure.message : null;
+        _screenError = showByField
+            ? '入力内容を確認してください。'
+            : _failureMessage(failure);
       });
       _formKey.currentState?.validate();
     } catch (_) {
@@ -580,6 +588,21 @@ class _ReceivingPageState extends State<ReceivingPage> {
   String? _fieldError(String field) =>
       _serverField == field ? _serverFieldMessage : null;
 }
+
+const _displayedErrorFields = <String?>{
+  'received_date',
+  'orchard_id',
+  'plot_id',
+  'tree_id',
+  'supplier_id',
+  'supplier_reference',
+  'origin_name',
+  'variety_id',
+  'reason',
+  'total_weight_kg',
+  'container_count',
+  'worker_id',
+};
 
 class _TextField extends StatelessWidget {
   const _TextField({

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kiwi_inventory/receiving/receiving_page.dart';
@@ -164,6 +166,67 @@ void main() {
     expect(find.text('登録が完了しました'), findsOneWidget);
   });
 
+  testWidgets('送信中は標準の戻る操作を無効にする', (tester) async {
+    final completer = Completer<ReceivingResult>();
+    final repository = FakeReceivingRepository(registerCompleter: completer);
+    await _pumpPage(tester, repository);
+    await _completeHarvestForm(tester);
+
+    await tester.ensureVisible(find.text('入力内容を確認'));
+    await tester.tap(find.text('入力内容を確認'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('登録を確定'));
+    await tester.pump();
+
+    final pagePopScope = tester.widget<PopScope<void>>(
+      find.byWidgetPredicate(
+        (widget) => widget is PopScope<void> && !widget.canPop,
+      ),
+    );
+    expect(pagePopScope.canPop, isFalse);
+
+    completer.complete(FakeReceivingRepository.registerResult);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('入力欄のない業務エラーは画面上に詳細を表示する', (tester) async {
+    final repository = FakeReceivingRepository(
+      failures: const [
+        ReceivingFailure(
+          message: '対象の受入ロットが見つかりません。',
+          field: 'receiving_lot_id',
+          reason: 'not_found',
+        ),
+      ],
+    );
+    await _pumpPage(tester, repository);
+    await _completeHarvestForm(tester);
+    await _confirmAndRegister(tester);
+
+    expect(find.text('対象の受入ロットが見つかりません。'), findsOneWidget);
+    expect(find.text('入力内容を確認してください。'), findsNothing);
+  });
+
+  testWidgets('確認と完了のダイアログを縦スクロール可能にする', (tester) async {
+    await _pumpPage(tester, FakeReceivingRepository());
+    await _completeHarvestForm(tester);
+
+    await tester.ensureVisible(find.text('入力内容を確認'));
+    await tester.tap(find.text('入力内容を確認'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<AlertDialog>(find.byType(AlertDialog)).scrollable,
+      isTrue,
+    );
+
+    await tester.tap(find.text('登録を確定'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<AlertDialog>(find.byType(AlertDialog)).scrollable,
+      isTrue,
+    );
+  });
+
   testWidgets('選択肢の読み込み失敗から再試行できる', (tester) async {
     final repository = FakeReceivingRepository(loadFails: true);
     await _pumpPage(tester, repository);
@@ -230,15 +293,26 @@ class FakeReceivingRepository implements ReceivingRepository {
   FakeReceivingRepository({
     this.loadFails = false,
     List<ReceivingFailure> failures = const [],
+    this.registerCompleter,
   }) : _failures = [...failures];
 
   bool loadFails;
+  final Completer<ReceivingResult>? registerCompleter;
   final List<ReceivingFailure> _failures;
   int registerCalls = 0;
   int correctCalls = 0;
   final List<String> keys = [];
   final List<ReceivingInput> inputs = [];
   final List<String> correctionReasons = [];
+
+  static const registerResult = ReceivingResult(
+    receivingLotId: 'lot-1',
+    displayId: '受入-2028-001',
+    receivedDate: '2028-05-01',
+    sortingDueDate: '2028-05-31',
+    version: 1,
+    idempotentReplay: false,
+  );
 
   static const masters = ReceivingMasters(
     orchards: [
@@ -282,14 +356,8 @@ class FakeReceivingRepository implements ReceivingRepository {
     keys.add(idempotencyKey);
     inputs.add(input);
     if (_failures.isNotEmpty) throw _failures.removeAt(0);
-    return const ReceivingResult(
-      receivingLotId: 'lot-1',
-      displayId: '受入-2028-001',
-      receivedDate: '2028-05-01',
-      sortingDueDate: '2028-05-31',
-      version: 1,
-      idempotentReplay: false,
-    );
+    if (registerCompleter != null) return registerCompleter!.future;
+    return registerResult;
   }
 
   @override

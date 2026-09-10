@@ -1,37 +1,49 @@
 # Goldenテスト運用
 
-## 現在の扱い
+## 固定する描画条件
 
-`Flutter CI / flutter-quality`ではformat、analyze、Golden以外のtestを必須検査として実行する。
+- Flutter・Dartの版はルートの`.tool-versions`に従う。
+- テスト用フォントはリポジトリ内の`experiments/fnd-07/assets/NotoSansJP-VariableFont_wght.ttf`を`GoldenNotoSansJP`として読み込む。
+- Goldenテストに限り、アプリテーマへ`GoldenNotoSansJP`を指定する。本番テーマとアプリの表示フォントは変更しない。
+- `devicePixelRatio`は1.0、論理サイズは各テストで宣言した値に固定する。
+- 日付、認証状態、Repositoryの応答はテスト内の固定値を使用する。
 
-`Flutter CI / flutter-golden-advisory`は既存Golden画像の描画環境差を検出する助言チェックとして別に実行する。差異があっても必須チェックは停止させず、比較画像を7日間artifactへ保存する。
+## 実行
 
-## 分離した理由
+リポジトリのルートで次を実行する。
 
-2026-09-10時点で、同じFlutter 3.47.2を使ったUbuntu runnerとWindows runnerの両方に次の画像差が発生した。
+```bash
+make golden-test
+```
 
-- ログイン画面: 0.28〜0.30%
-- 作業者ホーム: 0.78〜0.81%
-- 管理者ホーム: 0.45〜0.49%
+この実行は現在のOSでの差分確認用であり、macOSやWindowsでは文字ラスタライズの画素差が出る場合がある。合否の基準はUbuntu上の`Flutter CI / flutter-golden`とする。通常の`make check`はGolden以外のテストを実行する。
 
-通常のWidgetテスト16件、format、analyze、Web buildは成功しており、差分はGoldenの文字描画を中心とする環境依存だった。基準画像をCIの生成結果で無条件に上書きせず、再現可能なフォントと描画条件の確立を後続課題として扱う。
+ローカルで更新後の見た目を確認する場合は次を実行する。この画像はOSの文字ラスタライズ差を含むため、そのまま正式な基準画像にはしない。
 
-## 差分の確認
+```bash
+make golden-update
+make golden-test
+```
 
-助言チェックに差異が出た場合は、artifactに含まれる次の画像を確認する。
+WindowsでもPowerShellまたはGit Bashから同じMakefileターゲットを使用する。`make`を利用できない場合は`apps/kiwi_inventory`へ移動し、対応する`flutter test`コマンドを実行する。
 
-- `masterImage`: リポジトリの基準画像
-- `testImage`: CIで生成された画像
-- `maskedDiff`: 差異を重ねた画像
-- `isolatedDiff`: 差異だけを抽出した画像
+正式な基準画像はGitHub ActionsのUbuntu runnerで生成する。OSにかかわらず、GitHubのActions画面から`Flutter CI`を対象ブランチで手動実行し、`update_goldens`を有効にする。完了後、`golden-reference-<commit>-<attempt>` artifactをダウンロードして`apps/kiwi_inventory/test/goldens`へ反映する。
 
-意図したUI変更の場合も、基準画像の更新は画面担当者のレビュー後に行う。
+## UI変更時の更新とレビュー
 
-## 必須チェックへ戻す条件
+1. UI変更後、基準画像を更新する前に`make golden-test`を実行する。
+2. 失敗時に生成される`test/failures`の`masterImage`、`testImage`、`maskedDiff`、`isolatedDiff`を確認する。
+3. 意図した差分だけであることを確認する。必要なら`make golden-update`でローカル表示も確認する。
+4. `Flutter CI`を`update_goldens`付きで手動実行し、生成された`golden-reference-<commit>-<attempt>`を取得する。
+5. Ubuntu基準画像のPNGをPRへ含め、変更理由と対象画面をPR本文へ記載する。
+6. 通常のPR CIを再実行し、`Flutter CI / flutter-golden`が成功することを確認する。
 
-次をすべて満たしたら`flutter-golden-advisory`を必須チェックへ変更する。
+意図を説明できない画素差分や、ローカル環境だけで発生する差分を基準画像へ取り込まない。
 
-1. テスト用フォントと描画条件をリポジトリ内で固定する。
-2. ローカルまたはコンテナとGitHub runnerで同じ画像を生成できる。
-3. 基準画像の更新手順とレビュー方法を文書化する。
-4. 連続する複数回のCIで画像差が発生しない。
+## CI
+
+`Flutter CI / flutter-quality`はformat、analyze、Golden以外のWidgetテストを実行する。`Flutter CI / flutter-golden`は固定した描画条件でGoldenを検査し、差分があれば失敗する。
+
+差分発生時は比較画像を`golden-test-failures-<commit>-<attempt>` artifactへ保存する。成功・失敗にかかわらず、そのコミットで使用または手動生成した基準画像を`golden-reference-<commit>-<attempt>` artifactへ保存する。`attempt`は同一workflow runの再実行番号であり、再実行時のartifact名衝突を防ぐ。
+
+リポジトリ管理者は`Flutter CI / flutter-golden`を`develop`と`main`の必須チェックへ設定する。チェック名を変更する場合は、ブランチ保護設定も同時に更新する。

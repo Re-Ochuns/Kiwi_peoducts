@@ -6,6 +6,12 @@ on:
   push:
     branches: [develop, main]
   workflow_dispatch:
+    inputs:
+      update_goldens:
+        description: Generate Golden references on the canonical Ubuntu runner
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -42,7 +48,7 @@ jobs:
         run: flutter test --exclude-tags golden
 
   golden:
-    name: flutter-golden-advisory
+    name: flutter-golden
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -56,21 +62,28 @@ jobs:
           cache: true
       - name: Install dependencies
         run: flutter pub get
+      - name: Update Golden reference images
+        if: github.event_name == 'workflow_dispatch' && inputs.update_goldens
+        run: flutter test --update-goldens test/home_golden_test.dart
       - name: Run Golden tests
         id: golden-tests
-        continue-on-error: true
         run: flutter test test/home_golden_test.dart
       - name: Upload Golden failure images
-        if: steps.golden-tests.outcome == 'failure'
+        if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: golden-test-failures-${{ github.sha }}
+          name: golden-test-failures-${{ github.sha }}-${{ github.run_attempt }}
           path: apps/kiwi_inventory/test/failures
           if-no-files-found: ignore
           retention-days: 7
-      - name: Report advisory failure
-        if: steps.golden-tests.outcome == 'failure'
-        run: echo "Golden images differ on the canonical runner. See the uploaded comparison artifact."
+      - name: Upload Golden reference images
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: golden-reference-${{ github.sha }}-${{ github.run_attempt }}
+          path: apps/kiwi_inventory/test/goldens
+          if-no-files-found: error
+          retention-days: 7
 
   web-build:
     name: flutter-web-build
@@ -92,7 +105,7 @@ jobs:
       - name: Upload web build
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: kiwi-inventory-web-${{ github.sha }}
+          name: kiwi-inventory-web-${{ github.sha }}-${{ github.run_attempt }}
           path: apps/kiwi_inventory/build/web
           if-no-files-found: error
           retention-days: 7

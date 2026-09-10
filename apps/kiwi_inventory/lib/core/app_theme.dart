@@ -22,7 +22,7 @@ abstract final class AppRadius {
   static const double modal = 8;
 }
 
-ThemeData buildAppTheme() {
+ThemeData buildAppTheme({String? fontFamily}) {
   final scheme =
       ColorScheme.fromSeed(
         seedColor: AppColors.green,
@@ -39,6 +39,7 @@ ThemeData buildAppTheme() {
     scaffoldBackgroundColor: AppColors.background,
     dividerColor: AppColors.line,
     textTheme: ThemeData.light().textTheme.apply(
+      fontFamily: fontFamily,
       bodyColor: AppColors.ink,
       displayColor: AppColors.ink,
     ),
@@ -58,7 +59,11 @@ ThemeData buildAppTheme() {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.control),
         ),
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        textStyle: TextStyle(
+          fontFamily: fontFamily,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
@@ -68,7 +73,11 @@ ThemeData buildAppTheme() {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.control),
         ),
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        textStyle: TextStyle(
+          fontFamily: fontFamily,
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     ),
     dialogTheme: const DialogThemeData(

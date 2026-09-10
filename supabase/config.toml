@@ -394,6 +394,15 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+[functions.label-pdf]
+enabled = true
+# JWT is verified inside the function and all reads go through RLS with the
+# caller's token. Gateway verification stays off so browser CORS preflight
+# requests (OPTIONS without Authorization) can reach the function.
+verify_jwt = false
+# Bundle the embedded Japanese font so Deno.readFile resolves at runtime.
+static_files = ["./functions/label-pdf/assets/NotoSansJP-VariableFont_wght.ttf"]
+
 [analytics]
 enabled = true
 port = 55327

@@ -47,6 +47,7 @@ class KiwiInventoryApp extends StatelessWidget {
     this.startupError,
     this.currentDate,
     this.receivingRepository,
+    this.theme,
     super.key,
   });
 
@@ -54,13 +55,14 @@ class KiwiInventoryApp extends StatelessWidget {
   final String? startupError;
   final DateTime? currentDate;
   final ReceivingRepository? receivingRepository;
+  final ThemeData? theme;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'キウイ在庫管理',
       debugShowCheckedModeBanner: false,
-      theme: buildAppTheme(),
+      theme: theme ?? buildAppTheme(),
       home: _buildHome(),
     );
   }
