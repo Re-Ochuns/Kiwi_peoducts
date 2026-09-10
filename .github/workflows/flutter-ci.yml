@@ -72,7 +72,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: golden-test-failures-${{ github.sha }}
+          name: golden-test-failures-${{ github.sha }}-${{ github.run_attempt }}
           path: apps/kiwi_inventory/test/failures
           if-no-files-found: ignore
           retention-days: 7
@@ -80,7 +80,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: golden-reference-${{ github.sha }}
+          name: golden-reference-${{ github.sha }}-${{ github.run_attempt }}
           path: apps/kiwi_inventory/test/goldens
           if-no-files-found: error
           retention-days: 7
@@ -105,7 +105,7 @@ jobs:
       - name: Upload web build
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: kiwi-inventory-web-${{ github.sha }}
+          name: kiwi-inventory-web-${{ github.sha }}-${{ github.run_attempt }}
           path: apps/kiwi_inventory/build/web
           if-no-files-found: error
           retention-days: 7
