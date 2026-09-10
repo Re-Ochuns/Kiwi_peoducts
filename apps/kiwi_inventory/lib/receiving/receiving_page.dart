@@ -556,7 +556,9 @@ class _ReceivingPageState extends State<ReceivingPage> {
             ? '入力内容を確認してください。'
             : _failureMessage(failure);
       });
-      _formKey.currentState?.validate();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _formKey.currentState?.validate();
+      });
     } catch (_) {
       if (!mounted) return;
       setState(() => _screenError = '登録結果を確認できませんでした。もう一度お試しください。');
