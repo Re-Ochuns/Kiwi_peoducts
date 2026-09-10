@@ -9,6 +9,9 @@ import 'core/app_breakpoints.dart';
 import 'core/app_config.dart';
 import 'core/app_theme.dart';
 import 'core/common_state_view.dart';
+import 'label/label_page.dart';
+import 'label/label_repository.dart';
+import 'label/supabase_label_repository.dart';
 import 'receiving/receiving_page.dart';
 import 'receiving/receiving_repository.dart';
 import 'receiving/supabase_receiving_repository.dart';
@@ -31,6 +34,7 @@ Future<void> main() async {
     runApp(
       KiwiInventoryApp(
         authRepository: repository,
+        labelRepository: SupabaseLabelRepository.fromInitializedClient(config),
         sortingRepository: SupabaseSortingRepository.fromInitializedClient(),
         receivingRepository:
             SupabaseReceivingRepository.fromInitializedClient(),
@@ -50,6 +54,7 @@ class KiwiInventoryApp extends StatelessWidget {
     this.authRepository,
     this.startupError,
     this.currentDate,
+    this.labelRepository,
     this.sortingRepository,
     this.receivingRepository,
     this.theme,
@@ -59,6 +64,7 @@ class KiwiInventoryApp extends StatelessWidget {
   final AuthRepository? authRepository;
   final String? startupError;
   final DateTime? currentDate;
+  final LabelRepository? labelRepository;
   final ReceivingRepository? receivingRepository;
   final SortingRepository? sortingRepository;
   final ThemeData? theme;
@@ -90,6 +96,7 @@ class KiwiInventoryApp extends StatelessWidget {
         authenticatedBuilder: (_, signOut) => ResponsiveHomePage(
           onSignOut: signOut,
           currentDate: currentDate,
+          labelRepository: labelRepository,
           sortingRepository: sortingRepository,
           receivingRepository: receivingRepository,
         ),
@@ -102,11 +109,13 @@ class ResponsiveHomePage extends StatelessWidget {
   const ResponsiveHomePage({
     this.onSignOut,
     this.currentDate,
+    this.labelRepository,
     this.sortingRepository,
     this.receivingRepository,
     super.key,
   });
   final DateTime? currentDate;
+  final LabelRepository? labelRepository;
   final ReceivingRepository? receivingRepository;
   final SortingRepository? sortingRepository;
 
@@ -121,6 +130,7 @@ class ResponsiveHomePage extends StatelessWidget {
           : WorkerHomePage(
               onSignOut: onSignOut,
               currentDate: currentDate,
+              labelRepository: labelRepository,
               sortingRepository: sortingRepository,
               receivingRepository: receivingRepository,
             ),
@@ -190,11 +200,13 @@ class WorkerHomePage extends StatelessWidget {
   const WorkerHomePage({
     this.onSignOut,
     this.currentDate,
+    this.labelRepository,
     this.sortingRepository,
     this.receivingRepository,
     super.key,
   });
   final DateTime? currentDate;
+  final LabelRepository? labelRepository;
   final ReceivingRepository? receivingRepository;
   final SortingRepository? sortingRepository;
 
@@ -241,6 +253,11 @@ class WorkerHomePage extends StatelessWidget {
                   ActionButton(
                     label: '選果登録',
                     onPressed: () => _openSorting(context),
+                  ),
+                  const SizedBox(height: 10),
+                  ActionButton(
+                    label: 'ラベル発行',
+                    onPressed: () => _openLabels(context),
                   ),
                   const SizedBox(height: 10),
                   ActionButton(
@@ -305,6 +322,21 @@ class WorkerHomePage extends StatelessWidget {
       PageRouteBuilder<void>(
         pageBuilder: (_, _, _) =>
             SortingTargetPage(repository: repository, currentDate: currentDate),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
+  }
+
+  void _openLabels(BuildContext context) {
+    final repository = labelRepository;
+    if (repository == null) {
+      preparing(context);
+      return;
+    }
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, _, _) => LabelTargetPage(repository: repository),
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,
       ),
