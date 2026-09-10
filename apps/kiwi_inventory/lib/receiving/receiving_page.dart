@@ -427,7 +427,7 @@ class _ReceivingPageState extends State<ReceivingPage> {
 
   ReceivingInput _buildInput(ReceivingMasters masters) {
     final origin = _sourceType == ReceivingSourceType.harvest
-        ? '${_labelOf(masters.orchards, _orchardId!)} ${_labelOf(masters.plots, _plotId!)}'
+        ? '${_nameOf(masters.orchards, _orchardId!)} ${_nameOf(masters.plots, _plotId!)}'
         : _originName.text.trim();
     return ReceivingInput(
       sourceType: _sourceType,
@@ -797,3 +797,6 @@ String _formatDate(DateTime date) =>
 
 String _labelOf(List<MasterOption> options, String id) =>
     options.firstWhere((item) => item.id == id).label;
+
+String _nameOf(List<MasterOption> options, String id) =>
+    options.firstWhere((item) => item.id == id).name;

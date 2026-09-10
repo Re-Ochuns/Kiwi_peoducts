@@ -53,6 +53,7 @@ class SupabaseReceivingRepository implements ReceivingRepository {
             label: codeKey == null
                 ? row[labelKey] as String
                 : '${row[codeKey]}　${row[labelKey]}',
+            businessName: row[labelKey] as String,
             parentId: parentKey == null ? null : row[parentKey] as String,
             varietyId: varietyKey == null ? null : row[varietyKey] as String,
           ),

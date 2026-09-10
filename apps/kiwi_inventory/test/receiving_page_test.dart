@@ -58,6 +58,7 @@ void main() {
     expect(find.text('受入-2028-001'), findsOneWidget);
     expect(find.text('2028-05-31'), findsOneWidget);
     expect(repository.inputs.single.sourceType, ReceivingSourceType.harvest);
+    expect(repository.inputs.single.originName, '第一農園 A区画');
   });
 
   testWidgets('登録結果から理由付き修正へ進める', (tester) async {
@@ -240,9 +241,16 @@ class FakeReceivingRepository implements ReceivingRepository {
   final List<String> correctionReasons = [];
 
   static const masters = ReceivingMasters(
-    orchards: [MasterOption(id: 'orchard-1', label: '農園01　第一農園')],
+    orchards: [
+      MasterOption(id: 'orchard-1', label: '農園01　第一農園', businessName: '第一農園'),
+    ],
     plots: [
-      MasterOption(id: 'plot-1', label: 'plot-a　A区画', parentId: 'orchard-1'),
+      MasterOption(
+        id: 'plot-1',
+        label: 'plot-a　A区画',
+        businessName: 'A区画',
+        parentId: 'orchard-1',
+      ),
     ],
     trees: [
       MasterOption(

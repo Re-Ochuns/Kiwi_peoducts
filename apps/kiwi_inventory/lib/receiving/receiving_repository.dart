@@ -2,14 +2,18 @@ class MasterOption {
   const MasterOption({
     required this.id,
     required this.label,
+    this.businessName,
     this.parentId,
     this.varietyId,
   });
 
   final String id;
   final String label;
+  final String? businessName;
   final String? parentId;
   final String? varietyId;
+
+  String get name => businessName ?? label;
 }
 
 class ReceivingMasters {
