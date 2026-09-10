@@ -60,3 +60,8 @@ values (
   'a7000000-0000-0000-0000-000000000001'
 )
 on conflict (id) do nothing;
+
+-- Keep display-ID numbering consistent with the manually seeded lots above.
+insert into private.display_id_counters (id_prefix, year_number, last_number)
+values ('受入', 2027, 2)
+on conflict (id_prefix, year_number) do nothing;
