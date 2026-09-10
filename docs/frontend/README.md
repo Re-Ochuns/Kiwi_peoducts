@@ -19,6 +19,10 @@ lib/
     └── common_state_view.dart        読み込み・空・エラー表示
 ```
 
+業務画面の実装メモ:
+
+- [選果対象・選果入力画面](sorting-input.md)
+
 業務機能を追加するときは、機能単位のディレクトリにView、ViewModel、Repositoryインターフェースを配置します。ViewとViewModelからSupabaseを直接呼ばず、Repositoryを経由してください。ViewModelは`ChangeNotifier`を基本とし、Repositoryはコンストラクタから注入します。画面側はViewModelが公開する画面状態だけを参照します。
 
 ## 画面を追加する
