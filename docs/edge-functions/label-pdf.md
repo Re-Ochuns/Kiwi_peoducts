@@ -7,7 +7,9 @@ Issue #17（S1-08）の選果後A5ラベルPDFを生成するEdge Functionを定
 - パス: `/functions/v1/label-pdf`
 - メソッド: `GET`（`?container_id=<uuid>`）または `POST`（`{"container_id":"<uuid>","correlation_id":"<任意>"}`）
 - 認可: 呼び出し元のJWTを`auth.getUser`で検証し、`profiles`をRLS越しに参照して`active`利用者だけへ許可する。`config.toml`の`verify_jwt = false`はゲートウェイ検証を切り、ブラウザのCORSプリフライト（Authorizationなしの`OPTIONS`）を通すための設定で、認可はFunction内で行う。
+- `profiles`参照が**行なし**なら権限なしとして403、参照そのものが**エラー**（PostgREST障害・通信障害）なら再試行可能な500 `UNEXPECTED`として扱い、権限判定と取得障害を区別する。
 - 応答: 成功時`application/pdf`（A5縦1ページ）。失敗時は`{ "error": { "code, message }, "correlation_id" }`のJSON。
+- CORS: `Access-Control-Expose-Headers`へ`Content-Disposition, X-Label-Layout-Version`を露出し、Flutter Web（ブラウザ`fetch`）からファイル名とレイアウト版を読めるようにする。
 
 | 状況 | HTTP | code |
 |---|---|---|
@@ -16,7 +18,7 @@ Issue #17（S1-08）の選果後A5ラベルPDFを生成するEdge Functionを定
 | 未認証・無効セッション | 401 | AUTH_REQUIRED |
 | 認証済みだが非active | 403 | AUTH_FORBIDDEN |
 | コンテナが存在しない／選果未確定 | 404 | CONTAINER_NOT_FOUND |
-| 生成時の予期しない失敗 | 500 | UNEXPECTED |
+| profile取得やPDF生成の予期しない失敗 | 500 | UNEXPECTED |
 
 ## レイアウトと再現性
 
@@ -41,7 +43,7 @@ cd supabase/functions
 deno test --allow-read tests/
 ```
 
-`tests/label-pdf.test.ts`がA5寸法、単一ページ、Noto Sans JPサブセット埋め込み、同一入力の再現性、入力検証、日本語日付整形を検証する。`.github/workflows/edge-functions-ci.yml`が`deno check`と合わせてCIで実行する。ローカルでは`supabase functions serve label-pdf`に対し、activeなJWTでの200・PDF生成、未認証401、不正ID 400、CORSプリフライト200をe2e確認した。
+リクエスト処理は`handler.ts`へ分離し、`createHandler({ fontBytes, createClient })`でSupabaseクライアントを注入できるようにしている（`index.ts`は実クライアントとフォントを配線するだけ）。`tests/label-pdf.test.ts`がA5寸法、単一ページ、Noto Sans JPサブセット埋め込み、同一入力の再現性、入力検証、日本語日付整形を検証し、`tests/handler.test.ts`が偽クライアントで成功時のExpose-Headers、profile取得失敗→500、profileなし→403、コンテナ取得失敗→500、未存在→404、未認証401、不正ID 400を検証する。`.github/workflows/edge-functions-ci.yml`が`deno check`と合わせてCIで実行する。ローカルでは`supabase functions serve label-pdf`に対し、activeなJWTでの200・PDF生成・Expose-Headers、未認証401、不正ID 400、CORSプリフライト200をe2e確認した。
 
 ## 未決事項
 
