@@ -9,6 +9,9 @@ import 'core/app_breakpoints.dart';
 import 'core/app_config.dart';
 import 'core/app_theme.dart';
 import 'core/common_state_view.dart';
+import 'receiving/receiving_page.dart';
+import 'receiving/receiving_repository.dart';
+import 'receiving/supabase_receiving_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,7 +25,13 @@ Future<void> main() async {
 
   try {
     final repository = await SupabaseAuthRepository.initialize(config);
-    runApp(KiwiInventoryApp(authRepository: repository));
+    runApp(
+      KiwiInventoryApp(
+        authRepository: repository,
+        receivingRepository:
+            SupabaseReceivingRepository.fromInitializedClient(),
+      ),
+    );
   } catch (_) {
     runApp(
       const KiwiInventoryApp(
@@ -37,12 +46,14 @@ class KiwiInventoryApp extends StatelessWidget {
     this.authRepository,
     this.startupError,
     this.currentDate,
+    this.receivingRepository,
     super.key,
   });
 
   final AuthRepository? authRepository;
   final String? startupError;
   final DateTime? currentDate;
+  final ReceivingRepository? receivingRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -68,16 +79,25 @@ class KiwiInventoryApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => AuthController(repository),
       child: AuthGate(
-        authenticatedBuilder: (_, signOut) =>
-            ResponsiveHomePage(onSignOut: signOut, currentDate: currentDate),
+        authenticatedBuilder: (_, signOut) => ResponsiveHomePage(
+          onSignOut: signOut,
+          currentDate: currentDate,
+          receivingRepository: receivingRepository,
+        ),
       ),
     );
   }
 }
 
 class ResponsiveHomePage extends StatelessWidget {
-  const ResponsiveHomePage({this.onSignOut, this.currentDate, super.key});
+  const ResponsiveHomePage({
+    this.onSignOut,
+    this.currentDate,
+    this.receivingRepository,
+    super.key,
+  });
   final DateTime? currentDate;
+  final ReceivingRepository? receivingRepository;
 
   final VoidCallback? onSignOut;
 
@@ -87,7 +107,11 @@ class ResponsiveHomePage extends StatelessWidget {
       builder: (context, constraints) =>
           constraints.maxWidth >= AppBreakpoints.manager
           ? ManagerHomePage(onSignOut: onSignOut, currentDate: currentDate)
-          : WorkerHomePage(onSignOut: onSignOut, currentDate: currentDate),
+          : WorkerHomePage(
+              onSignOut: onSignOut,
+              currentDate: currentDate,
+              receivingRepository: receivingRepository,
+            ),
     );
   }
 }
@@ -151,8 +175,14 @@ const todayTasks = [
 ];
 
 class WorkerHomePage extends StatelessWidget {
-  const WorkerHomePage({this.onSignOut, this.currentDate, super.key});
+  const WorkerHomePage({
+    this.onSignOut,
+    this.currentDate,
+    this.receivingRepository,
+    super.key,
+  });
   final DateTime? currentDate;
+  final ReceivingRepository? receivingRepository;
 
   final VoidCallback? onSignOut;
 
@@ -191,7 +221,7 @@ class WorkerHomePage extends StatelessWidget {
                   const SizedBox(height: 12),
                   ActionButton(
                     label: '収穫・仕入れ登録',
-                    onPressed: () => preparing(context),
+                    onPressed: () => _openReceiving(context),
                   ),
                   const SizedBox(height: 10),
                   ActionButton(
@@ -231,6 +261,22 @@ class WorkerHomePage extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _openReceiving(BuildContext context) {
+    final repository = receivingRepository;
+    if (repository == null) {
+      preparing(context);
+      return;
+    }
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, _, _) =>
+            ReceivingPage(repository: repository, currentDate: currentDate),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
       ),
     );
   }
