@@ -176,13 +176,20 @@ abstract interface class SortingRepository {
   });
 }
 
+const maxWeightHundredths = 999999999999;
+
 int? parseWeightHundredths(String raw) {
   final value = raw.trim();
   if (!RegExp(r'^\d+(?:\.\d{1,2})?$').hasMatch(value)) return null;
   final parts = value.split('.');
-  final whole = int.parse(parts[0]);
-  final fraction = parts.length == 1 ? 0 : int.parse(parts[1].padRight(2, '0'));
-  return whole * 100 + fraction;
+  final whole = int.tryParse(parts[0]);
+  final fraction = parts.length == 1
+      ? 0
+      : int.tryParse(parts[1].padRight(2, '0'));
+  if (whole == null || fraction == null) return null;
+  if (whole > maxWeightHundredths ~/ 100) return null;
+  final hundredths = whole * 100 + fraction;
+  return hundredths <= maxWeightHundredths ? hundredths : null;
 }
 
 String formatWeight(int hundredths) => (hundredths / 100).toStringAsFixed(2);

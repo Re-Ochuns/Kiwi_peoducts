@@ -59,13 +59,17 @@ class SupabaseSortingRepository implements SortingRepository {
     } on TimeoutException {
       throw const SortingFailure(
         message: '選果対象の読み込みがタイムアウトしました。',
+        code: 'TIMEOUT',
         retryable: true,
       );
     } on SortingFailure {
       rethrow;
+    } on PostgrestException catch (error) {
+      throw sortingFailureForPostgrestCode(error.code, loading: true);
     } catch (_) {
       throw const SortingFailure(
         message: '選果対象を読み込めませんでした。通信状況を確認してください。',
+        code: 'NETWORK_FAILED',
         retryable: true,
       );
     }
@@ -127,17 +131,12 @@ class SupabaseSortingRepository implements SortingRepository {
           retryable: true,
         );
       } on PostgrestException catch (error) {
-        if (error.code == 'PGRST202') {
-          throw SortingFailure(
-            message: '選果機能の構成が一致していません。管理者へ連絡してください。',
-            correlationId: correlationId,
-          );
-        }
-        lastFailure = SortingFailure(
-          message: '選果処理へ接続できませんでした。自動で再確認します。',
+        final failure = sortingFailureForPostgrestCode(
+          error.code,
           correlationId: correlationId,
-          retryable: true,
         );
+        if (!failure.retryable) throw failure;
+        lastFailure = failure;
       } catch (_) {
         lastFailure = SortingFailure(
           message: '通信に失敗しました。自動で再確認します。',
@@ -211,6 +210,44 @@ class SupabaseSortingRepository implements SortingRepository {
 }
 
 int _toHundredths(dynamic value) => ((value as num).toDouble() * 100).round();
+
+SortingFailure sortingFailureForPostgrestCode(
+  String? errorCode, {
+  String? correlationId,
+  bool loading = false,
+}) {
+  if (const {'401', 'PGRST301', 'PGRST302', 'PGRST303'}.contains(errorCode)) {
+    return SortingFailure(
+      message: 'セッションの有効期限が切れています。再ログインしてください。',
+      code: 'AUTH_REQUIRED',
+      correlationId: correlationId,
+    );
+  }
+  if (const {'403', '42501'}.contains(errorCode)) {
+    return SortingFailure(
+      message: 'この操作を行う権限がありません。',
+      code: 'AUTH_FORBIDDEN',
+      correlationId: correlationId,
+    );
+  }
+  if (errorCode == 'PGRST202') {
+    return SortingFailure(
+      message: '選果機能の構成が一致していません。管理者へ連絡してください。',
+      code: 'CONTRACT_MISMATCH',
+      correlationId: correlationId,
+    );
+  }
+  final serverUnavailable =
+      errorCode != null && RegExp(r'^5\d\d$').hasMatch(errorCode);
+  return SortingFailure(
+    message: loading
+        ? '選果対象を読み込めませんでした。通信状況を確認してください。'
+        : '選果処理へ接続できませんでした。自動で再確認します。',
+    code: serverUnavailable ? 'SERVER_UNAVAILABLE' : 'UNEXPECTED',
+    correlationId: correlationId,
+    retryable: true,
+  );
+}
 
 String createSortingIdempotencyKey() => _uuidV4();
 

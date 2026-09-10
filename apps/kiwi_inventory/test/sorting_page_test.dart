@@ -64,7 +64,13 @@ void main() {
       );
       await _pumpTargets(tester, repository);
 
-      expect(find.bySemanticsLabel('受入-2026-001の選果入力へ進む'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(
+          '受入-2026-001、10.00キログラム、ヘイワード、第一圃場 A区画、'
+          '期限超過、期限2026年9月9日、選果入力へ進む',
+        ),
+        findsOneWidget,
+      );
       await tester.enterText(find.byType(TextField).first, '香緑');
       await tester.pump();
 
@@ -91,6 +97,21 @@ void main() {
 
       expect(find.text('受入-2026-001'), findsOneWidget);
       expect(repository.loadCalls, 2);
+    });
+
+    testWidgets('認証エラーでは再試行を表示しない', (tester) async {
+      final repository = FakeSortingRepository(
+        loadFailures: 1,
+        loadFailure: const SortingFailure(
+          message: 'セッションの有効期限が切れています。再ログインしてください。',
+          code: 'AUTH_REQUIRED',
+        ),
+      );
+      await _pumpTargets(tester, repository);
+
+      expect(find.textContaining('再ログインしてください。'), findsOneWidget);
+      expect(find.text('再試行'), findsNothing);
+      expect(repository.loadCalls, 1);
     });
   });
 
@@ -329,6 +350,7 @@ class FakeSortingRepository implements SortingRepository {
   FakeSortingRepository({
     SortingLoadData? data,
     this.loadFailures = 0,
+    this.loadFailure,
     this.confirmFailure,
     this.confirmFailures = 0,
     this.confirmCompleter,
@@ -336,6 +358,7 @@ class FakeSortingRepository implements SortingRepository {
 
   final SortingLoadData data;
   int loadFailures;
+  final SortingFailure? loadFailure;
   final SortingFailure? confirmFailure;
   int confirmFailures;
   final Completer<SortingResult>? confirmCompleter;
@@ -349,7 +372,8 @@ class FakeSortingRepository implements SortingRepository {
     loadCalls++;
     if (loadFailures > 0) {
       loadFailures--;
-      throw const SortingFailure(message: '通信状況を確認してください。');
+      throw loadFailure ??
+          const SortingFailure(message: '通信状況を確認してください。', retryable: true);
     }
     return data;
   }

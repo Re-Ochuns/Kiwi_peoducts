@@ -10,6 +10,33 @@ void main() {
     expect(parseWeightHundredths('10.256'), isNull);
     expect(parseWeightHundredths('-1'), isNull);
     expect(parseWeightHundredths('abc'), isNull);
+    expect(parseWeightHundredths('9999999999.99'), maxWeightHundredths);
+    expect(parseWeightHundredths('10000000000'), isNull);
+    expect(parseWeightHundredths('999999999999999999999999999999'), isNull);
+  });
+
+  test('PostgRESTの認証エラーを再送不可へ正規化する', () {
+    for (final code in ['401', 'PGRST301', 'PGRST302', 'PGRST303']) {
+      final failure = sortingFailureForPostgrestCode(code);
+      expect(failure.code, 'AUTH_REQUIRED');
+      expect(failure.retryable, isFalse);
+    }
+
+    for (final code in ['403', '42501']) {
+      final failure = sortingFailureForPostgrestCode(code);
+      expect(failure.code, 'AUTH_FORBIDDEN');
+      expect(failure.retryable, isFalse);
+    }
+  });
+
+  test('PostgRESTの契約・サーバーエラーを契約どおり正規化する', () {
+    final contractFailure = sortingFailureForPostgrestCode('PGRST202');
+    expect(contractFailure.code, 'CONTRACT_MISMATCH');
+    expect(contractFailure.retryable, isFalse);
+
+    final serverFailure = sortingFailureForPostgrestCode('503');
+    expect(serverFailure.code, 'SERVER_UNAVAILABLE');
+    expect(serverFailure.retryable, isTrue);
   });
 
   test('選果要求を契約どおりの入力へ変換する', () {

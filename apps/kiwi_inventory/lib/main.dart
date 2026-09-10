@@ -9,6 +9,9 @@ import 'core/app_breakpoints.dart';
 import 'core/app_config.dart';
 import 'core/app_theme.dart';
 import 'core/common_state_view.dart';
+import 'receiving/receiving_page.dart';
+import 'receiving/receiving_repository.dart';
+import 'receiving/supabase_receiving_repository.dart';
 import 'sorting/sorting_page.dart';
 import 'sorting/sorting_repository.dart';
 import 'sorting/supabase_sorting_repository.dart';
@@ -29,6 +32,8 @@ Future<void> main() async {
       KiwiInventoryApp(
         authRepository: repository,
         sortingRepository: SupabaseSortingRepository.fromInitializedClient(),
+        receivingRepository:
+            SupabaseReceivingRepository.fromInitializedClient(),
       ),
     );
   } catch (_) {
@@ -46,20 +51,24 @@ class KiwiInventoryApp extends StatelessWidget {
     this.startupError,
     this.currentDate,
     this.sortingRepository,
+    this.receivingRepository,
+    this.theme,
     super.key,
   });
 
   final AuthRepository? authRepository;
   final String? startupError;
   final DateTime? currentDate;
+  final ReceivingRepository? receivingRepository;
   final SortingRepository? sortingRepository;
+  final ThemeData? theme;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'キウイ在庫管理',
       debugShowCheckedModeBanner: false,
-      theme: buildAppTheme(),
+      theme: theme ?? buildAppTheme(),
       home: _buildHome(),
     );
   }
@@ -82,6 +91,7 @@ class KiwiInventoryApp extends StatelessWidget {
           onSignOut: signOut,
           currentDate: currentDate,
           sortingRepository: sortingRepository,
+          receivingRepository: receivingRepository,
         ),
       ),
     );
@@ -93,9 +103,11 @@ class ResponsiveHomePage extends StatelessWidget {
     this.onSignOut,
     this.currentDate,
     this.sortingRepository,
+    this.receivingRepository,
     super.key,
   });
   final DateTime? currentDate;
+  final ReceivingRepository? receivingRepository;
   final SortingRepository? sortingRepository;
 
   final VoidCallback? onSignOut;
@@ -110,6 +122,7 @@ class ResponsiveHomePage extends StatelessWidget {
               onSignOut: onSignOut,
               currentDate: currentDate,
               sortingRepository: sortingRepository,
+              receivingRepository: receivingRepository,
             ),
     );
   }
@@ -178,9 +191,11 @@ class WorkerHomePage extends StatelessWidget {
     this.onSignOut,
     this.currentDate,
     this.sortingRepository,
+    this.receivingRepository,
     super.key,
   });
   final DateTime? currentDate;
+  final ReceivingRepository? receivingRepository;
   final SortingRepository? sortingRepository;
 
   final VoidCallback? onSignOut;
@@ -220,7 +235,7 @@ class WorkerHomePage extends StatelessWidget {
                   const SizedBox(height: 12),
                   ActionButton(
                     label: '収穫・仕入れ登録',
-                    onPressed: () => preparing(context),
+                    onPressed: () => _openReceiving(context),
                   ),
                   const SizedBox(height: 10),
                   ActionButton(
@@ -260,6 +275,22 @@ class WorkerHomePage extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _openReceiving(BuildContext context) {
+    final repository = receivingRepository;
+    if (repository == null) {
+      preparing(context);
+      return;
+    }
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, _, _) =>
+            ReceivingPage(repository: repository, currentDate: currentDate),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
       ),
     );
   }

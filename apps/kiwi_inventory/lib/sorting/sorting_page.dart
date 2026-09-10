@@ -23,7 +23,7 @@ class SortingTargetPage extends StatefulWidget {
 class _SortingTargetPageState extends State<SortingTargetPage> {
   final _searchController = TextEditingController();
   SortingLoadData? _data;
-  String? _error;
+  SortingFailure? _error;
 
   @override
   void initState() {
@@ -53,10 +53,16 @@ class _SortingTargetPageState extends State<SortingTargetPage> {
       setState(() => _data = data);
     } on SortingFailure catch (failure) {
       if (!mounted) return;
-      setState(() => _error = failure.message);
+      setState(() => _error = failure);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = '選果対象を読み込めませんでした。通信状況を確認してください。');
+      setState(
+        () => _error = const SortingFailure(
+          message: '選果対象を読み込めませんでした。通信状況を確認してください。',
+          code: 'NETWORK_FAILED',
+          retryable: true,
+        ),
+      );
     }
   }
 
@@ -70,11 +76,12 @@ class _SortingTargetPageState extends State<SortingTargetPage> {
 
   Widget _buildBody() {
     if (_error != null) {
+      final error = _error!;
       return CommonStateView.error(
         title: '選果対象を読み込めませんでした',
-        message: _error!,
-        actionLabel: '再試行',
-        onAction: _load,
+        message: error.message,
+        actionLabel: error.retryable ? '再試行' : null,
+        onAction: error.retryable ? _load : null,
       );
     }
     final data = _data;
@@ -188,7 +195,12 @@ class _SortingLotRow extends StatelessWidget {
     final current = DateTime(today.year, today.month, today.day);
     final overdue = dueDate.isBefore(current);
     return Semantics(
-      label: '${lot.displayId}の選果入力へ進む',
+      label:
+          '${lot.displayId}、'
+          '${formatWeight(lot.totalWeightHundredths)}キログラム、'
+          '${lot.varietyName}、${lot.originName}、'
+          '${overdue ? '期限超過、' : ''}'
+          '期限${_formatDate(lot.sortingDueOn)}、選果入力へ進む',
       button: true,
       excludeSemantics: true,
       child: InkWell(
