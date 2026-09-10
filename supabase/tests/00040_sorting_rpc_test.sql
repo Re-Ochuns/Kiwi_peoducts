@@ -177,6 +177,38 @@ select set_config('test.sort_empty',
   true);
 select is(current_setting('test.sort_empty')::jsonb -> 'error' ->> 'code', 'VALIDATION_FAILED', 'empty container list is rejected');
 select is(current_setting('test.sort_empty')::jsonb -> 'error' -> 'details' ->> 'field', 'containers', 'empty list names the containers field');
+select is(current_setting('test.sort_empty')::jsonb -> 'error' -> 'details' ->> 'reason', 'required', 'an empty container list is a required violation');
+
+-- Missing / null / non-array containers follow receiving_register section 5.
+select set_config('test.sort_missing',
+  public.sorting_confirm(public.test_sorting_req('59000000-0000-4000-8000-000000000060', '5c000000-0000-4000-8000-000000000060',
+    jsonb_build_object(
+      'receiving_lot_id', '56000000-0000-0000-0000-000000000003',
+      'sorting_date', '2029-05-10',
+      'worker_id', '55000000-0000-0000-0000-000000000001',
+      'expected_lot_version', 1)))::text,
+  true);
+select is(current_setting('test.sort_missing')::jsonb -> 'error' -> 'details' ->> 'reason', 'required', 'a missing container list is a required violation');
+
+select set_config('test.sort_null',
+  public.sorting_confirm(public.test_sorting_req('59000000-0000-4000-8000-000000000061', '5c000000-0000-4000-8000-000000000061',
+    public.test_sorting_input('56000000-0000-0000-0000-000000000003', 1, 'null'::jsonb)))::text,
+  true);
+select is(current_setting('test.sort_null')::jsonb -> 'error' -> 'details' ->> 'reason', 'required', 'a null container list is a required violation');
+
+select set_config('test.sort_object',
+  public.sorting_confirm(public.test_sorting_req('59000000-0000-4000-8000-000000000062', '5c000000-0000-4000-8000-000000000062',
+    public.test_sorting_input('56000000-0000-0000-0000-000000000003', 1, '{}'::jsonb)))::text,
+  true);
+select is(current_setting('test.sort_object')::jsonb -> 'error' ->> 'code', 'VALIDATION_FAILED', 'a non-array container value is rejected');
+select is(current_setting('test.sort_object')::jsonb -> 'error' -> 'details' ->> 'field', 'containers', 'non-array names the containers field');
+select is(current_setting('test.sort_object')::jsonb -> 'error' -> 'details' ->> 'reason', 'invalid_type', 'an object container value is an invalid type');
+
+select set_config('test.sort_scalar',
+  public.sorting_confirm(public.test_sorting_req('59000000-0000-4000-8000-000000000063', '5c000000-0000-4000-8000-000000000063',
+    public.test_sorting_input('56000000-0000-0000-0000-000000000003', 1, '5'::jsonb)))::text,
+  true);
+select is(current_setting('test.sort_scalar')::jsonb -> 'error' -> 'details' ->> 'reason', 'invalid_type', 'a scalar container value is an invalid type');
 
 select set_config('test.sort_precision',
   public.sorting_confirm(public.test_sorting_req('59000000-0000-4000-8000-000000000007', '5c000000-0000-4000-8000-000000000009',

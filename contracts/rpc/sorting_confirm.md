@@ -37,7 +37,7 @@
 | containers[].grade_id | uuid | 必須 | 等級マスター（有効であること）。同一等級の複数指定可 |
 | containers[].weight_kg | number | 必須 | 正味重量。0より大きく0.01kg単位 |
 
-コンテナ要素の検証エラーでは`details.field`を`containers[i].weight_kg`のように0始まりの添字付きで返す。
+`containers`の欠落・JSON null・空配列は`VALIDATION_FAILED / required`、配列以外の型（オブジェクト・数値など）は`VALIDATION_FAILED / invalid_type`とする（[receiving_register 第5章](receiving_register.md)の語彙に準拠）。コンテナ要素の検証エラーでは`details.field`を`containers[i].weight_kg`のように0始まりの添字付きで返す。
 
 ```json
 {

@@ -98,8 +98,13 @@ begin
     expected_lot_version_value := private.rpc_input_positive_int(input, 'expected_lot_version', true);
 
     containers_value := input -> 'containers';
-    if containers_value is null or jsonb_typeof(containers_value) <> 'array'
-      or jsonb_array_length(containers_value) = 0 then
+    if containers_value is null or jsonb_typeof(containers_value) = 'null' then
+      perform private.rpc_fail('KW400', 'VALIDATION_FAILED', '選果コンテナを1件以上指定してください。',
+        jsonb_build_object('field', 'containers', 'reason', 'required'));
+    elsif jsonb_typeof(containers_value) <> 'array' then
+      perform private.rpc_fail('KW400', 'VALIDATION_FAILED', '選果コンテナは配列で指定してください。',
+        jsonb_build_object('field', 'containers', 'reason', 'invalid_type'));
+    elsif jsonb_array_length(containers_value) = 0 then
       perform private.rpc_fail('KW400', 'VALIDATION_FAILED', '選果コンテナを1件以上指定してください。',
         jsonb_build_object('field', 'containers', 'reason', 'required'));
     end if;
