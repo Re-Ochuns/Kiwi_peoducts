@@ -178,6 +178,45 @@ select set_config('test.val_meta',
 select is(current_setting('test.val_meta')::jsonb -> 'error' ->> 'code', 'VALIDATION_FAILED', 'malformed idempotency key is rejected');
 select is(current_setting('test.val_meta')::jsonb -> 'error' -> 'details' ->> 'field', 'meta.idempotency_key', 'meta failure names the field');
 
+-- Envelope keys must be UUID v4 (common contract §3), not merely castable.
+select set_config('test.val_key_v1',
+  public.receiving_register(jsonb_build_object(
+    'meta', jsonb_build_object('idempotency_key', '9f4c1e5a-7b2d-1c8e-9a31-5d2f8c6b1a90', 'correlation_id', '4c000000-0000-4000-8000-000000000030'),
+    'input', public.test_harvest_input()))::text,
+  true);
+select is(current_setting('test.val_key_v1')::jsonb -> 'error' ->> 'code', 'VALIDATION_FAILED', 'a version 1 idempotency key is rejected');
+select is(current_setting('test.val_key_v1')::jsonb -> 'error' -> 'details' ->> 'field', 'meta.idempotency_key', 'non-v4 key names the idempotency field');
+select is(current_setting('test.val_key_v1')::jsonb -> 'error' -> 'details' ->> 'reason', 'invalid_format', 'non-v4 key is an invalid format');
+
+select set_config('test.val_key_nil',
+  public.receiving_register(jsonb_build_object(
+    'meta', jsonb_build_object('idempotency_key', '00000000-0000-0000-0000-000000000000', 'correlation_id', '4c000000-0000-4000-8000-000000000031'),
+    'input', public.test_harvest_input()))::text,
+  true);
+select is(current_setting('test.val_key_nil')::jsonb -> 'error' -> 'details' ->> 'field', 'meta.idempotency_key', 'the nil uuid is not a valid v4 key');
+
+select set_config('test.val_key_variant',
+  public.receiving_register(jsonb_build_object(
+    'meta', jsonb_build_object('idempotency_key', '9f4c1e5a-7b2d-4c8e-7a31-5d2f8c6b1a90', 'correlation_id', '4c000000-0000-4000-8000-000000000032'),
+    'input', public.test_harvest_input()))::text,
+  true);
+select is(current_setting('test.val_key_variant')::jsonb -> 'error' -> 'details' ->> 'reason', 'invalid_format', 'a v4 version nibble with a non-v4 variant is rejected');
+
+select set_config('test.val_corr_v1',
+  public.receiving_register(jsonb_build_object(
+    'meta', jsonb_build_object('idempotency_key', '49000000-0000-4000-8000-000000000033', 'correlation_id', '9f4c1e5a-7b2d-1c8e-9a31-5d2f8c6b1a90'),
+    'input', public.test_harvest_input()))::text,
+  true);
+select is(current_setting('test.val_corr_v1')::jsonb -> 'error' -> 'details' ->> 'field', 'meta.correlation_id', 'a non-v4 correlation id is rejected');
+
+-- receiving_correct shares the same envelope-key validation.
+select set_config('test.cor_key_v1',
+  public.receiving_correct(jsonb_build_object(
+    'meta', jsonb_build_object('idempotency_key', '9f4c1e5a-7b2d-1c8e-9a31-5d2f8c6b1a90', 'correlation_id', '4c000000-0000-4000-8000-000000000034'),
+    'input', jsonb_build_object()))::text,
+  true);
+select is(current_setting('test.cor_key_v1')::jsonb -> 'error' -> 'details' ->> 'field', 'meta.idempotency_key', 'receiving_correct also enforces v4 envelope keys');
+
 select set_config('test.val_tree',
   public.receiving_register(public.test_receiving_req('49000000-0000-4000-8000-000000000010', '4c000000-0000-4000-8000-000000000010', public.test_harvest_input() - 'tree_id'))::text,
   true);

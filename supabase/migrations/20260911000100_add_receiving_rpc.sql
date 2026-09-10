@@ -70,6 +70,29 @@ exception
 end;
 $$;
 
+-- Envelope keys (idempotency_key, correlation_id) must be UUID v4 per the
+-- common contract. Business entity references (variety_id, grade_id, …) keep
+-- using rpc_try_uuid because master data uses deterministic non-v4 ids.
+create or replace function private.rpc_try_uuid_v4(value text)
+returns uuid
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  parsed uuid;
+begin
+  parsed := value::uuid;
+  if parsed::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' then
+    return parsed;
+  end if;
+  return null;
+exception
+  when others then
+    return null;
+end;
+$$;
+
 create or replace function private.rpc_input_text(input jsonb, field_name text, is_required boolean)
 returns text
 language plpgsql
@@ -503,8 +526,8 @@ begin
       '要求の形式が正しくありません。', jsonb_build_object('field', 'req', 'reason', 'invalid_type'));
   end if;
   raw_correlation := req -> 'meta' ->> 'correlation_id';
-  correlation_value := private.rpc_try_uuid(raw_correlation);
-  idempotency_key_value := private.rpc_try_uuid(req -> 'meta' ->> 'idempotency_key');
+  correlation_value := private.rpc_try_uuid_v4(raw_correlation);
+  idempotency_key_value := private.rpc_try_uuid_v4(req -> 'meta' ->> 'idempotency_key');
   input := req -> 'input';
   if correlation_value is null then
     return private.rpc_error_envelope(raw_correlation, 'business', 'VALIDATION_FAILED',
@@ -643,8 +666,8 @@ begin
       '要求の形式が正しくありません。', jsonb_build_object('field', 'req', 'reason', 'invalid_type'));
   end if;
   raw_correlation := req -> 'meta' ->> 'correlation_id';
-  correlation_value := private.rpc_try_uuid(raw_correlation);
-  idempotency_key_value := private.rpc_try_uuid(req -> 'meta' ->> 'idempotency_key');
+  correlation_value := private.rpc_try_uuid_v4(raw_correlation);
+  idempotency_key_value := private.rpc_try_uuid_v4(req -> 'meta' ->> 'idempotency_key');
   input := req -> 'input';
   if correlation_value is null then
     return private.rpc_error_envelope(raw_correlation, 'business', 'VALIDATION_FAILED',
@@ -771,6 +794,7 @@ $$;
 revoke all on function private.next_display_id(text, integer) from public, anon, authenticated;
 revoke all on function private.rpc_fail(text, text, text, jsonb) from public, anon, authenticated;
 revoke all on function private.rpc_try_uuid(text) from public, anon, authenticated;
+revoke all on function private.rpc_try_uuid_v4(text) from public, anon, authenticated;
 revoke all on function private.rpc_input_text(jsonb, text, boolean) from public, anon, authenticated;
 revoke all on function private.rpc_input_uuid(jsonb, text, boolean) from public, anon, authenticated;
 revoke all on function private.rpc_input_date(jsonb, text, boolean) from public, anon, authenticated;

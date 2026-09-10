@@ -41,6 +41,8 @@
 
 参照するマスターはすべて有効（`is_active`）であること。文字列は前後の空白を除去して保存する。
 
+`meta.idempotency_key`・`meta.correlation_id`は共通契約§3のとおりUUID v4（versionが4、variantが8〜b）とし、非v4（v1・nil・variant不正など）は`VALIDATION_FAILED / invalid_format`とする。業務入力の`*_id`はマスターの内部IDをそのまま受け取るため版を問わない。
+
 ```json
 {
   "req": {
