@@ -9,12 +9,14 @@ Issue #12（S1-03）の受入登録・履歴付き修正RPCを定義する。ク
   - 入力検証: `private.rpc_input_text / _uuid / _date / _weight / _positive_int`
   - 業務エラーはSQLSTATE `KW400`、競合は`KW409`で内部送出し、RPC入口だけが捕捉して封筒へ変換する。捕捉されない例外は全体をロールバックする（`unexpected`）。
   - 冪等性: `private.rpc_claim_idempotency`が業務処理前にキー行をinsertして先行請求し、同一キーの同時要求を直列化する。確定封筒は`private.rpc_store_idempotency`で保存する。認証エラーはキーを消費しない。
+  - 共通ログ: 公開RPC入口が`private.rpc_log_response`を通して、Function名・利用者ID・`correlation_id`・`idempotency_key`・エラーコードだけを記録する。業務入力、自由記述、認証トークンは記録しない。
 
 ## 表示ID採番
 
 - `private.display_id_counters`が接頭辞×年度ごとの最終番号を保持し、upsertの行ロックで採番を直列化する。番号は3桁以上のゼロ埋め（`受入-2028-001`）で、999超は桁を伸ばす。
 - 採番は入力検証の後に行うため、検証失敗で番号を消費しない。
 - seedや手動SQLで表示IDを直接発行した場合は、同じトランザクションで`display_id_counters`を同期させる（`supabase/seed.sql`の受入2027年の例を参照）。同期しないと後続のRPC採番が一意制約に衝突する。
+- 修正RPCでは表示IDを再採番しないため、`received_date`の別年度への変更を拒否する。同年度内の日付変更は許可する。
 
 ## 検証
 
@@ -26,6 +28,8 @@ make db-test
 ```
 
 pgTAPは`supabase/tests/00030_receiving_rpc_test.sql`で正常登録、区分別の必須項目、権限境界、冪等再送・キー誤用、版競合、選果確定後の修正拒否、変更履歴の記録を検証する。
+
+別DBセッションを使う`supabase/tests/00040_receiving_rpc_concurrency_test.sql`で、行ロック待機後の版競合を検証する。
 
 ## 未決事項
 

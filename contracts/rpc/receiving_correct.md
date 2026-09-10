@@ -23,6 +23,8 @@
 
 `input`は[receiving_register 第3章](receiving_register.md)の全業務フィールドに加えて次を必須とする。業務フィールドの検証規則は登録と同一で、`source_type`の変更（収穫↔仕入れ）も検証を満たす限り許可する。`sorting_due_date`省略時は登録時と同じ規則で再計算する。
 
+`display_id`は登録時の受入年度を含む不変値であるため、`received_date`は現在の受入日と同じ暦年内でのみ変更できる。
+
 | フィールド | 型 | 必須 | 内容・制約 |
 |---|---|---|---|
 | receiving_lot_id | uuid | 必須 | 修正対象の受入ロット |
@@ -75,6 +77,8 @@
 ## 5. 業務エラー
 
 操作固有のコードはない。共通の`VALIDATION_FAILED`を使用する（`details.reason`の値は[receiving_register 第5章](receiving_register.md)と同一）。対象ロットが存在しない場合は`details`を`{ "field": "receiving_lot_id", "reason": "not_found" }`とする。
+
+`received_date`を別の暦年へ変更しようとした場合は、表示IDとの不整合を防ぐため`VALIDATION_FAILED`とし、`details`を`{ "field": "received_date", "reason": "year_change_not_allowed" }`とする。
 
 ## 6. 競合条件
 

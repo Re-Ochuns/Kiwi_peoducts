@@ -85,6 +85,7 @@ $$;
 
 select has_function('public'::name, 'receiving_register'::name, array['jsonb']::name[], 'receiving_register exists');
 select has_function('public'::name, 'receiving_correct'::name, array['jsonb']::name[], 'receiving_correct exists');
+select has_function('private'::name, 'rpc_log_response'::name, array['text', 'uuid', 'uuid', 'uuid', 'jsonb']::name[], 'common RPC response logger exists');
 select is_definer('public'::name, 'receiving_register'::name, array['jsonb']::name[], 'receiving_register runs as definer');
 select is_definer('public'::name, 'receiving_correct'::name, array['jsonb']::name[], 'receiving_correct runs as definer');
 
@@ -364,6 +365,25 @@ select set_config('test.cor_stale',
   true);
 select is(current_setting('test.cor_stale')::jsonb -> 'error' ->> 'code', 'CONFLICT_STALE', 'stale version is a conflict');
 select is(current_setting('test.cor_stale')::jsonb -> 'error' -> 'details' -> 'current' ->> 'version', '2', 'conflict reports the current version');
+
+select set_config('test.cor_cross_year',
+  public.receiving_correct(public.test_receiving_req('49000000-0000-4000-8000-000000000035', '4c000000-0000-4000-8000-000000000035',
+    public.test_harvest_input() || jsonb_build_object(
+      'receiving_lot_id', current_setting('test.reg1')::jsonb -> 'data' ->> 'receiving_lot_id',
+      'expected_version', 2,
+      'reason', '年度をまたぐ日付修正',
+      'received_date', '2029-05-01'
+    )))::text,
+  true);
+select is(current_setting('test.cor_cross_year')::jsonb -> 'error' ->> 'code', 'VALIDATION_FAILED', 'correction cannot move a lot to another year');
+select is(current_setting('test.cor_cross_year')::jsonb -> 'error' -> 'details' ->> 'field', 'received_date', 'cross-year correction names the received date');
+select is(current_setting('test.cor_cross_year')::jsonb -> 'error' -> 'details' ->> 'reason', 'year_change_not_allowed', 'cross-year correction reports its reason');
+select is(
+  (select extract(year from received_on)::integer from public.receiving_lots where display_id = '受入-2028-001'),
+  2028, 'a rejected cross-year correction leaves the received year unchanged');
+select is(
+  (select version from public.receiving_lots where display_id = '受入-2028-001'),
+  2::bigint, 'a rejected cross-year correction leaves the version unchanged');
 
 select set_config('test.cor_notfound',
   public.receiving_correct(public.test_receiving_req('49000000-0000-4000-8000-000000000024', '4c000000-0000-4000-8000-000000000024',

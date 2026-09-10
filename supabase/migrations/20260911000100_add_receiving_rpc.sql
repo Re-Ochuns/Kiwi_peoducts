@@ -56,6 +56,30 @@ begin
 end;
 $$;
 
+-- Log only identifiers from the common RPC envelope. Business input, tokens,
+-- and other free-form values must never be included in this server log.
+create or replace function private.rpc_log_response(
+  function_name_value text,
+  actor_id_value uuid,
+  correlation_id_value uuid,
+  idempotency_key_value uuid,
+  envelope_value jsonb
+)
+returns jsonb
+language plpgsql
+set search_path = ''
+as $$
+begin
+  raise log 'kiwi_rpc function=% actor=% correlation_id=% idempotency_key=% error_code=%',
+    function_name_value,
+    coalesce(actor_id_value::text, 'null'),
+    coalesce(correlation_id_value::text, 'null'),
+    coalesce(idempotency_key_value::text, 'null'),
+    coalesce(envelope_value #>> '{error,code}', 'OK');
+  return envelope_value;
+end;
+$$;
+
 create or replace function private.rpc_try_uuid(value text)
 returns uuid
 language plpgsql
@@ -496,7 +520,7 @@ $$;
 
 -- receiving_register ----------------------------------------------------------
 
-create or replace function public.receiving_register(req jsonb)
+create or replace function private.receiving_register_impl(req jsonb)
 returns jsonb
 language plpgsql
 security definer
@@ -634,7 +658,7 @@ $$;
 
 -- receiving_correct -----------------------------------------------------------
 
-create or replace function public.receiving_correct(req jsonb)
+create or replace function private.receiving_correct_impl(req jsonb)
 returns jsonb
 language plpgsql
 security definer
@@ -733,6 +757,11 @@ begin
         jsonb_build_object('current', jsonb_build_object(
           'receiving_lot_id', lot.id, 'status', lot.status, 'version', lot.version)));
     end if;
+    if extract(year from lot.received_on) <> extract(year from (normalized ->> 'received_on')::date) then
+      perform private.rpc_fail('KW400', 'VALIDATION_FAILED',
+        '受入日は表示IDと同じ年度内で指定してください。',
+        jsonb_build_object('field', 'received_date', 'reason', 'year_change_not_allowed'));
+    end if;
 
     before_data_value := to_jsonb(lot);
 
@@ -789,10 +818,51 @@ begin
 end;
 $$;
 
+-- Public entry points centralize the common-contract server log so every
+-- response path (validation, auth, replay, conflict, and success) is covered.
+create or replace function public.receiving_register(req jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  response_value jsonb;
+begin
+  response_value := private.receiving_register_impl(req);
+  return private.rpc_log_response(
+    'receiving_register', auth.uid(),
+    private.rpc_try_uuid_v4(req -> 'meta' ->> 'correlation_id'),
+    private.rpc_try_uuid_v4(req -> 'meta' ->> 'idempotency_key'),
+    response_value
+  );
+end;
+$$;
+
+create or replace function public.receiving_correct(req jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  response_value jsonb;
+begin
+  response_value := private.receiving_correct_impl(req);
+  return private.rpc_log_response(
+    'receiving_correct', auth.uid(),
+    private.rpc_try_uuid_v4(req -> 'meta' ->> 'correlation_id'),
+    private.rpc_try_uuid_v4(req -> 'meta' ->> 'idempotency_key'),
+    response_value
+  );
+end;
+$$;
+
 -- Privileges ------------------------------------------------------------------
 
 revoke all on function private.next_display_id(text, integer) from public, anon, authenticated;
 revoke all on function private.rpc_fail(text, text, text, jsonb) from public, anon, authenticated;
+revoke all on function private.rpc_log_response(text, uuid, uuid, uuid, jsonb) from public, anon, authenticated;
 revoke all on function private.rpc_try_uuid(text) from public, anon, authenticated;
 revoke all on function private.rpc_try_uuid_v4(text) from public, anon, authenticated;
 revoke all on function private.rpc_input_text(jsonb, text, boolean) from public, anon, authenticated;
@@ -805,6 +875,8 @@ revoke all on function private.rpc_error_envelope(text, text, text, text, jsonb)
 revoke all on function private.rpc_claim_idempotency(text, uuid, text, uuid) from public, anon, authenticated;
 revoke all on function private.rpc_store_idempotency(uuid, jsonb) from public, anon, authenticated;
 revoke all on function private.receiving_validate_input(jsonb) from public, anon, authenticated;
+revoke all on function private.receiving_register_impl(jsonb) from public, anon, authenticated;
+revoke all on function private.receiving_correct_impl(jsonb) from public, anon, authenticated;
 
 revoke all on function public.receiving_register(jsonb) from public, anon;
 revoke all on function public.receiving_correct(jsonb) from public, anon;
