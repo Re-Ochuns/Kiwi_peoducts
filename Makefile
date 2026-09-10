@@ -5,7 +5,7 @@ NPM ?= npm
 DEVICE ?= chrome
 PDF_PYTHON ?= python3
 
-.PHONY: setup doctor app-run format format-check analyze test build-web codegen check db-start db-stop db-status db-reset db-test pdf-label-prototype pdf-label-verify
+.PHONY: setup doctor app-run format format-check analyze test golden-test golden-update build-web codegen check db-start db-stop db-status db-reset db-test pdf-label-prototype pdf-label-verify
 
 setup:
 	$(NPM) ci
@@ -27,7 +27,13 @@ analyze:
 	cd $(APP_DIR) && $(FLUTTER) analyze
 
 test:
-	cd $(APP_DIR) && $(FLUTTER) test
+	cd $(APP_DIR) && $(FLUTTER) test --exclude-tags golden
+
+golden-test:
+	cd $(APP_DIR) && $(FLUTTER) test test/home_golden_test.dart
+
+golden-update:
+	cd $(APP_DIR) && $(FLUTTER) test --update-goldens test/home_golden_test.dart
 
 build-web:
 	cd $(APP_DIR) && $(FLUTTER) build web --release
