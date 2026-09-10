@@ -46,8 +46,8 @@ begin
       '要求の形式が正しくありません。', jsonb_build_object('field', 'req', 'reason', 'invalid_type'));
   end if;
   raw_correlation := req -> 'meta' ->> 'correlation_id';
-  correlation_value := private.rpc_try_uuid(raw_correlation);
-  idempotency_key_value := private.rpc_try_uuid(req -> 'meta' ->> 'idempotency_key');
+  correlation_value := private.rpc_try_uuid_v4(raw_correlation);
+  idempotency_key_value := private.rpc_try_uuid_v4(req -> 'meta' ->> 'idempotency_key');
   input := req -> 'input';
   if correlation_value is null then
     return private.rpc_error_envelope(raw_correlation, 'business', 'VALIDATION_FAILED',

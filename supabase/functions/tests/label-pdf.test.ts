@@ -1,12 +1,23 @@
-import { assert, assertEquals, assertRejects, assertThrows } from "jsr:@std/assert@1";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertThrows,
+} from "jsr:@std/assert@1";
 import {
   buildSortingLabelPdf,
+  fitTextSize,
   formatJapaneseDate,
   SortingLabelData,
 } from "../label-pdf/layout.ts";
+import { PDFDocument } from "npm:pdf-lib@1.17.1";
+import fontkit from "npm:@pdf-lib/fontkit@1.1.1";
 
 const fontBytes = await Deno.readFile(
-  new URL("../label-pdf/assets/NotoSansJP-VariableFont_wght.ttf", import.meta.url),
+  new URL(
+    "../label-pdf/assets/NotoSansJP-VariableFont_wght.ttf",
+    import.meta.url,
+  ),
 );
 
 const sample: SortingLabelData = {
@@ -40,7 +51,10 @@ Deno.test("generates a single A5 page", async () => {
   const width = Number(mediaBox![1]);
   const height = Number(mediaBox![2]);
   assert(Math.abs(width - A5_WIDTH_POINTS) < 0.2, `unexpected width: ${width}`);
-  assert(Math.abs(height - A5_HEIGHT_POINTS) < 0.2, `unexpected height: ${height}`);
+  assert(
+    Math.abs(height - A5_HEIGHT_POINTS) < 0.2,
+    `unexpected height: ${height}`,
+  );
   const pageCount = /\/Type \/Pages[^>]*\/Count (\d+)/.exec(text);
   assert(pageCount, "page tree must be present");
   assertEquals(pageCount![1], "1", "PDF must contain exactly one page");
@@ -70,6 +84,23 @@ Deno.test("different input changes the bytes", async () => {
     fontBytes,
   );
   assert(decodeBytes(first) !== decodeBytes(second));
+});
+
+Deno.test("fits long Japanese values inside the field width", async () => {
+  const doc = await PDFDocument.create();
+  doc.registerFontkit(fontkit);
+  const font = await doc.embedFont(fontBytes, { subset: true });
+  const value = "福島県大熊町キウイフルーツ生産実証圃場第一試験区画";
+  const maxWidth = 94 * 72 / 25.4;
+  const size = fitTextSize(font, value, 13, maxWidth);
+
+  assert(size < 13, "long values must be reduced from the preferred size");
+  assert(
+    font.widthOfTextAtSize(value, size) <= maxWidth + 0.01,
+    "fitted value must stay inside the A5 safe area",
+  );
+
+  await buildSortingLabelPdf({ ...sample, originName: value }, fontBytes);
 });
 
 Deno.test("rejects blank fields", async () => {

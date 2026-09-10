@@ -2,7 +2,7 @@
 // without the prototype-only 100 mm calibration line. The same input and
 // layout version must reproduce the same PDF bytes, so all metadata dates are
 // fixed and the embedded font subset uses a fixed name.
-import { PDFDocument, rgb } from "npm:pdf-lib@1.17.1";
+import { PDFDocument, type PDFFont, rgb } from "npm:pdf-lib@1.17.1";
 import fontkit from "npm:@pdf-lib/fontkit@1.1.1";
 
 export const LABEL_LAYOUT_VERSION = 1;
@@ -26,6 +26,19 @@ const MUTED = rgb(0x4f / 255, 0x59 / 255, 0x53 / 255);
 const LINE = rgb(0x8d / 255, 0x96 / 255, 0x90 / 255);
 const FIXED_DATE = new Date("2026-01-01T00:00:00.000Z");
 
+export function fitTextSize(
+  font: Pick<PDFFont, "widthOfTextAtSize">,
+  text: string,
+  preferredSize: number,
+  maxWidth: number,
+): number {
+  const preferredWidth = font.widthOfTextAtSize(text, preferredSize);
+  if (preferredWidth <= maxWidth || preferredWidth === 0) {
+    return preferredSize;
+  }
+  return preferredSize * maxWidth / preferredWidth;
+}
+
 export function formatJapaneseDate(isoDate: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
   if (!match) {
@@ -34,7 +47,10 @@ export function formatJapaneseDate(isoDate: string): string {
   return `${Number(match[1])}年${Number(match[2])}月${Number(match[3])}日`;
 }
 
-function requireText(data: SortingLabelData, field: keyof SortingLabelData): string {
+function requireText(
+  data: SortingLabelData,
+  field: keyof SortingLabelData,
+): string {
   const value = data[field];
   if (typeof value !== "string" || value.trim() === "") {
     throw new Error(`missing label field: ${field}`);
@@ -78,17 +94,36 @@ export async function buildSortingLabelPdf(
     size: number,
     color = INK,
   ) => page.drawText(text, { x, y, size, font, color });
+  const drawFittedText = (
+    text: string,
+    x: number,
+    y: number,
+    preferredSize: number,
+    maxWidth: number,
+  ) => drawText(text, x, y, fitTextSize(font, text, preferredSize, maxWidth));
 
   const top = PAGE_HEIGHT - MARGIN;
   drawText("選果後コンテナラベル", MARGIN, top - 7 * MM, 12);
 
   const idY = top - 24 * MM;
   drawText("コンテナID", MARGIN, idY, 9, MUTED);
-  drawText(containerDisplayId, MARGIN, idY - 10 * MM, 25);
+  drawFittedText(
+    containerDisplayId,
+    MARGIN,
+    idY - 10 * MM,
+    25,
+    PAGE_WIDTH - 2 * MARGIN,
+  );
 
   const weightY = idY - 34 * MM;
   drawText("正味重量", MARGIN, weightY, 9, MUTED);
-  drawText(`${netWeightKg} kg`, MARGIN, weightY - 17 * MM, 40);
+  drawFittedText(
+    `${netWeightKg} kg`,
+    MARGIN,
+    weightY - 17 * MM,
+    40,
+    PAGE_WIDTH - 2 * MARGIN,
+  );
 
   const dividerY = weightY - 25 * MM;
   page.drawLine({
@@ -101,7 +136,8 @@ export async function buildSortingLabelPdf(
   let y = dividerY - 11 * MM;
   const drawField = (label: string, value: string) => {
     drawText(label, MARGIN, y, 9, MUTED);
-    drawText(value, MARGIN + 34 * MM, y - 1, 13);
+    const valueX = MARGIN + 34 * MM;
+    drawFittedText(value, valueX, y - 1, 13, PAGE_WIDTH - MARGIN - valueX);
     page.drawLine({
       start: { x: MARGIN, y: y - 5 * MM },
       end: { x: PAGE_WIDTH - MARGIN, y: y - 5 * MM },

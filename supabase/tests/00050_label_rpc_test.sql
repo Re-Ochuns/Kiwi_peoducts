@@ -104,6 +104,33 @@ select set_config('test.label_forbidden',
   true);
 select is(current_setting('test.label_forbidden')::jsonb -> 'error' ->> 'code', 'AUTH_FORBIDDEN', 'pending user cannot mark labels');
 
+-- Envelope UUID v4 validation -------------------------------------------------
+
+select set_config('test.lp_v1_key',
+  public.label_mark_printed(public.test_label_req(
+    '6a000000-0000-1000-8000-000000000092', '6c000000-0000-4000-8000-000000000092', '{}'::jsonb))::text,
+  true);
+select is(current_setting('test.lp_v1_key')::jsonb -> 'error' ->> 'code', 'VALIDATION_FAILED',
+  'label_mark_printed rejects a v1 idempotency key');
+select is(current_setting('test.lp_v1_key')::jsonb -> 'error' -> 'details' ->> 'field', 'meta.idempotency_key',
+  'non-v4 print key identifies the envelope field');
+
+select set_config('test.lh_nil_key',
+  public.label_mark_handwritten(public.test_label_req(
+    '00000000-0000-0000-0000-000000000000', '6c000000-0000-4000-8000-000000000093', '{}'::jsonb))::text,
+  true);
+select is(current_setting('test.lh_nil_key')::jsonb -> 'error' ->> 'code', 'VALIDATION_FAILED',
+  'label_mark_handwritten rejects a nil idempotency key');
+
+select set_config('test.lr_bad_variant_corr',
+  public.label_reprint(public.test_label_req(
+    '6a000000-0000-4000-8000-000000000094', '6c000000-0000-4000-7000-000000000094', '{}'::jsonb))::text,
+  true);
+select is(current_setting('test.lr_bad_variant_corr')::jsonb -> 'error' ->> 'code', 'VALIDATION_FAILED',
+  'label_reprint rejects a non-RFC-4122 correlation id');
+select is(current_setting('test.lr_bad_variant_corr')::jsonb -> 'error' -> 'details' ->> 'field', 'meta.correlation_id',
+  'non-v4 reprint correlation identifies the envelope field');
+
 -- Mark printed: completion with location ----------------------------------------
 
 select set_config('request.jwt.claim.sub', '60000000-0000-0000-0000-000000000002', true);

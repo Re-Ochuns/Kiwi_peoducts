@@ -59,7 +59,7 @@
 
 ## 5. 業務エラー
 
-共通コードを使用する。`VALIDATION_FAILED`の`details`は`field`と`reason`を含む（`location_id`が冷蔵庫でない場合は`reason = invalid_value`）。`reason`・`copies`はこの操作では指定できず、指定すると`reason = not_allowed`。
+共通コードを使用する。`VALIDATION_FAILED`の`details`は`field`と`reason`を含む（`location_id`が冷蔵庫でない場合は`reason = invalid_value`）。`reason`はこの操作では指定できず、指定すると`reason = not_allowed`。
 
 ## 6. 競合条件
 
