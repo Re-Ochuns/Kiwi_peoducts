@@ -6,15 +6,22 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kiwi_inventory/auth/auth_repository.dart';
+import 'package:kiwi_inventory/core/app_theme.dart';
 import 'package:kiwi_inventory/main.dart';
+
+import 'support/golden_test_environment.dart';
 
 void main() {
   final goldenDate = DateTime(2026, 9, 8);
+  setUpAll(loadGoldenTestFont);
+
   testWidgets('390pxのログイン画面', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(390, 844));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+    configureGoldenView(tester, const Size(390, 844));
     await tester.pumpWidget(
-      KiwiInventoryApp(authRepository: _SignedOutGoldenAuthRepository()),
+      KiwiInventoryApp(
+        authRepository: _SignedOutGoldenAuthRepository(),
+        theme: buildAppTheme(fontFamily: goldenFontFamily),
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -25,12 +32,12 @@ void main() {
   });
 
   testWidgets('390pxの作業者ホーム', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(390, 844));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+    configureGoldenView(tester, const Size(390, 844));
     await tester.pumpWidget(
       KiwiInventoryApp(
         authRepository: _GoldenAuthRepository(),
         currentDate: goldenDate,
+        theme: buildAppTheme(fontFamily: goldenFontFamily),
       ),
     );
     await tester.pumpAndSettle();
@@ -42,12 +49,12 @@ void main() {
   });
 
   testWidgets('1280pxの管理ホーム', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(1280, 900));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+    configureGoldenView(tester, const Size(1280, 900));
     await tester.pumpWidget(
       KiwiInventoryApp(
         authRepository: _GoldenAuthRepository(),
         currentDate: goldenDate,
+        theme: buildAppTheme(fontFamily: goldenFontFamily),
       ),
     );
     await tester.pumpAndSettle();

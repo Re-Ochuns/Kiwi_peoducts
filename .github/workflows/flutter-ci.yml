@@ -42,7 +42,7 @@ jobs:
         run: flutter test --exclude-tags golden
 
   golden:
-    name: flutter-golden-advisory
+    name: flutter-golden
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -58,7 +58,6 @@ jobs:
         run: flutter pub get
       - name: Run Golden tests
         id: golden-tests
-        continue-on-error: true
         run: flutter test test/home_golden_test.dart
       - name: Upload Golden failure images
         if: steps.golden-tests.outcome == 'failure'
@@ -68,9 +67,14 @@ jobs:
           path: apps/kiwi_inventory/test/failures
           if-no-files-found: ignore
           retention-days: 7
-      - name: Report advisory failure
-        if: steps.golden-tests.outcome == 'failure'
-        run: echo "Golden images differ on the canonical runner. See the uploaded comparison artifact."
+      - name: Upload Golden reference images
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: golden-reference-${{ github.sha }}
+          path: apps/kiwi_inventory/test/goldens
+          if-no-files-found: error
+          retention-days: 7
 
   web-build:
     name: flutter-web-build
