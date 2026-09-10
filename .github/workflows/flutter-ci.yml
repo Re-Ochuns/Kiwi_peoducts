@@ -6,6 +6,12 @@ on:
   push:
     branches: [develop, main]
   workflow_dispatch:
+    inputs:
+      update_goldens:
+        description: Generate Golden references on the canonical Ubuntu runner
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -56,11 +62,14 @@ jobs:
           cache: true
       - name: Install dependencies
         run: flutter pub get
+      - name: Update Golden reference images
+        if: github.event_name == 'workflow_dispatch' && inputs.update_goldens
+        run: flutter test --update-goldens test/home_golden_test.dart
       - name: Run Golden tests
         id: golden-tests
         run: flutter test test/home_golden_test.dart
       - name: Upload Golden failure images
-        if: steps.golden-tests.outcome == 'failure'
+        if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: golden-test-failures-${{ github.sha }}
