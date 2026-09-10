@@ -39,6 +39,8 @@ class _ReceivingPageState extends State<ReceivingPage> {
   String? _serverFieldMessage;
   String? _pendingSignature;
   String? _pendingKey;
+  ReceivingInput? _unresolvedInput;
+  String? _unresolvedReason;
   ReceivingResult? _correctionTarget;
 
   @override
@@ -86,7 +88,7 @@ class _ReceivingPageState extends State<ReceivingPage> {
   Widget build(BuildContext context) {
     final masters = _masters;
     return PopScope<void>(
-      canPop: !_submitting,
+      canPop: !_submitting && _unresolvedInput == null,
       child: Scaffold(
         appBar: AppBar(
           automaticallyImplyLeading: false,
@@ -95,7 +97,9 @@ class _ReceivingPageState extends State<ReceivingPage> {
           elevation: 0,
           titleSpacing: 8,
           title: TextButton(
-            onPressed: _submitting ? null : () => Navigator.of(context).pop(),
+            onPressed: _submitting || _unresolvedInput != null
+                ? null
+                : () => Navigator.of(context).pop(),
             style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
             child: const Text('← ToDoへ戻る', style: TextStyle(fontSize: 16)),
           ),
@@ -123,11 +127,24 @@ class _ReceivingPageState extends State<ReceivingPage> {
   }
 
   Widget _buildForm(ReceivingMasters masters) {
+    final unresolved = _unresolvedInput;
+    if (unresolved != null) {
+      return CommonStateView.error(
+        title: _submitting ? '登録結果を確認しています' : '登録結果が未確認です',
+        message: _screenError ?? '結果が確認できるまで入力内容は変更できません。',
+        actionLabel: _submitting ? null : '同じ内容で結果を確認',
+        onAction: _submitting ? null : () => _register(unresolved),
+      );
+    }
     final plots = masters.plots
         .where((item) => item.parentId == _orchardId)
         .toList();
     final trees = masters.trees
-        .where((item) => item.parentId == _plotId)
+        .where(
+          (item) =>
+              item.parentId == _plotId &&
+              masters.varieties.any((variety) => variety.id == item.varietyId),
+        )
         .toList();
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 48),
@@ -452,17 +469,20 @@ class _ReceivingPageState extends State<ReceivingPage> {
   }
 
   Future<void> _register(ReceivingInput input) async {
+    final reason = _unresolvedReason ?? _correctionReason.text;
     final correction = _correctionTarget;
     final signature = correction == null
         ? 'register:${input.signature}'
         : 'correct:${correction.receivingLotId}:${correction.version}:'
-              '${_correctionReason.text.trim()}:${input.signature}';
+              '${reason.trim()}:${input.signature}';
     if (_pendingSignature != signature || _pendingKey == null) {
       _pendingSignature = signature;
       _pendingKey = createIdempotencyKey();
     }
     setState(() {
       _submitting = true;
+      _unresolvedInput = input;
+      _unresolvedReason = reason;
       _screenError = null;
     });
     try {
@@ -475,12 +495,14 @@ class _ReceivingPageState extends State<ReceivingPage> {
               input: input,
               receivingLotId: correction.receivingLotId,
               expectedVersion: correction.version,
-              reason: _correctionReason.text,
+              reason: reason,
               idempotencyKey: _pendingKey!,
             );
       if (!mounted) return;
       _pendingKey = null;
       _pendingSignature = null;
+      _unresolvedInput = null;
+      _unresolvedReason = null;
       final edit = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
@@ -520,6 +542,12 @@ class _ReceivingPageState extends State<ReceivingPage> {
       }
     } on ReceivingFailure catch (failure) {
       if (!mounted) return;
+      if (!failure.retryable) {
+        _unresolvedInput = null;
+        _unresolvedReason = null;
+        _pendingKey = null;
+        _pendingSignature = null;
+      }
       final showByField = _displayedErrorFields.contains(failure.field);
       setState(() {
         _serverField = showByField ? failure.field : null;

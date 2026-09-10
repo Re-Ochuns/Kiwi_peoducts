@@ -157,13 +157,25 @@ void main() {
     await _pumpPage(tester, repository);
     await _completeHarvestForm(tester);
     await _confirmAndRegister(tester);
-
     expect(find.textContaining('問い合わせID: test-correlation-id'), findsOneWidget);
-    await _confirmAndRegister(tester);
-
+    expect(find.byKey(const ValueKey('field-total_weight_kg')), findsNothing);
+    await tester.tap(find.text('同じ内容で結果を確認'));
+    await tester.pumpAndSettle();
+    expect(repository.inputs[0].signature, repository.inputs[1].signature);
     expect(repository.registerCalls, 2);
     expect(repository.keys[0], repository.keys[1]);
     expect(find.text('登録が完了しました'), findsOneWidget);
+  });
+
+  testWidgets('無効品種を持つ樹体を候補に表示しない', (tester) async {
+    await _pumpPage(tester, FakeReceivingRepository());
+    await _choose(tester, 'orchard_id', '農園01　第一農園');
+    await _choose(tester, 'plot_id', 'plot-a　A区画');
+    await tester.ensureVisible(find.byKey(const ValueKey('master-tree_id')));
+    await tester.tap(find.byKey(const ValueKey('master-tree_id')));
+    await tester.pumpAndSettle();
+    expect(find.text('無効品種の樹体'), findsNothing);
+    expect(find.text('tree-01　樹体1号'), findsOneWidget);
   });
 
   testWidgets('送信中は標準の戻る操作を無効にする', (tester) async {
@@ -327,6 +339,12 @@ class FakeReceivingRepository implements ReceivingRepository {
       ),
     ],
     trees: [
+      MasterOption(
+        id: 'inactive-variety-tree',
+        label: '無効品種の樹体',
+        parentId: 'plot-1',
+        varietyId: 'inactive-variety',
+      ),
       MasterOption(
         id: 'tree-1',
         label: 'tree-01　樹体1号',
