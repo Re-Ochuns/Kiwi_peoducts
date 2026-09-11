@@ -111,7 +111,7 @@ class _LabelTargetPageState extends State<LabelTargetPage> {
                   const SizedBox(height: 8),
                   DropdownButtonFormField<_LabelFilter>(
                     key: const Key('label-filter'),
-                    icon: const Text('↓'),
+                    icon: const SizedBox.shrink(),
                     initialValue: _filter,
                     items: const [
                       DropdownMenuItem(
@@ -364,7 +364,7 @@ class _LabelDetailPageState extends State<LabelDetailPage> {
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         key: const Key('label-worker'),
-                        icon: const Text('↓'),
+                        icon: const SizedBox.shrink(),
                         initialValue: _workerId,
                         hint: const Text('選択してください'),
                         isExpanded: true,
@@ -402,7 +402,7 @@ class _LabelDetailPageState extends State<LabelDetailPage> {
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         key: const Key('label-location'),
-                        icon: const Text('↓'),
+                        icon: const SizedBox.shrink(),
                         initialValue: _locationId,
                         hint: const Text('指定しない'),
                         isExpanded: true,

@@ -43,6 +43,15 @@ void main() {
       });
     }
 
+    testWidgets('一覧と確認画面の選択欄に装飾矢印を表示しない', (tester) async {
+      await _pumpTargets(tester, FakeLabelRepository());
+
+      expect(find.text('↓'), findsNothing);
+      await tester.tap(find.text('詳細を見る →'));
+      await tester.pumpAndSettle();
+      expect(find.text('↓'), findsNothing);
+    });
+
     testWidgets('一部印刷の枚数と状態を表示する', (tester) async {
       final partial = _job(
         status: LabelJobStatus.partiallyPrinted,
