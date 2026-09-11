@@ -147,12 +147,55 @@ select set_config('test.csv_master_literal', public.csv_export(public.test_csv_r
 select is(current_setting('test.csv_master_literal')::jsonb ->> 'ok', 'true', 'member exports masters');
 select is(current_setting('test.csv_master_literal')::jsonb -> 'data' ->> 'row_count', '1', 'master percent search is literal');
 
+select set_config('test.csv_master_orchard', public.csv_export(public.test_csv_req(
+  '74000000-0000-4000-8000-000000000141',
+  jsonb_build_object(
+    'dataset', 'masters',
+    'filters', jsonb_build_object('master_type', 'orchard', 'search', 'CSV農園', 'active', 'all'))))::text, true);
+select is(current_setting('test.csv_master_orchard')::jsonb ->> 'ok', 'true', 'member exports orchards');
+select is(current_setting('test.csv_master_orchard')::jsonb -> 'data' ->> 'row_count', '1', 'orchard export selects one row');
+select ok(
+  (current_setting('test.csv_master_orchard')::jsonb -> 'data' ->> 'csv') like
+    chr(65279) || '"内部ID","コード","農園名","有効","バージョン","更新日時JST"' || E'\r\n%CSV農園%',
+  'orchard export has a header and body');
+
+select set_config('test.csv_master_hidden_id', public.csv_export(public.test_csv_req(
+  '74000000-0000-4000-8000-000000000142',
+  jsonb_build_object(
+    'dataset', 'masters',
+    'filters', jsonb_build_object(
+      'master_type', 'variety',
+      'search', '71000000-0000-0000-0000-000000000001',
+      'active', 'all'))))::text, true);
+select is(
+  current_setting('test.csv_master_hidden_id')::jsonb -> 'data' ->> 'row_count',
+  '0', 'master search excludes fields hidden from the page search');
+
 select set_config('test.csv_master_related', public.csv_export(public.test_csv_req(
   '74000000-0000-4000-8000-000000000015',
   jsonb_build_object(
     'dataset', 'masters',
     'filters', jsonb_build_object('master_type', 'orchard_plot', 'search', 'CSV農園', 'active', 'all'))))::text, true);
 select is(current_setting('test.csv_master_related')::jsonb -> 'data' ->> 'row_count', '1', 'master search includes related labels');
+
+select set_config('test.csv_master_unrelated', public.csv_export(public.test_csv_req(
+  '74000000-0000-4000-8000-000000000151',
+  jsonb_build_object(
+    'dataset', 'masters',
+    'filters', jsonb_build_object('master_type', 'tree', 'search', 'CSV-ORCHARD', 'active', 'all'))))::text, true);
+select is(
+  current_setting('test.csv_master_unrelated')::jsonb -> 'data' ->> 'row_count',
+  '0', 'tree search excludes orchard labels not searched by the page');
+
+reset role;
+select ok(
+  position('冷蔵庫' in private.csv_master_search_text(
+    'storage_location',
+    '{"code":"CSV-COLD","name":"CSV保管場所","location_type":"cold_storage"}'::jsonb)) > 0,
+  'storage location search includes the Japanese type label');
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '70000000-0000-0000-0000-000000000002', true);
 
 select set_config('test.csv_history_member', public.csv_export(public.test_csv_req(
   '74000000-0000-4000-8000-000000000016',
@@ -195,13 +238,21 @@ select is(
      and result_code = 'VALIDATION_FAILED'),
   1::bigint, 'validation failure is audited');
 
+select throws_ok(
+  $$update public.csv_export_audits set result_code = 'SUCCESS'
+    where correlation_id = '74000000-0000-4000-8000-000000000018'$$,
+  '42501', null, 'clients cannot update export audits'
+);
+
 reset role;
 
+set local role service_role;
 select throws_ok(
   $$update public.csv_export_audits set result_code = 'SUCCESS'
     where correlation_id = '74000000-0000-4000-8000-000000000018'$$,
   '23514', 'change history is append-only', 'export audit is append-only'
 );
+reset role;
 
 insert into public.containers (
   id, display_id, sorting_result_id, variety_id, grade_id,

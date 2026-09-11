@@ -199,17 +199,37 @@ as $$
 declare
   result_value text;
 begin
-  select coalesce(string_agg(value, ' '), '')
-  into result_value
-  from jsonb_each_text(row_value);
+  result_value := case master_type_value
+    when 'variety' then concat_ws(' ', row_value ->> 'code', row_value ->> 'name')
+    when 'grade' then concat_ws(' ', row_value ->> 'code', row_value ->> 'display_order')
+    when 'orchard' then concat_ws(' ', row_value ->> 'code', row_value ->> 'name')
+    when 'orchard_plot' then concat_ws(
+      ' ', row_value ->> 'orchard_id', row_value ->> 'code', row_value ->> 'name')
+    when 'tree' then concat_ws(
+      ' ', row_value ->> 'plot_id', row_value ->> 'variety_id',
+      row_value ->> 'code', row_value ->> 'name')
+    when 'supplier' then concat_ws(
+      ' ', row_value ->> 'management_code', row_value ->> 'name')
+    when 'worker' then concat_ws(
+      ' ', row_value ->> 'code', row_value ->> 'display_name')
+    when 'storage_location' then concat_ws(
+      ' ', row_value ->> 'code', row_value ->> 'name', row_value ->> 'location_type',
+      case row_value ->> 'location_type'
+        when 'cold_storage' then '冷蔵庫'
+        else 'その他'
+      end)
+    when 'sorting_deadline_rule' then concat_ws(
+      ' ', row_value ->> 'harvest_year', row_value ->> 'harvest_month',
+      row_value ->> 'variety_id', row_value ->> 'deadline_days')
+    else ''
+  end;
   if master_type_value = 'orchard_plot' then
     select concat_ws(' ', result_value, o.code, o.name) into result_value
     from public.orchards o where o.id = (row_value ->> 'orchard_id')::uuid;
   elsif master_type_value = 'tree' then
-    select concat_ws(' ', result_value, p.code, p.name, o.code, o.name, v.code, v.name)
+    select concat_ws(' ', result_value, p.code, p.name, v.code, v.name)
     into result_value
     from public.orchard_plots p
-    join public.orchards o on o.id = p.orchard_id
     join public.varieties v on v.id = (row_value ->> 'variety_id')::uuid
     where p.id = (row_value ->> 'plot_id')::uuid;
   elsif master_type_value = 'sorting_deadline_rule' then
@@ -229,6 +249,7 @@ as $$
   select case master_type_value
     when 'variety' then '"内部ID","コード","品種名","有効","バージョン","更新日時JST"'
     when 'grade' then '"内部ID","等級コード","表示順","有効","バージョン","更新日時JST"'
+    when 'orchard' then '"内部ID","コード","農園名","有効","バージョン","更新日時JST"'
     when 'orchard_plot' then '"内部ID","農園内部ID","コード","区画名","有効","バージョン","更新日時JST"'
     when 'tree' then '"内部ID","区画内部ID","品種内部ID","コード","樹体名","有効","バージョン","更新日時JST"'
     when 'supplier' then '"内部ID","管理コード","仕入先名","有効","バージョン","更新日時JST"'
