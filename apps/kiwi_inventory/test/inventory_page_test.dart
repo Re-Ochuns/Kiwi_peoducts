@@ -5,6 +5,8 @@ import 'package:kiwi_inventory/inventory/inventory_page.dart';
 import 'package:kiwi_inventory/inventory/inventory_repository.dart';
 import 'package:kiwi_inventory/main.dart';
 
+import 'support/fake_csv_export_repository.dart';
+
 void main() {
   group('在庫一覧', () {
     testWidgets('作業者ホームから在庫参照を開ける', (tester) async {
@@ -72,6 +74,63 @@ void main() {
       expect(repository.lastQuery!.status, InventoryStatus.shippable);
       expect(repository.lastQuery!.sort, InventorySort.displayIdAscending);
       expect(repository.lastQuery!.page, 0);
+    });
+
+    testWidgets('適用済みの在庫条件をCSV出力へ引き継ぐ', (tester) async {
+      final repository = FakeInventoryRepository();
+      final csvRepository = FakeCsvExportRepository();
+      await _pumpInventory(
+        tester,
+        repository,
+        csvExportRepository: csvRepository,
+      );
+
+      await tester.enterText(
+        find.byKey(const Key('inventory-search')),
+        '在庫-002',
+      );
+      await tester.tap(find.byKey(const Key('inventory-search-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('inventory-status-filter')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('出荷可能').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('inventory-csv-export')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('CSV出力'), findsWidgets);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('csv-inventory-search')))
+            .controller
+            ?.text,
+        '在庫-002',
+      );
+      expect(find.text('出荷可能'), findsWidgets);
+    });
+
+    testWidgets('未適用の在庫検索文字列はCSV出力へ含めない', (tester) async {
+      await _pumpInventory(
+        tester,
+        FakeInventoryRepository(),
+        csvExportRepository: FakeCsvExportRepository(),
+      );
+      await tester.enterText(
+        find.byKey(const Key('inventory-search')),
+        'まだ検索していない文字列',
+      );
+
+      await tester.tap(find.byKey(const Key('inventory-csv-export')));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('csv-inventory-search')))
+            .controller
+            ?.text,
+        isEmpty,
+      );
     });
 
     testWidgets('空状態を表示する', (tester) async {
@@ -167,11 +226,15 @@ void main() {
 
     testWidgets('管理者には変更履歴を表示する', (tester) async {
       final repository = FakeInventoryRepository(canViewHistory: true);
+      final csvRepository = FakeCsvExportRepository();
       await _setSurface(tester, const Size(1280, 900));
       await tester.pumpWidget(
         MaterialApp(
           theme: buildAppTheme(),
-          home: ManagerHomePage(inventoryRepository: repository),
+          home: ManagerHomePage(
+            inventoryRepository: repository,
+            csvExportRepository: csvRepository,
+          ),
         ),
       );
 
@@ -183,7 +246,19 @@ void main() {
       expect(find.text('棚卸しにより数量を訂正'), findsOneWidget);
       expect(find.textContaining('担当 管理者A'), findsOneWidget);
       expect(find.textContaining('2026年9月10日 09:30'), findsOneWidget);
+      expect(find.text('履歴CSV出力'), findsOneWidget);
       expect(tester.takeException(), isNull);
+
+      await tester.tap(find.text('履歴CSV出力'));
+      await tester.pumpAndSettle();
+      expect(find.text('変更履歴'), findsWidgets);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('csv-history-id')))
+            .controller
+            ?.text,
+        testItem.id,
+      );
     });
   });
 }
@@ -192,12 +267,16 @@ Future<void> _pumpInventory(
   WidgetTester tester,
   FakeInventoryRepository repository, {
   Size size = const Size(390, 844),
+  FakeCsvExportRepository? csvExportRepository,
 }) async {
   await _setSurface(tester, size);
   await tester.pumpWidget(
     MaterialApp(
       theme: buildAppTheme(),
-      home: InventoryPage(repository: repository),
+      home: InventoryPage(
+        repository: repository,
+        csvExportRepository: csvExportRepository,
+      ),
     ),
   );
   await tester.pumpAndSettle();

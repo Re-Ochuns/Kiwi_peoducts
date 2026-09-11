@@ -20,12 +20,13 @@ enum InventoryStatus {
 }
 
 enum InventorySort {
-  updatedDescending('更新が新しい順'),
-  displayIdAscending('在庫ID順'),
-  currentWeightDescending('現在量が多い順');
+  updatedDescending('updated_desc', '更新が新しい順'),
+  displayIdAscending('display_id_asc', '在庫ID順'),
+  currentWeightDescending('current_weight_desc', '現在量が多い順');
 
-  const InventorySort(this.label);
+  const InventorySort(this.rpcValue, this.label);
 
+  final String rpcValue;
   final String label;
 }
 

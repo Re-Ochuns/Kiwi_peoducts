@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kiwi_inventory/auth/auth_repository.dart';
 import 'package:kiwi_inventory/core/app_theme.dart';
+import 'package:kiwi_inventory/csv_export/csv_export_dialog.dart';
+import 'package:kiwi_inventory/csv_export/csv_export_repository.dart';
 import 'package:kiwi_inventory/inventory/inventory_page.dart';
 import 'package:kiwi_inventory/inventory/inventory_repository.dart';
 import 'package:kiwi_inventory/label/label_page.dart';
@@ -17,6 +19,7 @@ import 'package:kiwi_inventory/receiving/receiving_page.dart';
 import 'package:kiwi_inventory/receiving/receiving_repository.dart';
 
 import 'support/golden_test_environment.dart';
+import 'support/fake_csv_export_repository.dart';
 import 'support/fake_master_repository.dart';
 
 void main() {
@@ -135,7 +138,10 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildAppTheme(fontFamily: goldenFontFamily),
-        home: InventoryPage(repository: _GoldenInventoryRepository()),
+        home: InventoryPage(
+          repository: _GoldenInventoryRepository(),
+          csvExportRepository: FakeCsvExportRepository(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -153,6 +159,7 @@ void main() {
         theme: buildAppTheme(fontFamily: goldenFontFamily),
         home: ManagerInventoryPage(
           repository: _GoldenInventoryRepository(canViewHistory: true),
+          csvExportRepository: FakeCsvExportRepository(),
         ),
       ),
     );
@@ -171,7 +178,10 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildAppTheme(fontFamily: goldenFontFamily),
-        home: ManagerMasterPage(repository: FakeMasterRepository()),
+        home: ManagerMasterPage(
+          repository: FakeMasterRepository(),
+          csvExportRepository: FakeCsvExportRepository(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -181,6 +191,36 @@ void main() {
     await expectLater(
       find.byType(ManagerMasterPage),
       matchesGoldenFile('goldens/manager_master_1280.png'),
+    );
+  });
+
+  testWidgets('390pxのCSV出力画面', (tester) async {
+    configureGoldenView(tester, const Size(390, 844));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(fontFamily: goldenFontFamily),
+        home: Scaffold(
+          body: CsvExportDialog(
+            repository: FakeCsvExportRepository(),
+            initialRequest: CsvExportRequest.history(
+              entityType: 'container',
+              entityId: '32000000-0000-0000-0000-000000000001',
+            ),
+            availableDatasets: const {
+              CsvDataset.inventory,
+              CsvDataset.masters,
+              CsvDataset.history,
+            },
+            downloader: (_, _) async => true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(CsvExportDialog),
+      matchesGoldenFile('goldens/csv_export_dialog_390.png'),
     );
   });
 }

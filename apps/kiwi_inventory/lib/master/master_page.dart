@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../core/app_theme.dart';
 import '../core/common_state_view.dart';
+import '../csv_export/csv_export_dialog.dart';
+import '../csv_export/csv_export_repository.dart';
 import 'master_repository.dart';
 import 'supabase_master_repository.dart';
 
@@ -10,11 +12,13 @@ enum _MasterStatusFilter { active, inactive, all }
 class MasterPage extends StatefulWidget {
   const MasterPage({
     required this.repository,
+    this.csvExportRepository,
     this.embedded = false,
     super.key,
   });
 
   final MasterRepository repository;
+  final CsvExportRepository? csvExportRepository;
   final bool embedded;
 
   @override
@@ -80,6 +84,12 @@ class _MasterPageState extends State<MasterPage> {
             _Header(
               canRegister:
                   _catalog?.canManage == true && _type.canRegister && !_loading,
+              canExport:
+                  widget.csvExportRepository != null &&
+                  !_loading &&
+                  _failure == null &&
+                  _catalog != null,
+              onExport: _openCsv,
               onRegister: _openRegister,
             ),
             const SizedBox(height: 22),
@@ -215,6 +225,34 @@ class _MasterPageState extends State<MasterPage> {
     );
   }
 
+  Future<void> _openCsv() async {
+    final repository = widget.csvExportRepository;
+    final catalog = _catalog;
+    if (repository == null || catalog == null) return;
+    final result = await showCsvExportDialog(
+      context: context,
+      repository: repository,
+      initialRequest: CsvExportRequest.masters(
+        masterType: _type.rpcValue,
+        search: _searchController.text,
+        active: switch (_status) {
+          _MasterStatusFilter.active => 'active',
+          _MasterStatusFilter.inactive => 'inactive',
+          _MasterStatusFilter.all => 'all',
+        },
+      ),
+      availableDatasets: {
+        CsvDataset.inventory,
+        CsvDataset.masters,
+        if (catalog.canManage) CsvDataset.history,
+      },
+    );
+    if (!mounted || result == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${result.rowCount}件のCSV保存を開始しました。')),
+    );
+  }
+
   Future<void> _openRegister() async {
     final catalog = _catalog;
     if (catalog == null || !catalog.canManage || !_type.canRegister) return;
@@ -308,9 +346,16 @@ class _MasterPageState extends State<MasterPage> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.canRegister, required this.onRegister});
+  const _Header({
+    required this.canRegister,
+    required this.canExport,
+    required this.onExport,
+    required this.onRegister,
+  });
 
   final bool canRegister;
+  final bool canExport;
+  final VoidCallback onExport;
   final VoidCallback onRegister;
 
   @override
@@ -322,6 +367,14 @@ class _Header extends StatelessWidget {
           style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
         ),
       ),
+      if (canExport) ...[
+        OutlinedButton(
+          key: const Key('master-csv-export'),
+          onPressed: onExport,
+          child: const Text('CSV出力'),
+        ),
+        const SizedBox(width: 10),
+      ],
       if (canRegister)
         FilledButton(onPressed: onRegister, child: const Text('新規登録')),
     ],
