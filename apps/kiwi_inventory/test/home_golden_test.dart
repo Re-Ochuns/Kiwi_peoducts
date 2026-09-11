@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +10,8 @@ import 'package:kiwi_inventory/auth/auth_repository.dart';
 import 'package:kiwi_inventory/core/app_theme.dart';
 import 'package:kiwi_inventory/inventory/inventory_page.dart';
 import 'package:kiwi_inventory/inventory/inventory_repository.dart';
+import 'package:kiwi_inventory/label/label_page.dart';
+import 'package:kiwi_inventory/label/label_repository.dart';
 import 'package:kiwi_inventory/main.dart';
 import 'package:kiwi_inventory/receiving/receiving_page.dart';
 import 'package:kiwi_inventory/receiving/receiving_repository.dart';
@@ -88,6 +91,44 @@ void main() {
     );
   });
 
+  testWidgets('390pxのラベル対象画面', (tester) async {
+    configureGoldenView(tester, const Size(390, 844));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(fontFamily: goldenFontFamily),
+        home: LabelTargetPage(repository: _GoldenLabelRepository()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(LabelTargetPage),
+      matchesGoldenFile('goldens/label_targets_390.png'),
+    );
+  });
+
+  testWidgets('390pxのラベル確認画面', (tester) async {
+    configureGoldenView(tester, const Size(390, 900));
+    final repository = _GoldenLabelRepository();
+    final data = await repository.load();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(fontFamily: goldenFontFamily),
+        home: LabelDetailPage(
+          repository: repository,
+          job: data.jobs.first,
+          workers: data.workers,
+          locations: data.locations,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(LabelDetailPage),
+      matchesGoldenFile('goldens/label_detail_390.png'),
+    );
+  });
   testWidgets('390pxの在庫一覧', (tester) async {
     configureGoldenView(tester, const Size(390, 844));
     await tester.pumpWidget(
@@ -193,6 +234,82 @@ class _GoldenInventoryRepository implements InventoryRepository {
             : const [],
         canViewHistory: canViewHistory,
       );
+}
+
+class _GoldenLabelRepository implements LabelRepository {
+  @override
+  Future<LabelLoadData> load({
+    bool completed = false,
+    LabelCursor? after,
+  }) async => LabelLoadData(
+    jobs: [
+      LabelJob(
+        id: 'label-1',
+        containerId: 'container-1',
+        containerDisplayId: '選果-2026-0148-1',
+        status: LabelJobStatus.notPrinted,
+        requiredCopies: 1,
+        printedCopies: 0,
+        reprintCount: 0,
+        originName: '第二農園 B区画',
+        varietyName: '香緑',
+        gradeCode: 'M',
+        weightHundredths: 1840,
+        sortedOn: DateTime(2026, 9, 8),
+        workerName: '作業者A',
+      ),
+      LabelJob(
+        id: 'label-2',
+        containerId: 'container-2',
+        containerDisplayId: '選果-2026-0147-2',
+        status: LabelJobStatus.partiallyPrinted,
+        requiredCopies: 2,
+        printedCopies: 1,
+        reprintCount: 0,
+        originName: '第一農園 A区画',
+        varietyName: 'ヘイワード',
+        gradeCode: 'L',
+        weightHundredths: 2050,
+        sortedOn: DateTime(2026, 9, 8),
+        workerName: '作業者B',
+      ),
+    ],
+    workers: const [LabelOption(id: 'worker-1', label: 'worker-01　作業者A')],
+    locations: const [LabelOption(id: 'location-1', label: 'cold-01　第一冷蔵庫')],
+  );
+
+  @override
+  Future<LabelPdf> fetchPdf({required String containerId}) async => LabelPdf(
+    bytes: Uint8List.fromList([1, 2, 3]),
+    filename: '$containerId.pdf',
+  );
+
+  @override
+  Future<LabelActionResult> markHandwritten({
+    required String labelJobId,
+    required String workerId,
+    required String idempotencyKey,
+    String? notes,
+    String? locationId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<LabelActionResult> markPrinted({
+    required String labelJobId,
+    required String workerId,
+    required int copies,
+    required String idempotencyKey,
+    String? locationId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<LabelActionResult> reprint({
+    required String labelJobId,
+    required String workerId,
+    required String reason,
+    required int copies,
+    required String idempotencyKey,
+  }) => throw UnimplementedError();
 }
 
 class _GoldenReceivingRepository implements ReceivingRepository {
