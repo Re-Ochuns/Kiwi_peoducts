@@ -30,24 +30,41 @@ class SupabaseLabelRepository implements LabelRepository {
   final http.Client _httpClient;
 
   @override
-  Future<LabelLoadData> load() async {
+  Future<LabelLoadData> load({
+    bool completed = false,
+    LabelCursor? after,
+  }) async {
     try {
+      var jobsQuery = _client
+          .from('label_jobs')
+          .select(
+            'id, created_at, status, required_copies, printed_copies, reprint_count, '
+            'container:containers!label_jobs_container_id_fkey('
+            'id, display_id, original_weight_kg, '
+            'grade:grades!containers_grade_id_fkey(code), '
+            'variety:varieties!containers_variety_id_fkey(name), '
+            'sorting_result:sorting_results!containers_sorting_result_id_fkey('
+            'sorted_on, worker:workers!sorting_results_sorted_by_fkey(display_name), '
+            'receiving_lot:receiving_lots!sorting_results_receiving_lot_id_fkey(origin_name)'
+            ')'
+            ')',
+          )
+          .inFilter(
+            'status',
+            completed
+                ? ['printed', 'handwritten']
+                : ['not_printed', 'partially_printed'],
+          );
+      if (after != null) {
+        jobsQuery = jobsQuery.or(
+          'created_at.lt.${after.createdAt},and(created_at.eq.${after.createdAt},id.lt.${after.id})',
+        );
+      }
       final results = await Future.wait([
-        _client
-            .from('label_jobs')
-            .select(
-              'id, status, required_copies, printed_copies, reprint_count, '
-              'container:containers!label_jobs_container_id_fkey('
-              'id, display_id, original_weight_kg, '
-              'grade:grades!containers_grade_id_fkey(code), '
-              'variety:varieties!containers_variety_id_fkey(name), '
-              'sorting_result:sorting_results!containers_sorting_result_id_fkey('
-              'sorted_on, worker:workers!sorting_results_sorted_by_fkey(display_name), '
-              'receiving_lot:receiving_lots!sorting_results_receiving_lot_id_fkey(origin_name)'
-              ')'
-              ')',
-            )
-            .order('created_at', ascending: false),
+        jobsQuery
+            .order('created_at', ascending: false)
+            .order('id', ascending: false)
+            .limit(51),
         _client
             .from('workers')
             .select('id, code, display_name')
@@ -61,9 +78,18 @@ class SupabaseLabelRepository implements LabelRepository {
             .order('code'),
       ]).timeout(const Duration(seconds: 10));
 
+      final rows = results[0] as List;
+      final page = rows.take(50).toList();
+      final last = page.isEmpty ? null : page.last as Map;
       return LabelLoadData(
+        nextCursor: rows.length > 50 && last != null
+            ? LabelCursor(
+                createdAt: last['created_at'] as String,
+                id: last['id'] as String,
+              )
+            : null,
         jobs: [
-          for (final value in results[0] as List)
+          for (final value in page)
             _jobFromRow(Map<String, dynamic>.from(value as Map)),
         ],
         workers: [

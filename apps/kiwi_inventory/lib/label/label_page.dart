@@ -22,6 +22,9 @@ class LabelTargetPage extends StatefulWidget {
 class _LabelTargetPageState extends State<LabelTargetPage> {
   LabelLoadData? _data;
   LabelFailure? _error;
+  bool _loadingMore = false;
+  String? _moreError;
+  int _loadGeneration = 0;
   _LabelFilter _filter = _LabelFilter.pending;
 
   @override
@@ -31,25 +34,64 @@ class _LabelTargetPageState extends State<LabelTargetPage> {
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     setState(() {
       _data = null;
       _error = null;
+      _loadingMore = false;
+      _moreError = null;
     });
     try {
-      final data = await widget.repository.load();
-      if (!mounted) return;
+      final data = await widget.repository.load(
+        completed: _filter == _LabelFilter.completed,
+      );
+      if (!mounted || generation != _loadGeneration) return;
       setState(() => _data = data);
     } on LabelFailure catch (failure) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() => _error = failure);
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(
         () => _error = const LabelFailure(
           message: 'ラベル対象を読み込めませんでした。通信状況を確認してください。',
           retryable: true,
         ),
       );
+    }
+  }
+
+  Future<void> _loadMore() async {
+    final data = _data;
+    final cursor = data?.nextCursor;
+    if (data == null || cursor == null || _loadingMore) return;
+    final generation = _loadGeneration;
+    setState(() {
+      _loadingMore = true;
+      _moreError = null;
+    });
+    try {
+      final page = await widget.repository.load(
+        completed: _filter == _LabelFilter.completed,
+        after: cursor,
+      );
+      if (!mounted || generation != _loadGeneration) return;
+      final ids = data.jobs.map((job) => job.id).toSet();
+      setState(
+        () => _data = LabelLoadData(
+          jobs: [...data.jobs, ...page.jobs.where((job) => ids.add(job.id))],
+          workers: page.workers,
+          locations: page.locations,
+          nextCursor: page.nextCursor,
+        ),
+      );
+    } catch (_) {
+      if (mounted && generation == _loadGeneration) {
+        setState(() => _moreError = '続きを読み込めませんでした。再試行してください。');
+      }
+    } finally {
+      if (mounted && generation == _loadGeneration)
+        setState(() => _loadingMore = false);
     }
   }
 
@@ -124,7 +166,10 @@ class _LabelTargetPageState extends State<LabelTargetPage> {
                       ),
                     ],
                     onChanged: (value) {
-                      if (value != null) setState(() => _filter = value);
+                      if (value != null) {
+                        setState(() => _filter = value);
+                        _load();
+                      }
                     },
                   ),
                 ],
@@ -144,11 +189,24 @@ class _LabelTargetPageState extends State<LabelTargetPage> {
                       onRefresh: _load,
                       child: ListView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                        itemCount: jobs.length,
-                        itemBuilder: (context, index) => _LabelJobRow(
-                          job: jobs[index],
-                          onTap: () => _openDetail(data, jobs[index]),
-                        ),
+                        itemCount:
+                            jobs.length + (data.nextCursor != null ? 1 : 0),
+                        itemBuilder: (context, index) => index == jobs.length
+                            ? Column(
+                                children: [
+                                  if (_moreError != null) Text(_moreError!),
+                                  OutlinedButton(
+                                    onPressed: _loadingMore ? null : _loadMore,
+                                    child: Text(
+                                      _loadingMore ? '読み込み中' : 'さらに読み込む',
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : _LabelJobRow(
+                                job: jobs[index],
+                                onTap: () => _openDetail(data, jobs[index]),
+                              ),
                       ),
                     ),
             ),
@@ -281,6 +339,8 @@ class _LabelDetailPageState extends State<LabelDetailPage> {
   LabelPdf? _pdf;
   String? _actionSignature;
   String? _idempotencyKey;
+  Future<LabelActionResult> Function()? _pendingAction;
+  bool _pendingReprint = false;
 
   LabelJob get job => widget.job;
 
@@ -317,6 +377,22 @@ class _LabelDetailPageState extends State<LabelDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_pendingAction != null) {
+      return PopScope<void>(
+        canPop: false,
+        child: Scaffold(
+          appBar: _labelAppBar(context, backLabel: '← ラベル一覧へ戻る'),
+          body: SafeArea(
+            child: CommonStateView.error(
+              title: _busy ? '記録結果を確認しています' : '記録結果が未確認です',
+              message: _error ?? '再印刷や入力変更はせず、同じ操作の結果を確認してください。',
+              actionLabel: _busy ? null : '記録結果を再確認',
+              onAction: _busy ? null : _executePending,
+            ),
+          ),
+        ),
+      );
+    }
     return PopScope<void>(
       canPop: !_busy,
       child: Scaffold(
@@ -618,31 +694,58 @@ class _LabelDetailPageState extends State<LabelDetailPage> {
         ? 'reprint:${job.id}:${_workerId!}:${_reasonController.text.trim()}:$copies'
         : 'print:${job.id}:${_workerId!}:$copies:${_locationId ?? ''}';
     final key = _keyFor(signature);
+    final workerId = _workerId!;
+    final reason = _reasonController.text;
+    final locationId = _locationId;
+    _pendingReprint = isReprint;
+    _pendingAction = isReprint
+        ? () => widget.repository.reprint(
+            labelJobId: job.id,
+            workerId: workerId,
+            reason: reason,
+            copies: copies,
+            idempotencyKey: key,
+          )
+        : () => widget.repository.markPrinted(
+            labelJobId: job.id,
+            workerId: workerId,
+            copies: copies,
+            locationId: locationId,
+            idempotencyKey: key,
+          );
+    await _executePending();
+  }
+
+  Future<void> _executePending() async {
+    final action = _pendingAction;
+    if (action == null) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
-      final result = isReprint
-          ? await widget.repository.reprint(
-              labelJobId: job.id,
-              workerId: _workerId!,
-              reason: _reasonController.text,
-              copies: copies,
-              idempotencyKey: key,
-            )
-          : await widget.repository.markPrinted(
-              labelJobId: job.id,
-              workerId: _workerId!,
-              copies: copies,
-              locationId: _locationId,
-              idempotencyKey: key,
-            );
+      final result = await action();
       if (!mounted) return;
-      await _showSuccess(result, reprint: isReprint);
+      _pendingAction = null;
+      await _showSuccess(result, reprint: _pendingReprint);
     } on LabelFailure catch (failure) {
       if (!mounted) return;
+      if (!failure.retryable) {
+        _pendingAction = null;
+        _actionSignature = null;
+        _idempotencyKey = null;
+      }
       if (failure.isConflict) {
         await _showConflict(failure);
       } else {
         setState(() => _error = _messageWithCorrelation(failure));
       }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = '記録結果を確認できませんでした。同じ操作の結果を再確認してください。');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -693,26 +796,19 @@ class _LabelDetailPageState extends State<LabelDetailPage> {
     });
     final signature =
         'handwritten:${job.id}:${_workerId!}:${_notesController.text.trim()}:${_locationId ?? ''}';
-    try {
-      final result = await widget.repository.markHandwritten(
-        labelJobId: job.id,
-        workerId: _workerId!,
-        notes: _notesController.text,
-        locationId: _locationId,
-        idempotencyKey: _keyFor(signature),
-      );
-      if (!mounted) return;
-      await _showSuccess(result);
-    } on LabelFailure catch (failure) {
-      if (!mounted) return;
-      if (failure.isConflict) {
-        await _showConflict(failure);
-      } else {
-        setState(() => _error = _messageWithCorrelation(failure));
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+    final workerId = _workerId!;
+    final notes = _notesController.text;
+    final locationId = _locationId;
+    final key = _keyFor(signature);
+    _pendingReprint = false;
+    _pendingAction = () => widget.repository.markHandwritten(
+      labelJobId: job.id,
+      workerId: workerId,
+      notes: notes,
+      locationId: locationId,
+      idempotencyKey: key,
+    );
+    await _executePending();
   }
 
   String _keyFor(String signature) {

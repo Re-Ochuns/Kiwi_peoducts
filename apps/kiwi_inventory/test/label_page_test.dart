@@ -9,6 +9,26 @@ import 'package:kiwi_inventory/main.dart';
 
 void main() {
   group('ラベル対象', () {
+    testWidgets('続きを追加し表示切替でカーソルをリセットする', (tester) async {
+      final repository = PagedLabelRepository();
+      await _pumpTargets(tester, repository);
+      expect(find.text(testPendingJob.containerDisplayId), findsOneWidget);
+      await tester.tap(find.text('さらに読み込む'));
+      await tester.pumpAndSettle();
+      expect(find.text('選果-2026-099-1'), findsOneWidget);
+      expect(find.text(testPendingJob.containerDisplayId), findsOneWidget);
+      expect(find.text('さらに読み込む'), findsNothing);
+      expect(repository.cursors.last, isNotNull);
+      await tester.tap(find.byKey(const Key('label-filter')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('対応済み').last);
+      await tester.pumpAndSettle();
+      expect(repository.cursors.last, isNull);
+      expect(repository.filters.last, isTrue);
+      expect(find.text(testPrintedJob.containerDisplayId), findsOneWidget);
+      expect(find.text(testPendingJob.containerDisplayId), findsNothing);
+    });
+
     testWidgets('作業者ホームから開ける', (tester) async {
       final repository = FakeLabelRepository();
       await _setSurface(tester, const Size(390, 844));
@@ -246,6 +266,41 @@ void main() {
       expect(find.text('再印刷を記録しました'), findsOneWidget);
     });
 
+    testWidgets('応答消失後はPDFを開かず同じキーで記録だけ再確認する', (tester) async {
+      final repository = FakeLabelRepository(loseReprintResponse: true);
+      var opened = 0;
+      await _pumpDetail(
+        tester,
+        repository,
+        testPrintedJob,
+        pdfOpener: (_, _) async {
+          opened++;
+          return true;
+        },
+      );
+      await _selectWorker(tester);
+      await tester.enterText(find.byKey(const Key('reprint-reason')), '汚損');
+      await tester.ensureVisible(find.byKey(const Key('open-label-pdf')));
+      await tester.tap(find.byKey(const Key('open-label-pdf')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('confirm-label-printed')));
+      await tester.pumpAndSettle();
+      expect(find.text('記録結果が未確認です'), findsOneWidget);
+      expect(find.byKey(const Key('label-copies')), findsNothing);
+      expect(find.byKey(const Key('open-label-pdf')), findsNothing);
+      final context = tester.element(find.byType(LabelDetailPage));
+      await Navigator.of(context).maybePop();
+      await tester.pumpAndSettle();
+      expect(find.text('記録結果が未確認です'), findsOneWidget);
+      await tester.tap(find.text('記録結果を再確認'));
+      await tester.pumpAndSettle();
+      expect(opened, 1);
+      expect(repository.reprintCalls, 2);
+      expect(repository.reprintKeys.toSet().length, 1);
+      expect(repository.reprintWrites, 1);
+      expect(find.text('再印刷を記録しました'), findsOneWidget);
+    });
+
     testWidgets('手書き必須項目を確認して対応を記録する', (tester) async {
       final repository = FakeLabelRepository();
       await _pumpDetail(tester, repository, testPendingJob);
@@ -360,12 +415,16 @@ class FakeLabelRepository implements LabelRepository {
     this.loadFailures = 0,
     this.pdfFailures = 0,
     this.actionFailure,
+    this.loseReprintResponse = false,
   }) : data = data ?? testLoadData;
 
   final LabelLoadData data;
   int loadFailures;
   int pdfFailures;
   final LabelFailure? actionFailure;
+  final bool loseReprintResponse;
+  final List<String> reprintKeys = [];
+  int reprintWrites = 0;
   int loadCalls = 0;
   int pdfCalls = 0;
   int markPrintedCalls = 0;
@@ -375,7 +434,10 @@ class FakeLabelRepository implements LabelRepository {
   final List<String> reprintReasons = [];
 
   @override
-  Future<LabelLoadData> load() async {
+  Future<LabelLoadData> load({
+    bool completed = false,
+    LabelCursor? after,
+  }) async {
     loadCalls++;
     if (loadFailures > 0) {
       loadFailures--;
@@ -445,6 +507,11 @@ class FakeLabelRepository implements LabelRepository {
     required String idempotencyKey,
   }) async {
     reprintCalls++;
+    if (!reprintKeys.contains(idempotencyKey)) reprintWrites++;
+    reprintKeys.add(idempotencyKey);
+    if (loseReprintResponse && reprintCalls == 1) {
+      throw const LabelFailure(message: '応答消失', retryable: true);
+    }
     reprintReasons.add(reason);
     if (actionFailure != null) throw actionFailure!;
     return LabelActionResult(
@@ -453,6 +520,32 @@ class FakeLabelRepository implements LabelRepository {
       printedCopies: 1 + copies,
       requiredCopies: 1,
       reprintCount: 2,
+    );
+  }
+}
+
+class PagedLabelRepository extends FakeLabelRepository {
+  final List<LabelCursor?> cursors = [];
+  final List<bool> filters = [];
+
+  @override
+  Future<LabelLoadData> load({
+    bool completed = false,
+    LabelCursor? after,
+  }) async {
+    cursors.add(after);
+    filters.add(completed);
+    return LabelLoadData(
+      jobs: completed
+          ? [testPrintedJob]
+          : after == null
+          ? [testPendingJob]
+          : [_job(displayId: '選果-2026-099-1')],
+      workers: testLoadData.workers,
+      locations: testLoadData.locations,
+      nextCursor: !completed && after == null
+          ? const LabelCursor(createdAt: '2026-09-10T00:00:00Z', id: 'first')
+          : null,
     );
   }
 }

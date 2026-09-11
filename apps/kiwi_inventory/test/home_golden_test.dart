@@ -131,7 +131,10 @@ void main() {
 
 class _GoldenLabelRepository implements LabelRepository {
   @override
-  Future<LabelLoadData> load() async => LabelLoadData(
+  Future<LabelLoadData> load({
+    bool completed = false,
+    LabelCursor? after,
+  }) async => LabelLoadData(
     jobs: [
       LabelJob(
         id: 'label-1',

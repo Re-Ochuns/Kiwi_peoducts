@@ -57,16 +57,24 @@ class LabelOption {
   final String label;
 }
 
+class LabelCursor {
+  const LabelCursor({required this.createdAt, required this.id});
+  final String createdAt;
+  final String id;
+}
+
 class LabelLoadData {
   const LabelLoadData({
     required this.jobs,
     required this.workers,
     required this.locations,
+    this.nextCursor,
   });
 
   final List<LabelJob> jobs;
   final List<LabelOption> workers;
   final List<LabelOption> locations;
+  final LabelCursor? nextCursor;
 }
 
 class LabelPdf {
@@ -114,7 +122,7 @@ class LabelFailure implements Exception {
 }
 
 abstract interface class LabelRepository {
-  Future<LabelLoadData> load();
+  Future<LabelLoadData> load({bool completed = false, LabelCursor? after});
 
   Future<LabelPdf> fetchPdf({required String containerId});
 
