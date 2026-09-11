@@ -11,7 +11,7 @@ Issue #11（S1-02）のフロント実装。管理画面の「マスター」か
 ## 権限
 
 - activeな利用者は一覧を参照できる。
-- `profiles.role = administrator`かつactiveな利用者だけに、新規登録、編集、無効化、再有効化を表示する。
+- `profiles.access_status = active`かつ`user_roles.role = administrator`の利用者だけに、新規登録、編集、無効化、再有効化を表示する。
 - 更新権限の最終判定はRPC側で行い、テーブルを直接更新しない。
 
 ## 画面と操作
@@ -38,5 +38,6 @@ Issue #11（S1-02）のフロント実装。管理画面の「マスター」か
 - 900px・1280pxのWidgetテスト
 - 一覧、検索、有効状態、管理者・閲覧者の操作可否
 - 登録、編集、無効化、再有効化、項目別エラー、等級の固定候補制約
+- `profiles`と`user_roles`の権限参照、RPC要求封筒・成功応答・項目エラーのHTTP要求テスト
 - 1280px管理画面のGoldenテスト
 - RPC、RLS、監査、冪等性、競合は`supabase/tests/00060_master_rpc_test.sql`で検証する。
