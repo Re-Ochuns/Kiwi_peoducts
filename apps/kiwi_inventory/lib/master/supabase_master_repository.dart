@@ -31,8 +31,7 @@ class SupabaseMasterRepository implements MasterRepository {
           Future<dynamic>.value(const <Map<String, dynamic>>[])
         else
           _client.from('user_roles').select('role').eq('user_id', userId),
-        for (final type in MasterType.values)
-          _client.from(type.tableName).select(type.selectColumns),
+        for (final type in MasterType.values) _loadMasterRows(type),
       ];
       final results = await Future.wait(requests)
           .timeout(const Duration(seconds: 10));
@@ -74,6 +73,19 @@ class SupabaseMasterRepository implements MasterRepository {
         message: 'マスターを読み込めませんでした。通信状況を確認してください。',
         retryable: true,
       );
+    }
+  }
+
+  Future<List<dynamic>> _loadMasterRows(MasterType type) async {
+    const pageSize = 1000;
+    final rows = <dynamic>[];
+    for (var from = 0; ; from += pageSize) {
+      final page = await _client
+          .from(type.tableName)
+          .select(type.selectColumns)
+          .range(from, from + pageSize - 1);
+      rows.addAll(page);
+      if (page.length < pageSize) return rows;
     }
   }
 

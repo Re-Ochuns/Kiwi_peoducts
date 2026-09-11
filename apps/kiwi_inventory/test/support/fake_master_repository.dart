@@ -6,6 +6,7 @@ class FakeMasterRepository implements MasterRepository {
 
   final MasterCatalog catalog;
   MasterFailure? nextFailure;
+  MasterFailure? nextLoadFailure;
   int loadCalls = 0;
   int registerCalls = 0;
   int updateCalls = 0;
@@ -20,6 +21,9 @@ class FakeMasterRepository implements MasterRepository {
   @override
   Future<MasterCatalog> loadCatalog() async {
     loadCalls++;
+    final failure = nextLoadFailure;
+    nextLoadFailure = null;
+    if (failure != null) throw failure;
     return catalog;
   }
 

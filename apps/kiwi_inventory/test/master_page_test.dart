@@ -127,6 +127,23 @@ void main() {
       expect(find.text('↓'), findsNothing);
       expect(find.byType(Icon), findsNothing);
     });
+
+    testWidgets('再読込に失敗した場合は古い一覧ではなくエラーを表示する', (tester) async {
+      final repository = FakeMasterRepository();
+      await _pumpMaster(tester, repository);
+      repository.nextLoadFailure = const MasterFailure(
+        message: '再読込に失敗しました。',
+        retryable: true,
+      );
+
+      await tester.tap(find.text('再読込'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('マスターを読み込めませんでした'), findsOneWidget);
+      expect(find.text('再読込に失敗しました。'), findsOneWidget);
+      expect(find.text('再試行'), findsOneWidget);
+      expect(find.text('hayward'), findsNothing);
+    });
   });
 
   group('マスター更新', () {

@@ -128,10 +128,10 @@ class _MasterPageState extends State<MasterPage> {
   Widget _buildBody() {
     final catalog = _catalog;
     final failure = _failure;
-    if (_loading && catalog == null) {
+    if (_loading) {
       return const CommonStateView.loading(title: 'マスターを読み込んでいます');
     }
-    if (failure != null && catalog == null) {
+    if (failure != null) {
       return CommonStateView.error(
         title: 'マスターを読み込めませんでした',
         message: failure.message,

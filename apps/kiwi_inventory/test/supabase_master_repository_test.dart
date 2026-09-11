@@ -47,6 +47,60 @@ void main() {
     await client.dispose();
   });
 
+  test('1000件を超えるマスターをページングしてすべて読み込む', () async {
+    final requests = <http.Request>[];
+    final client = SupabaseClient(
+      'https://example.test',
+      'test',
+      httpClient: MockClient((request) async {
+        requests.add(request);
+        final resource = request.url.pathSegments.last;
+        Object body;
+        if (resource == 'profiles') {
+          body = {'access_status': 'active'};
+        } else if (resource == 'user_roles') {
+          body = [
+            {'role': 'administrator'},
+          ];
+        } else if (resource == 'varieties') {
+          final start = int.parse(request.url.queryParameters['offset'] ?? '0');
+          body = [
+            for (
+              var index = start;
+              index < 1001 && index < start + 1000;
+              index++
+            )
+              {
+                'id': 'variety-$index',
+                'code': 'code-$index',
+                'name': '品種$index',
+                'is_active': true,
+                'version': 1,
+              },
+          ];
+        } else {
+          body = const <Object>[];
+        }
+        return http.Response(
+          jsonEncode(body),
+          200,
+          request: request,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    final repository = SupabaseMasterRepository(client, currentUserId: _userId);
+
+    final catalog = await repository.loadCatalog();
+
+    expect(catalog.of(MasterType.variety), hasLength(1001));
+    expect(
+      requests.where((request) => request.url.path.endsWith('/varieties')),
+      hasLength(2),
+    );
+    await client.dispose();
+  });
+
   test('登録RPCへ共通封筒を送り成功応答をMasterRecordへ変換する', () async {
     late Map<String, dynamic> requestBody;
     final client = SupabaseClient(
