@@ -17,4 +17,5 @@ Closes #<Issue番号>
 - [ ] git diff --check
 - [ ] make check（コード変更を含む場合）
 - [ ] 必要な自動テストを追加（対象外の場合は理由を記載）
+- [ ] UI変更時は`Flutter CI / flutter-golden`の成功と基準画像artifactを確認（対象外の場合は理由を記載）
 - [ ] 必要な担当領域のレビュー

@@ -2,7 +2,7 @@
 
 ## 固定する描画条件
 
-- Flutter・Dartの版はルートの`.tool-versions`に従う。
+- Flutterの版はルートの`.fvmrc`に従い、DartはそのFlutter SDKに同梱された版を使用する。CIの`flutter-version`と`scripts/check_tool_versions.sh`も同じ版へ揃える。
 - テスト用フォントはリポジトリ内の`experiments/fnd-07/assets/NotoSansJP-VariableFont_wght.ttf`を`GoldenNotoSansJP`として読み込む。
 - Goldenテストに限り、アプリテーマへ`GoldenNotoSansJP`を指定する。本番テーマとアプリの表示フォントは変更しない。
 - `devicePixelRatio`は1.0、論理サイズは各テストで宣言した値に固定する。
@@ -46,4 +46,15 @@ WindowsでもPowerShellまたはGit Bashから同じMakefileターゲットを�
 
 差分発生時は比較画像を`golden-test-failures-<commit>-<attempt>` artifactへ保存する。成功・失敗にかかわらず、そのコミットで使用または手動生成した基準画像を`golden-reference-<commit>-<attempt>` artifactへ保存する。`attempt`は同一workflow runの再実行番号であり、再実行時のartifact名衝突を防ぐ。
 
-リポジトリ管理者は`Flutter CI / flutter-golden`を`develop`と`main`の必須チェックへ設定する。チェック名を変更する場合は、ブランチ保護設定も同時に更新する。
+Branch protectionで必須チェックを設定できない間は、次をマージ条件とする。
+
+1. PR作成者が最新コミットの`Flutter CI / flutter-golden`成功を確認する。
+2. UI変更を含む場合、レビュー担当者が`golden-reference-<commit>-<attempt>` artifactを確認する。
+3. 確認結果または対象外の理由をPRの検証欄へ記録する。
+
+必須チェックを利用できるようになった場合は、リポジトリ管理者が`Flutter CI / flutter-golden`を`develop`と`main`へ設定する。チェック名を変更する場合は、ブランチ保護設定も同時に更新する。
+
+## 現在の制約
+
+- CIは`ubuntu-latest`を正本環境としている。GitHubがrunnerイメージを更新した際は画素差が発生し得るため、意図しない差分か環境更新による差分かをartifactで確認する。OSイメージまで固定する場合はworkflowの`runs-on`を特定のUbuntu版へ変更する。
+- 非公開リポジトリの現在のGitHubプランではBranch protectionとRulesets APIがHTTP 403になり、`flutter-golden`を必須チェックとして設定できない。このため、現在は上記の手動確認をIssue #32の受入条件とする。GitHubによる強制ではないため、確認漏れのリスクが残ることを受容し、必須チェック化は利用可能になった時点で行う。
