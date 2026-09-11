@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kiwi_inventory/auth/auth_repository.dart';
 import 'package:kiwi_inventory/core/app_theme.dart';
+import 'package:kiwi_inventory/inventory/inventory_page.dart';
+import 'package:kiwi_inventory/inventory/inventory_repository.dart';
 import 'package:kiwi_inventory/main.dart';
 import 'package:kiwi_inventory/receiving/receiving_page.dart';
 import 'package:kiwi_inventory/receiving/receiving_repository.dart';
@@ -85,6 +87,112 @@ void main() {
       matchesGoldenFile('goldens/receiving_harvest_390.png'),
     );
   });
+
+  testWidgets('390pxの在庫一覧', (tester) async {
+    configureGoldenView(tester, const Size(390, 844));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(fontFamily: goldenFontFamily),
+        home: InventoryPage(repository: _GoldenInventoryRepository()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(InventoryPage),
+      matchesGoldenFile('goldens/inventory_list_390.png'),
+    );
+  });
+
+  testWidgets('1280pxの管理在庫画面', (tester) async {
+    configureGoldenView(tester, const Size(1280, 900));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(fontFamily: goldenFontFamily),
+        home: ManagerInventoryPage(
+          repository: _GoldenInventoryRepository(canViewHistory: true),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('在庫-2026-001'));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(ManagerInventoryPage),
+      matchesGoldenFile('goldens/manager_inventory_1280.png'),
+    );
+  });
+}
+
+class _GoldenInventoryRepository implements InventoryRepository {
+  _GoldenInventoryRepository({this.canViewHistory = false});
+
+  final bool canViewHistory;
+
+  static final _item = InventoryItem(
+    id: 'container-1',
+    displayId: '在庫-2026-001',
+    varietyName: 'ヘイワード',
+    gradeCode: 'M',
+    originalWeightHundredths: 1000,
+    currentWeightHundredths: 925,
+    reservedWeightHundredths: 200,
+    status: InventoryStatus.coldStorage,
+    locationCode: 'cold-01',
+    locationName: '第一冷蔵庫',
+    updatedAt: DateTime(2026, 9, 8, 9),
+  );
+
+  @override
+  Future<InventoryPageData> loadPage(InventoryQuery query) async =>
+      InventoryPageData(
+        items: [
+          _item,
+          InventoryItem(
+            id: 'container-2',
+            displayId: '在庫-2026-002',
+            varietyName: '香緑',
+            gradeCode: 'L',
+            originalWeightHundredths: 820,
+            currentWeightHundredths: 820,
+            reservedWeightHundredths: 0,
+            status: InventoryStatus.shippable,
+            locationCode: 'cold-02',
+            locationName: '第二冷蔵庫',
+            updatedAt: DateTime(2026, 9, 8, 8),
+          ),
+        ],
+        totalCount: 2,
+        page: query.page,
+        pageSize: query.pageSize,
+      );
+
+  @override
+  Future<InventoryDetailData> loadDetail(String containerId) async =>
+      InventoryDetailData(
+        item: _item,
+        source: InventorySource(
+          sortingDisplayId: '選果-2026-001',
+          sortedOn: DateTime(2026, 9, 2),
+          sortingWorkerName: '作業者A',
+          receivingDisplayId: '受入-2026-001',
+          receivedOn: DateTime(2026, 9, 1),
+          sourceType: 'harvest',
+          originName: '第一圃場 A区画',
+        ),
+        history: canViewHistory
+            ? [
+                InventoryHistoryEntry(
+                  operation: 'create',
+                  reason: '選果確定により作成',
+                  changedAt: DateTime(2026, 9, 2, 14, 30),
+                  changedBy: '管理者A',
+                ),
+              ]
+            : const [],
+        canViewHistory: canViewHistory,
+      );
 }
 
 class _GoldenReceivingRepository implements ReceivingRepository {
