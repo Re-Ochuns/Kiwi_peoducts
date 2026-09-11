@@ -35,6 +35,7 @@ void main() {
     expect(find.widgetWithText(TextField, '選果-2026'), findsOneWidget);
     expect(find.text('冷蔵保管'), findsOneWidget);
     expect(find.text('在庫ID順'), findsOneWidget);
+    expect(find.byType(Icon), findsNothing);
 
     await tester.tap(find.byKey(const Key('csv-submit')));
     await tester.pumpAndSettle();

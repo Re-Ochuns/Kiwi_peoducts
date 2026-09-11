@@ -156,6 +156,7 @@ class _CsvExportDialogState extends State<CsvExportDialog> {
                         DropdownButtonFormField<CsvDataset>(
                           key: const Key('csv-dataset'),
                           initialValue: _dataset,
+                          icon: const SizedBox.shrink(),
                           decoration: const InputDecoration(labelText: '出力対象'),
                           items: [
                             for (final dataset in CsvDataset.values)
@@ -324,6 +325,7 @@ class _CsvExportDialogState extends State<CsvExportDialog> {
   }) => DropdownButtonFormField<String>(
     key: key,
     initialValue: value,
+    icon: const SizedBox.shrink(),
     decoration: InputDecoration(labelText: label),
     items: [
       for (final entry in values.entries)
