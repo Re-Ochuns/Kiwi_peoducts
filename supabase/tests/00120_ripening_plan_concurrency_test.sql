@@ -57,7 +57,7 @@ begin
 end;
 $$;
 select extensions.dblink_connect('plan53',
-  'host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres application_name=plan53_concurrency');
+  'host=supabase_db_kiwi_products port=5432 dbname=postgres user=postgres password=postgres application_name=plan53_concurrency');
 create temporary table test53_results(label text,result jsonb);
 begin;
 insert into test53_results values('winner',
