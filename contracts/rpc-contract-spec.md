@@ -29,7 +29,7 @@
 | 出荷 | shipment | `shipment_confirm` |
 | ラベル | label | `label_mark_printed` |
 | 作業タスク | task | `task_complete` |
-| マスター | master | `master_variety_update` |
+| マスター | master | `master_update` |
 
 | 操作 | 意味 |
 |---|---|
@@ -42,6 +42,8 @@
 | mark_printed | ラベルの印刷済み枚数を記録し、必要枚数到達で完了する（ラベル領域） |
 | mark_handwritten | ラベルを手書き対応で完了する（ラベル領域） |
 | reprint | 印刷済みラベルを理由付きで再印刷する（ラベル領域） |
+| deactivate | 削除の代わりの無効化。参照済みデータを残したまま選択肢から外す（マスター領域） |
+| activate | 無効化したデータの再有効化（マスター領域） |
 
 表にない領域・操作が必要な場合は、個別契約のレビューで英語名を確定し本表へ追記する。
 
