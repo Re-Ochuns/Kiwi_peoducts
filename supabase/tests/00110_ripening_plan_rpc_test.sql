@@ -138,5 +138,38 @@ select ok(exists(select 1 from public.change_history where entity_type='order' a
 reset role;
 select ok(not has_function_privilege('anon','public.ripening_plan_register(jsonb)','execute'),'anon cannot execute');
 select ok(not has_function_privilege('authenticated','private.ripening_plan_action(text,jsonb,uuid,uuid)','execute'),'private action inaccessible');
+-- Regression: persist normalized values rather than the original JSON lines.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','53000000-0000-0000-0000-000000000003',true);
+select set_config('test.normalized',public.ripening_plan_register(pg_temp.req(
+ pg_temp.plan_input()||'{"reservations":[],"allocations":[
+ {"allocation_type":" reserve ","order_id":"","allocated_weight_kg":6,"notes":"  normalized  "}]}'))::text,true);
+select is(current_setting('test.normalized')::jsonb->>'ok','true','normalized reserve registration succeeds');
+select is(current_setting('test.normalized')::jsonb->'data'->'allocations'->0->>'allocation_type',
+ 'reserve','allocation type is trimmed before persistence');
+select is(current_setting('test.normalized')::jsonb->'data'->'allocations'->0->'order_id',
+ 'null'::jsonb,'empty optional order UUID persists as null');
+select is(current_setting('test.normalized')::jsonb->'data'->'allocations'->0->>'notes',
+ 'normalized','allocation notes are normalized');
+select set_config('test.normalized',public.ripening_plan_update(pg_temp.req(
+ pg_temp.plan_input(1)||jsonb_build_object(
+ 'ripening_lot_id',current_setting('test.normalized')::jsonb->'data'->>'id',
+ 'expected_version',1,'reason','normalization regression',
+ 'allocations',jsonb_build_array(jsonb_build_object('allocation_type',' order ',
+ 'order_id',' 53300000-0000-0000-0000-000000000001 ','allocated_weight_kg',1)),
+ 'reservations',jsonb_build_array(jsonb_build_object(
+ 'container_id',' 53500000-0000-0000-0000-000000000001 ',
+ 'reserved_weight_kg',1,'notes','  ')))))::text,true);
+select is(current_setting('test.normalized')::jsonb->>'ok','true','normalized order allocation update succeeds');
+select is(current_setting('test.normalized')::jsonb->'data'->'allocations'->0->>'allocation_type',
+ 'order','order allocation type is normalized');
+select is(current_setting('test.normalized')::jsonb->'data'->'reservations'->0->>'container_id',
+ '53500000-0000-0000-0000-000000000001','reservation UUID is normalized');
+select is(current_setting('test.normalized')::jsonb->'data'->'reservations'->0->'notes',
+ 'null'::jsonb,'blank reservation notes persist as null');
+select is(public.ripening_plan_register(pg_temp.req(pg_temp.plan_input()||
+ '{"reservations":[],"allocations":[{"allocation_type":"reserve","order_id":"invalid","allocated_weight_kg":6}]}'
+ ))->'error'->>'code','VALIDATION_FAILED','invalid optional UUID remains a business error');
+reset role;
 select * from finish();
 rollback;

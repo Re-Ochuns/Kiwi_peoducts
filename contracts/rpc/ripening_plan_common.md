@@ -26,6 +26,9 @@ reservations: [{container_id: UUID, reserved_weight_kg: number, notes?: string}]
 同一コンテナの重複不可。冷蔵・品種等級一致、現在量−全予約量以内。
 下書きは空配列・不足合計を許容し、各合計は追熟重量以下。
 確定時は両合計が追熟重量と完全一致する必要がある。
+内訳・予約の文字列とUUIDは共通入力ヘルパーで正規化した値を保存する。
+用途区分・UUID・備考の前後空白を除去し、任意のorder_idと備考の空文字はnullにする。
+予備内訳に非nullのorder_id、不正なUUIDを指定した場合はVALIDATION_FAILEDとする。
 
 有効な作業者（member）・管理者が同じ権限で操作できる。匿名・pendingは禁止。
 参照はsecurity invokerと既存RLSを使う。

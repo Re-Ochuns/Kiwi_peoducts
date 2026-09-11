@@ -42,6 +42,7 @@ declare
   weight_value numeric; start_value timestamptz; end_value timestamptz;
   line jsonb; field_name text; key_value text; seen text[]; sum_value numeric;
   line_weight numeric; order_value uuid; type_value text;
+  normalized jsonb := '{}'::jsonb; normalized_lines jsonb; normalized_line jsonb;
 begin
   v := private.rpc_input_uuid(input_value,'variety_id',true);
   g := private.rpc_input_uuid(input_value,'grade_id',true);
@@ -65,7 +66,7 @@ begin
       perform private.rpc_fail('KW400','VALIDATION_FAILED','内訳・予約は100行以内の配列を指定してください。',
         jsonb_build_object('field',field_name,'reason','invalid_type'));
     end if;
-    seen := array[]::text[]; sum_value := 0;
+    seen := array[]::text[]; sum_value := 0; normalized_lines := '[]'::jsonb;
     for line in select value from jsonb_array_elements(input_value->field_name) loop
       if jsonb_typeof(line)<>'object' then
         perform private.rpc_fail('KW400','VALIDATION_FAILED','行の形式が正しくありません。');
@@ -82,12 +83,17 @@ begin
         end if;
         key_value := coalesce(order_value::text,'reserve');
         line_weight := private.rpc_input_weight(line,'allocated_weight_kg',true,false);
+        normalized_line := jsonb_build_object('allocation_type',type_value,
+          'order_id',order_value,'allocated_weight_kg',line_weight);
       else
         perform private.customer_order_validate_keys(line,array['container_id','reserved_weight_kg','notes']);
         key_value := private.rpc_input_uuid(line,'container_id',true)::text;
         line_weight := private.rpc_input_weight(line,'reserved_weight_kg',true,false);
+        normalized_line := jsonb_build_object('container_id',key_value::uuid,
+          'reserved_weight_kg',line_weight);
       end if;
-      perform private.rpc_input_text(line,'notes',false);
+      normalized_line := normalized_line || jsonb_build_object('notes',private.rpc_input_text(line,'notes',false));
+      normalized_lines := normalized_lines || jsonb_build_array(normalized_line);
       if key_value=any(seen) then
         perform private.rpc_fail('KW400','VALIDATION_FAILED','内訳・予約に重複があります。',
           jsonb_build_object('field',field_name,'reason','duplicate'));
@@ -98,12 +104,13 @@ begin
       perform private.rpc_fail('KW400','RIPENING_WEIGHT_MISMATCH','内訳・予約合計が追熟重量を超えています。',
         jsonb_build_object('field',field_name,'total_weight_kg',weight_value,'actual_weight_kg',sum_value));
     end if;
+    normalized := normalized || jsonb_build_object(field_name,normalized_lines);
   end loop;
   return jsonb_build_object('variety_id',v,'grade_id',g,'total_weight_kg',weight_value,
     'storage_location_id',location_value,'assigned_worker_id',worker_value,
     'planned_ethylene_at',start_value,'planned_completion_at',end_value,
     'notes',private.rpc_input_text(input_value,'notes',false),
-    'allocations',input_value->'allocations','reservations',input_value->'reservations');
+    'allocations',normalized->'allocations','reservations',normalized->'reservations');
 end;
 $$;
 
