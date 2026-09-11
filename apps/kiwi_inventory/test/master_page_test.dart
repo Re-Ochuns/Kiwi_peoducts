@@ -8,6 +8,7 @@ import 'package:kiwi_inventory/master/master_page.dart';
 import 'package:kiwi_inventory/master/master_repository.dart';
 
 import 'support/fake_master_repository.dart';
+import 'support/fake_csv_export_repository.dart';
 
 void main() {
   group('マスター一覧', () {
@@ -85,6 +86,54 @@ void main() {
       await tester.tap(find.text('すべて').last);
       await tester.pumpAndSettle();
       expect(find.text('koryoku'), findsOneWidget);
+    });
+
+    testWidgets('表示中の種類・検索・有効状態をCSV出力へ引き継ぐ', (tester) async {
+      await _pumpMaster(
+        tester,
+        FakeMasterRepository(),
+        csvExportRepository: FakeCsvExportRepository(),
+      );
+      await tester.tap(find.byKey(const Key('master-type')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('作業者').last);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('master-search')), '作業者A');
+      await tester.tap(find.byKey(const Key('master-status')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('すべて').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('master-csv-export')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('CSV出力'), findsWidgets);
+      expect(find.text('作業者'), findsWidgets);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('csv-master-search')))
+            .controller
+            ?.text,
+        '作業者A',
+      );
+      expect(find.text('すべて'), findsWidgets);
+    });
+
+    testWidgets('閲覧利用者もマスターCSVを出力でき変更履歴は選べない', (tester) async {
+      await _pumpMaster(
+        tester,
+        FakeMasterRepository(canManage: false),
+        csvExportRepository: FakeCsvExportRepository(),
+      );
+
+      expect(find.byKey(const Key('master-csv-export')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('master-csv-export')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('csv-dataset')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('在庫'), findsOneWidget);
+      expect(find.text('変更履歴'), findsNothing);
     });
 
     testWidgets('段階1の9種類を一覧できる', (tester) async {
@@ -305,12 +354,16 @@ Future<void> _pumpMaster(
   WidgetTester tester,
   FakeMasterRepository repository, {
   Size size = const Size(1280, 900),
+  FakeCsvExportRepository? csvExportRepository,
 }) async {
   await _setSurface(tester, size);
   await tester.pumpWidget(
     MaterialApp(
       theme: buildAppTheme(),
-      home: MasterPage(repository: repository),
+      home: MasterPage(
+        repository: repository,
+        csvExportRepository: csvExportRepository,
+      ),
     ),
   );
   await tester.pumpAndSettle();

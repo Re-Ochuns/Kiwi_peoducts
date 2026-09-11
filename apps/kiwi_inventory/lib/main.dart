@@ -9,6 +9,8 @@ import 'core/app_breakpoints.dart';
 import 'core/app_config.dart';
 import 'core/app_theme.dart';
 import 'core/common_state_view.dart';
+import 'csv_export/csv_export_repository.dart';
+import 'csv_export/supabase_csv_export_repository.dart';
 import 'inventory/inventory_page.dart';
 import 'inventory/inventory_repository.dart';
 import 'inventory/supabase_inventory_repository.dart';
@@ -40,6 +42,8 @@ Future<void> main() async {
     runApp(
       KiwiInventoryApp(
         authRepository: repository,
+        csvExportRepository:
+            SupabaseCsvExportRepository.fromInitializedClient(),
         masterRepository: SupabaseMasterRepository.fromInitializedClient(),
         inventoryRepository:
             SupabaseInventoryRepository.fromInitializedClient(),
@@ -63,6 +67,7 @@ class KiwiInventoryApp extends StatelessWidget {
     this.authRepository,
     this.startupError,
     this.currentDate,
+    this.csvExportRepository,
     this.masterRepository,
     this.labelRepository,
     this.sortingRepository,
@@ -75,6 +80,7 @@ class KiwiInventoryApp extends StatelessWidget {
   final AuthRepository? authRepository;
   final String? startupError;
   final DateTime? currentDate;
+  final CsvExportRepository? csvExportRepository;
   final MasterRepository? masterRepository;
   final LabelRepository? labelRepository;
   final ReceivingRepository? receivingRepository;
@@ -109,6 +115,7 @@ class KiwiInventoryApp extends StatelessWidget {
         authenticatedBuilder: (_, signOut) => ResponsiveHomePage(
           onSignOut: signOut,
           currentDate: currentDate,
+          csvExportRepository: csvExportRepository,
           masterRepository: masterRepository,
           labelRepository: labelRepository,
           sortingRepository: sortingRepository,
@@ -124,6 +131,7 @@ class ResponsiveHomePage extends StatelessWidget {
   const ResponsiveHomePage({
     this.onSignOut,
     this.currentDate,
+    this.csvExportRepository,
     this.masterRepository,
     this.labelRepository,
     this.sortingRepository,
@@ -132,6 +140,7 @@ class ResponsiveHomePage extends StatelessWidget {
     super.key,
   });
   final DateTime? currentDate;
+  final CsvExportRepository? csvExportRepository;
   final MasterRepository? masterRepository;
   final LabelRepository? labelRepository;
   final ReceivingRepository? receivingRepository;
@@ -148,12 +157,14 @@ class ResponsiveHomePage extends StatelessWidget {
           ? ManagerHomePage(
               onSignOut: onSignOut,
               currentDate: currentDate,
+              csvExportRepository: csvExportRepository,
               masterRepository: masterRepository,
               inventoryRepository: inventoryRepository,
             )
           : WorkerHomePage(
               onSignOut: onSignOut,
               currentDate: currentDate,
+              csvExportRepository: csvExportRepository,
               labelRepository: labelRepository,
               sortingRepository: sortingRepository,
               receivingRepository: receivingRepository,
@@ -225,6 +236,7 @@ class WorkerHomePage extends StatelessWidget {
   const WorkerHomePage({
     this.onSignOut,
     this.currentDate,
+    this.csvExportRepository,
     this.labelRepository,
     this.sortingRepository,
     this.receivingRepository,
@@ -232,6 +244,7 @@ class WorkerHomePage extends StatelessWidget {
     super.key,
   });
   final DateTime? currentDate;
+  final CsvExportRepository? csvExportRepository;
   final LabelRepository? labelRepository;
   final ReceivingRepository? receivingRepository;
   final InventoryRepository? inventoryRepository;
@@ -383,7 +396,10 @@ class WorkerHomePage extends StatelessWidget {
     }
     Navigator.of(context).push(
       PageRouteBuilder<void>(
-        pageBuilder: (_, _, _) => InventoryPage(repository: repository),
+        pageBuilder: (_, _, _) => InventoryPage(
+          repository: repository,
+          csvExportRepository: csvExportRepository,
+        ),
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,
       ),
@@ -395,11 +411,13 @@ class ManagerHomePage extends StatelessWidget {
   const ManagerHomePage({
     this.onSignOut,
     this.currentDate,
+    this.csvExportRepository,
     this.masterRepository,
     this.inventoryRepository,
     super.key,
   });
   final DateTime? currentDate;
+  final CsvExportRepository? csvExportRepository;
   final MasterRepository? masterRepository;
   final InventoryRepository? inventoryRepository;
 
@@ -512,11 +530,13 @@ class ManagerHomePage extends StatelessWidget {
       '在庫管理' when inventoryRepository != null => ManagerInventoryPage(
         repository: inventoryRepository!,
         masterRepository: masterRepository,
+        csvExportRepository: csvExportRepository,
         onSignOut: onSignOut,
       ),
       'マスター' when masterRepository != null => ManagerMasterPage(
         repository: masterRepository!,
         inventoryRepository: inventoryRepository,
+        csvExportRepository: csvExportRepository,
         onSignOut: onSignOut,
       ),
       _ => null,
@@ -539,12 +559,14 @@ class ManagerMasterPage extends StatelessWidget {
   const ManagerMasterPage({
     required this.repository,
     this.inventoryRepository,
+    this.csvExportRepository,
     this.onSignOut,
     super.key,
   });
 
   final MasterRepository repository;
   final InventoryRepository? inventoryRepository;
+  final CsvExportRepository? csvExportRepository;
   final VoidCallback? onSignOut;
 
   @override
@@ -568,6 +590,7 @@ class ManagerMasterPage extends StatelessWidget {
                   pageBuilder: (_, _, _) => ManagerInventoryPage(
                     repository: inventoryRepository!,
                     masterRepository: repository,
+                    csvExportRepository: csvExportRepository,
                     onSignOut: onSignOut,
                   ),
                   transitionDuration: Duration.zero,
@@ -580,7 +603,13 @@ class ManagerMasterPage extends StatelessWidget {
           },
         ),
         const VerticalDivider(width: 1),
-        Expanded(child: MasterPage(repository: repository, embedded: true)),
+        Expanded(
+          child: MasterPage(
+            repository: repository,
+            csvExportRepository: csvExportRepository,
+            embedded: true,
+          ),
+        ),
       ],
     ),
   );
@@ -590,12 +619,14 @@ class ManagerInventoryPage extends StatelessWidget {
   const ManagerInventoryPage({
     required this.repository,
     this.masterRepository,
+    this.csvExportRepository,
     this.onSignOut,
     super.key,
   });
 
   final InventoryRepository repository;
   final MasterRepository? masterRepository;
+  final CsvExportRepository? csvExportRepository;
   final VoidCallback? onSignOut;
 
   @override
@@ -619,6 +650,7 @@ class ManagerInventoryPage extends StatelessWidget {
                   pageBuilder: (_, _, _) => ManagerMasterPage(
                     repository: masterRepository!,
                     inventoryRepository: repository,
+                    csvExportRepository: csvExportRepository,
                     onSignOut: onSignOut,
                   ),
                   transitionDuration: Duration.zero,
@@ -631,7 +663,13 @@ class ManagerInventoryPage extends StatelessWidget {
           },
         ),
         const VerticalDivider(width: 1),
-        Expanded(child: InventoryPage(repository: repository, embedded: true)),
+        Expanded(
+          child: InventoryPage(
+            repository: repository,
+            csvExportRepository: csvExportRepository,
+            embedded: true,
+          ),
+        ),
       ],
     ),
   );

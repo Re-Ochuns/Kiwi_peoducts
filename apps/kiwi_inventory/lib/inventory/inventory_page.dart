@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 
 import '../core/common_state_view.dart';
+import '../csv_export/csv_export_dialog.dart';
+import '../csv_export/csv_export_repository.dart';
 import 'inventory_repository.dart';
 
 class InventoryPage extends StatefulWidget {
   const InventoryPage({
     required this.repository,
+    this.csvExportRepository,
     this.embedded = false,
     super.key,
   });
 
   final InventoryRepository repository;
+  final CsvExportRepository? csvExportRepository;
   final bool embedded;
 
   @override
@@ -105,9 +109,21 @@ class _InventoryPageState extends State<InventoryPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              '在庫参照',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    '在庫参照',
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                if (widget.csvExportRepository != null)
+                  OutlinedButton(
+                    key: const Key('inventory-csv-export'),
+                    onPressed: _loading || _data == null ? null : _openCsv,
+                    child: const Text('CSV出力'),
+                  ),
+              ],
             ),
             const SizedBox(height: 22),
             _Filters(
@@ -205,6 +221,7 @@ class _InventoryPageState extends State<InventoryPage> {
                   : InventoryDetail(
                       key: ValueKey(_selectedId),
                       repository: widget.repository,
+                      csvExportRepository: widget.csvExportRepository,
                       containerId: _selectedId!,
                       compact: true,
                     ),
@@ -220,12 +237,32 @@ class _InventoryPageState extends State<InventoryPage> {
       PageRouteBuilder<void>(
         pageBuilder: (_, _, _) => InventoryDetailPage(
           repository: widget.repository,
+          csvExportRepository: widget.csvExportRepository,
           containerId: item.id,
           displayId: item.displayId,
         ),
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,
       ),
+    );
+  }
+
+  Future<void> _openCsv() async {
+    final repository = widget.csvExportRepository;
+    if (repository == null) return;
+    final result = await showCsvExportDialog(
+      context: context,
+      repository: repository,
+      initialRequest: CsvExportRequest.inventory(
+        search: _query.search,
+        status: _query.status?.value,
+        sort: _query.sort.rpcValue,
+      ),
+      availableDatasets: const {CsvDataset.inventory, CsvDataset.masters},
+    );
+    if (!mounted || result == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${result.rowCount}件のCSV保存を開始しました。')),
     );
   }
 }
@@ -600,10 +637,12 @@ class InventoryDetailPage extends StatelessWidget {
     required this.repository,
     required this.containerId,
     required this.displayId,
+    this.csvExportRepository,
     super.key,
   });
 
   final InventoryRepository repository;
+  final CsvExportRepository? csvExportRepository;
   final String containerId;
   final String displayId;
 
@@ -620,6 +659,7 @@ class InventoryDetailPage extends StatelessWidget {
     body: SafeArea(
       child: InventoryDetail(
         repository: repository,
+        csvExportRepository: csvExportRepository,
         containerId: containerId,
         displayId: displayId,
       ),
@@ -631,12 +671,14 @@ class InventoryDetail extends StatefulWidget {
   const InventoryDetail({
     required this.repository,
     required this.containerId,
+    this.csvExportRepository,
     this.displayId,
     this.compact = false,
     super.key,
   });
 
   final InventoryRepository repository;
+  final CsvExportRepository? csvExportRepository;
   final String containerId;
   final String? displayId;
   final bool compact;
@@ -733,7 +775,10 @@ class _InventoryDetailState extends State<InventoryDetail> {
         const SizedBox(height: 28),
         _SourceSection(source: data.source),
         const SizedBox(height: 28),
-        _HistorySection(data: data),
+        _HistorySection(
+          data: data,
+          csvExportRepository: widget.csvExportRepository,
+        ),
       ],
     );
     return SingleChildScrollView(
@@ -859,9 +904,10 @@ class _SourceSection extends StatelessWidget {
 }
 
 class _HistorySection extends StatelessWidget {
-  const _HistorySection({required this.data});
+  const _HistorySection({required this.data, this.csvExportRepository});
 
   final InventoryDetailData data;
+  final CsvExportRepository? csvExportRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -871,44 +917,78 @@ class _HistorySection extends StatelessWidget {
         rows: [('閲覧権限', '変更履歴は管理者のみ確認できます。')],
       );
     }
-    if (data.history.isEmpty) {
-      return const _DetailSection(title: '変更履歴', rows: [('履歴', '記録はありません。')]);
-    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          '変更履歴',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                '変更履歴',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+            ),
+            if (csvExportRepository != null)
+              OutlinedButton(
+                key: const Key('history-csv-export'),
+                onPressed: () => _exportHistory(context),
+                child: const Text('履歴CSV出力'),
+              ),
+          ],
         ),
         const SizedBox(height: 8),
-        for (final entry in data.history)
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: Color(0xFFCBD1CD))),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${entry.operationLabel}　${_formatDateTime(entry.changedAt)}',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 4),
-                Text(entry.reason),
-                const SizedBox(height: 3),
-                Text(
-                  '担当 ${entry.changedBy}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF56605A),
+        if (data.history.isEmpty)
+          const Text('記録はありません。')
+        else
+          for (final entry in data.history)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: Color(0xFFCBD1CD))),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${entry.operationLabel}　${_formatDateTime(entry.changedAt)}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(entry.reason),
+                  const SizedBox(height: 3),
+                  Text(
+                    '担当 ${entry.changedBy}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF56605A),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
       ],
+    );
+  }
+
+  Future<void> _exportHistory(BuildContext context) async {
+    final repository = csvExportRepository;
+    if (repository == null) return;
+    final result = await showCsvExportDialog(
+      context: context,
+      repository: repository,
+      initialRequest: CsvExportRequest.history(
+        entityType: 'container',
+        entityId: data.item.id,
+      ),
+      availableDatasets: const {
+        CsvDataset.inventory,
+        CsvDataset.masters,
+        CsvDataset.history,
+      },
+    );
+    if (!context.mounted || result == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${result.rowCount}件のCSV保存を開始しました。')),
     );
   }
 }
