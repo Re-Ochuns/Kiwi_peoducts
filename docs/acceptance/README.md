@@ -21,6 +21,12 @@ make FLUTTER="fvm flutter" DART="fvm dart" \
   PDF_PYTHON=/tmp/kiwi-stage1-pdf/bin/python stage1-acceptance
 ```
 
+Goldenの正本はUbuntu GitHub Actionsの`flutter-golden`結果とartifactとする。
+LinuxではローカルGoldenも補助的に実行するが、`TZ=UTC`だけでOS間の描画差は
+固定できない。非LinuxではGoldenをNot Runとして残りの検査を継続し、
+GitHub Actionsが成功するまで段階1の自動検証を合格としない。
+Issue #32のmacOS描画差は段階1のGo/No-Go判定対象外とする。
+
 Dockerを利用できない端末やPDF検証環境を分離する場合だけ、
 `STAGE1_SKIP_DATABASE=1`または`STAGE1_SKIP_PDF=1`を指定する。
 スキップした項目は合格として扱わず、別の実行証跡を記録する。

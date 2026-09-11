@@ -10,6 +10,7 @@ read -r -a npm_command <<< "${NPM_CMD:-npm}"
 read -r -a pdf_python_command <<< "${PDF_PYTHON:-python3}"
 
 database_started_here=0
+golden_result="not-run"
 
 cleanup() {
   if [[ "$database_started_here" == "1" ]]; then
@@ -46,11 +47,17 @@ step "Flutter tests"
   "${flutter_command[@]}" test --exclude-tags golden
 )
 
-step "Flutter Golden tests"
-(
-  cd apps/kiwi_inventory
-  TZ=UTC "${flutter_command[@]}" test test/home_golden_test.dart
-)
+if [[ "$(uname -s)" == "Linux" ]]; then
+  step "Flutter Golden tests (Linux)"
+  (
+    cd apps/kiwi_inventory
+    TZ=UTC "${flutter_command[@]}" test test/home_golden_test.dart
+  )
+  golden_result="pass"
+else
+  step "Flutter Golden tests (not run)"
+  printf 'Goldenの正本はUbuntu GitHub Actionsです。非Linux環境では合格扱いにせずNot Runとします。\n'
+fi
 
 step "Flutter Web release build"
 (
@@ -78,4 +85,8 @@ else
   step "A5 label PDF (skipped)"
 fi
 
-printf '\nStage 1 automated acceptance checks passed.\n'
+if [[ "$golden_result" == "pass" ]]; then
+  printf '\nStage 1 local automated checks passed. Golden acceptance requires Ubuntu GitHub Actions.\n'
+else
+  printf '\nStage 1 local automated checks completed with Golden Not Run. Ubuntu GitHub Actions is required.\n'
+fi

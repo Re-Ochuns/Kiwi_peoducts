@@ -28,12 +28,15 @@
 | 固定バージョン | Pass | 2026-09-11、ローカル、受入スクリプトのバージョン照合 |
 | format / analyze | Pass | 2026-09-11、差分なし／No issues found |
 | Unit / Widget | Pass | 2026-09-11、93 tests passed |
-| Golden（UTC） | Pass | 2026-09-11、8 tests passed |
+| Golden（Ubuntu CI正本） | Pass | PR #46 `flutter-golden`、8 tests、artifact |
 | Web release build | Pass | 2026-09-11、`build/web`生成成功 |
 | DB reset / lint / pgTAP | Pass | 2026-09-11、lint 0件、8 files / 386 tests |
 | A5 PDF自動検査 | Pass | 2026-09-11、1 page、419.53 × 595.28 pt、埋込フォント1 |
 
 この結果はブランチ `codex/20-stage1-acceptance` のローカル事前検証である。
+固定件数と対象SHAは、Issue #11と#19がdevelopへマージされた後、
+最新developを取り込んで再実行した結果へ更新する。
+Goldenの合否はローカル結果ではなくUbuntu GitHub Actionsを正本とする。
 Staging環境、実機および現場で行う3節以降の受入結果を代替しない。
 
 実行コマンド:

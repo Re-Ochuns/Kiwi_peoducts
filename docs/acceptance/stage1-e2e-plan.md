@@ -101,8 +101,12 @@ P0/P1は解消または受入責任者の明示判断までGoにしない。
 `scripts/run_stage1_acceptance.sh`は次をまとめて実行する。
 
 - 固定ツールバージョン、format、analyze、Unit・Widgetテスト。
-- UTC環境のGolden、Flutter Web release build。
+- Linux環境の補助Golden、Flutter Web release build。
 - migration再構築、DB lint、RLS・RPC・競合pgTAP。
 - A5 PDFの寸法、埋め込みフォント、必須文字列、安全余白検査。
+
+Goldenの正本はUbuntu GitHub Actionsの`flutter-golden`結果とartifactとする。
+非LinuxローカルではGoldenをNot Runとし、スクリプト全体を中断せず残りを検査する。
+Not Runは合格ではなく、Issue #32のmacOS描画差は段階1の判定対象外とする。
 
 自動検証の成功は実機印刷、Staging、複数端末、現場確認の代替ではない。

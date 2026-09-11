@@ -12,6 +12,8 @@
 - P0/P1の未解決不具合が0件。
 - P2以下の残課題すべてに責任者と対応期限がある。
 - 自動受入コマンドと対象SHAのGitHub CIが成功。
+- GoldenはUbuntu GitHub Actionsの`flutter-golden`結果とartifactで判定する。
+  Issue #32のmacOS描画差は段階1判定では対象外とする。
 
 ## 現在の判定
 
@@ -19,9 +21,9 @@
 |---|---|
 | 判定 | **No-Go（継続対応）** |
 | 判定日 | 2026-09-11 |
-| 対象SHA | `45857e7` + `codex/20-stage1-acceptance` の作業差分 |
-| 自動検証 | Pass（Flutter 93件、Golden 8件、DB 386件、Web、PDF） |
-| 依存Issue | #19がOpen |
+| 対象SHA | PR #46 head（依存マージ後に最新developで再確定） |
+| 自動検証 | 暫定Pass（依存マージ後に件数・SHAを更新） |
+| 依存Issue | #11、#19がOpen |
 | Staging E2E | 未実施 |
 | 実機印刷 | 未実施 |
 | 手書き復旧 | 未実施 |
@@ -30,7 +32,8 @@
 | 現場担当者確認 | 未実施 |
 
 No-Goは製品不合格の確定ではなく、判定に必要な証跡が未完了であることを示す。
-CSV出力のIssue #19完了後に全シナリオをStagingで実行し、受入責任者が再判定する。
+Issue #11と#19がdevelopへマージされた後、最新SHAで自動受入を再実行する。
+その後に全シナリオをStagingで実行し、受入責任者が再判定する。
 
 ## 承認
 
