@@ -38,6 +38,15 @@ void main() {
       });
     }
 
+    testWidgets('不要な説明と選択欄の装飾矢印を表示しない', (tester) async {
+      await _pumpInventory(tester, FakeInventoryRepository());
+
+      expect(find.text('在庫ID、数量、状態、保管場所を確認できます。'), findsNothing);
+      expect(find.text('↓'), findsNothing);
+      final status = tester.widget<Text>(find.text('冷蔵保管'));
+      expect(status.style?.fontSize, 14);
+    });
+
     testWidgets('在庫ID・状態・並び順を指定して再取得する', (tester) async {
       final repository = FakeInventoryRepository();
       await _pumpInventory(tester, repository);

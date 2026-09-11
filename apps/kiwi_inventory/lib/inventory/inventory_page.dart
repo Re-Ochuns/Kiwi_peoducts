@@ -109,11 +109,6 @@ class _InventoryPageState extends State<InventoryPage> {
               '在庫参照',
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
             ),
-            const SizedBox(height: 6),
-            const Text(
-              '在庫ID、数量、状態、保管場所を確認できます。',
-              style: TextStyle(fontSize: 14, color: Color(0xFF56605A)),
-            ),
             const SizedBox(height: 22),
             _Filters(
               searchController: _searchController,
@@ -275,7 +270,7 @@ class _Filters extends StatelessWidget {
     final statusField = DropdownButtonFormField<InventoryStatus?>(
       key: const Key('inventory-status-filter'),
       initialValue: status,
-      icon: const Text('↓', style: TextStyle(fontSize: 18)),
+      icon: const SizedBox.shrink(),
       decoration: const InputDecoration(labelText: '状態'),
       items: [
         const DropdownMenuItem(value: null, child: Text('すべて')),
@@ -287,7 +282,7 @@ class _Filters extends StatelessWidget {
     final sortField = DropdownButtonFormField<InventorySort>(
       key: const Key('inventory-sort'),
       initialValue: sort,
-      icon: const Text('↓', style: TextStyle(fontSize: 18)),
+      icon: const SizedBox.shrink(),
       decoration: const InputDecoration(labelText: '並び順'),
       items: [
         for (final value in InventorySort.values)
@@ -565,7 +560,7 @@ class InventoryStatusLabel extends StatelessWidget {
     ),
     child: Text(
       status.label,
-      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
     ),
   );
 }
