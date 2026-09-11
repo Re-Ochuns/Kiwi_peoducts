@@ -9,6 +9,9 @@ import 'core/app_breakpoints.dart';
 import 'core/app_config.dart';
 import 'core/app_theme.dart';
 import 'core/common_state_view.dart';
+import 'inventory/inventory_page.dart';
+import 'inventory/inventory_repository.dart';
+import 'inventory/supabase_inventory_repository.dart';
 import 'receiving/receiving_page.dart';
 import 'receiving/receiving_repository.dart';
 import 'receiving/supabase_receiving_repository.dart';
@@ -31,6 +34,8 @@ Future<void> main() async {
     runApp(
       KiwiInventoryApp(
         authRepository: repository,
+        inventoryRepository:
+            SupabaseInventoryRepository.fromInitializedClient(),
         sortingRepository: SupabaseSortingRepository.fromInitializedClient(),
         receivingRepository:
             SupabaseReceivingRepository.fromInitializedClient(),
@@ -52,6 +57,7 @@ class KiwiInventoryApp extends StatelessWidget {
     this.currentDate,
     this.sortingRepository,
     this.receivingRepository,
+    this.inventoryRepository,
     this.theme,
     super.key,
   });
@@ -60,6 +66,7 @@ class KiwiInventoryApp extends StatelessWidget {
   final String? startupError;
   final DateTime? currentDate;
   final ReceivingRepository? receivingRepository;
+  final InventoryRepository? inventoryRepository;
   final SortingRepository? sortingRepository;
   final ThemeData? theme;
 
@@ -92,6 +99,7 @@ class KiwiInventoryApp extends StatelessWidget {
           currentDate: currentDate,
           sortingRepository: sortingRepository,
           receivingRepository: receivingRepository,
+          inventoryRepository: inventoryRepository,
         ),
       ),
     );
@@ -104,10 +112,12 @@ class ResponsiveHomePage extends StatelessWidget {
     this.currentDate,
     this.sortingRepository,
     this.receivingRepository,
+    this.inventoryRepository,
     super.key,
   });
   final DateTime? currentDate;
   final ReceivingRepository? receivingRepository;
+  final InventoryRepository? inventoryRepository;
   final SortingRepository? sortingRepository;
 
   final VoidCallback? onSignOut;
@@ -117,12 +127,17 @@ class ResponsiveHomePage extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) =>
           constraints.maxWidth >= AppBreakpoints.manager
-          ? ManagerHomePage(onSignOut: onSignOut, currentDate: currentDate)
+          ? ManagerHomePage(
+              onSignOut: onSignOut,
+              currentDate: currentDate,
+              inventoryRepository: inventoryRepository,
+            )
           : WorkerHomePage(
               onSignOut: onSignOut,
               currentDate: currentDate,
               sortingRepository: sortingRepository,
               receivingRepository: receivingRepository,
+              inventoryRepository: inventoryRepository,
             ),
     );
   }
@@ -192,10 +207,12 @@ class WorkerHomePage extends StatelessWidget {
     this.currentDate,
     this.sortingRepository,
     this.receivingRepository,
+    this.inventoryRepository,
     super.key,
   });
   final DateTime? currentDate;
   final ReceivingRepository? receivingRepository;
+  final InventoryRepository? inventoryRepository;
   final SortingRepository? sortingRepository;
 
   final VoidCallback? onSignOut;
@@ -246,6 +263,11 @@ class WorkerHomePage extends StatelessWidget {
                   ActionButton(
                     label: '追熟計画作成',
                     onPressed: () => preparing(context),
+                  ),
+                  const SizedBox(height: 10),
+                  ActionButton(
+                    label: '在庫参照',
+                    onPressed: () => _openInventory(context),
                   ),
                   const SizedBox(height: 32),
                   const SectionTitle('期限超過', count: '1件'),
@@ -310,11 +332,32 @@ class WorkerHomePage extends StatelessWidget {
       ),
     );
   }
+
+  void _openInventory(BuildContext context) {
+    final repository = inventoryRepository;
+    if (repository == null) {
+      preparing(context);
+      return;
+    }
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, _, _) => InventoryPage(repository: repository),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
+  }
 }
 
 class ManagerHomePage extends StatelessWidget {
-  const ManagerHomePage({this.onSignOut, this.currentDate, super.key});
+  const ManagerHomePage({
+    this.onSignOut,
+    this.currentDate,
+    this.inventoryRepository,
+    super.key,
+  });
   final DateTime? currentDate;
+  final InventoryRepository? inventoryRepository;
 
   final VoidCallback? onSignOut;
 
@@ -323,7 +366,10 @@ class ManagerHomePage extends StatelessWidget {
     return Scaffold(
       body: Row(
         children: [
-          ManagerNavigation(onSignOut: onSignOut),
+          ManagerNavigation(
+            onSignOut: onSignOut,
+            onSelected: (item) => _openNavigation(context, item),
+          ),
           const VerticalDivider(width: 1),
           Expanded(
             child: SingleChildScrollView(
@@ -416,12 +462,73 @@ class ManagerHomePage extends StatelessWidget {
       ),
     );
   }
+
+  void _openNavigation(BuildContext context, String item) {
+    if (item != '在庫管理' || inventoryRepository == null) {
+      preparing(context, '$item画面は準備中です');
+      return;
+    }
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, _, _) => ManagerInventoryPage(
+          repository: inventoryRepository!,
+          onSignOut: onSignOut,
+        ),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
+  }
+}
+
+class ManagerInventoryPage extends StatelessWidget {
+  const ManagerInventoryPage({
+    required this.repository,
+    this.onSignOut,
+    super.key,
+  });
+
+  final InventoryRepository repository;
+  final VoidCallback? onSignOut;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: Row(
+      children: [
+        ManagerNavigation(
+          selectedItem: '在庫管理',
+          onSignOut: onSignOut == null
+              ? null
+              : () {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                  onSignOut!.call();
+                },
+          onSelected: (item) {
+            if (item == 'ホーム') {
+              Navigator.of(context).pop();
+            } else {
+              preparing(context, '$item画面は準備中です');
+            }
+          },
+        ),
+        const VerticalDivider(width: 1),
+        Expanded(child: InventoryPage(repository: repository, embedded: true)),
+      ],
+    ),
+  );
 }
 
 class ManagerNavigation extends StatelessWidget {
-  const ManagerNavigation({this.onSignOut, super.key});
+  const ManagerNavigation({
+    this.onSignOut,
+    this.onSelected,
+    this.selectedItem = 'ホーム',
+    super.key,
+  });
 
   final VoidCallback? onSignOut;
+  final ValueChanged<String>? onSelected;
+  final String selectedItem;
   static const items = ['ホーム', '受注', '追熟計画', '在庫管理', '出荷', 'マスター'];
 
   @override
@@ -445,7 +552,11 @@ class ManagerNavigation extends StatelessWidget {
                 ),
                 const SizedBox(height: 28),
                 for (final item in items)
-                  NavigationItem(label: item, selected: item == 'ホーム'),
+                  NavigationItem(
+                    label: item,
+                    selected: item == selectedItem,
+                    onTap: () => onSelected?.call(item),
+                  ),
                 const Spacer(),
                 if (onSignOut != null)
                   Padding(
@@ -472,10 +583,12 @@ class NavigationItem extends StatelessWidget {
   const NavigationItem({
     required this.label,
     required this.selected,
+    this.onTap,
     super.key,
   });
   final String label;
   final bool selected;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -483,7 +596,9 @@ class NavigationItem extends StatelessWidget {
       selected: selected,
       button: true,
       child: InkWell(
-        onTap: selected ? null : () => preparing(context, '$label画面は準備中です'),
+        onTap: selected
+            ? null
+            : onTap ?? () => preparing(context, '$label画面は準備中です'),
         child: Container(
           constraints: const BoxConstraints(minHeight: 48),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
