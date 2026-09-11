@@ -399,6 +399,10 @@ begin
     raise exception 'reservation can only be deleted while lot is draft' using errcode = '23514';
   end if;
   if tg_op = 'UPDATE' then
+    if new.reserved_weight_kg is distinct from old.reserved_weight_kg
+      and lot_row.status <> 'draft' then
+      raise exception 'reservation weight can only be changed while lot is draft' using errcode = '23514';
+    end if;
     if old.status = 'active' and new.status = 'released' and lot_row.status <> 'draft' then
       raise exception 'reservation can only be released while lot is draft' using errcode = '23514';
     end if;

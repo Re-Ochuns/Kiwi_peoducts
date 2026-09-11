@@ -191,6 +191,19 @@ select lives_ok(
 );
 
 select throws_ok(
+  $$update public.inventory_reservations set reserved_weight_kg = 9.99
+    where id = '49200000-0000-0000-0000-000000000001'$$,
+  '23514', 'reservation weight can only be changed while lot is draft',
+  'confirmed reservation weight is immutable'
+);
+
+select is(
+  (select reserved_weight_kg::numeric from public.containers where id = '48500000-0000-0000-0000-000000000001'),
+  10.00::numeric,
+  'rejected reservation change keeps the container total consistent'
+);
+
+select throws_ok(
   $$insert into public.ripening_allocations (ripening_lot_id, allocation_type, allocated_weight_kg)
     values ('49000000-0000-0000-0000-000000000001', 'reserve', 0.01)$$,
   '23514', 'ripening allocations can only change while lot is draft',
