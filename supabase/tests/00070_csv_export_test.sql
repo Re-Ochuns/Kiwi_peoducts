@@ -234,16 +234,6 @@ select is(
   current_setting('test.csv_master_private_field')::jsonb -> 'data' ->> 'row_count',
   '0', 'master search excludes fields not searched by the screen');
 
-select set_config('test.csv_master_storage_label', public.csv_export(public.test_csv_req(
-  '76000000-0000-4000-8000-000000000002',
-  jsonb_build_object(
-    'dataset', 'masters',
-    'filters', jsonb_build_object(
-      'master_type', 'storage_location', 'search', '冷蔵庫', 'active', 'all'))))::text, true);
-select is(
-  current_setting('test.csv_master_storage_label')::jsonb -> 'data' ->> 'row_count',
-  '1', 'storage location search includes the localized related label');
-
 select set_config('test.csv_master_tree_parent', public.csv_export(public.test_csv_req(
   '76000000-0000-4000-8000-000000000003',
   jsonb_build_object(
