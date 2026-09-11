@@ -235,6 +235,8 @@ begin
   elsif master_type_value = 'sorting_deadline_rule' then
     select concat_ws(' ', result_value, v.code, v.name) into result_value
     from public.varieties v where v.id = (row_value ->> 'variety_id')::uuid;
+  else
+    result_value := concat_ws(' ', result_value, '—');
   end if;
   return coalesce(result_value, '');
 end;

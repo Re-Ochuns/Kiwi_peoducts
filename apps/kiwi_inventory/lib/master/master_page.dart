@@ -87,6 +87,7 @@ class _MasterPageState extends State<MasterPage> {
               canExport:
                   widget.csvExportRepository != null &&
                   !_loading &&
+                  _failure == null &&
                   _catalog != null,
               onExport: _openCsv,
               onRegister: _openRegister,

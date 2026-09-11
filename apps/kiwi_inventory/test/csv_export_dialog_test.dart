@@ -89,6 +89,49 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('処理中は端末の戻る操作で閉じない', (tester) async {
+    final completer = Completer<CsvExportResult>();
+    final repository = _FakeCsvExportRepository(completer: completer);
+    var downloads = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showCsvExportDialog(
+              context: context,
+              repository: repository,
+              initialRequest: CsvExportRequest.inventory(
+                search: '',
+                sort: 'updated_desc',
+              ),
+              availableDatasets: const {CsvDataset.inventory},
+              downloader: (_, _) async {
+                downloads++;
+                return true;
+              },
+            ),
+            child: const Text('CSV出力を開く'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('CSV出力を開く'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('csv-submit')));
+    await tester.pump();
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+
+    expect(find.text('CSVを作成しています'), findsOneWidget);
+    expect(downloads, 0);
+
+    completer.complete(_result);
+    await tester.pumpAndSettle();
+    expect(downloads, 1);
+    expect(find.text('CSVを作成しています'), findsNothing);
+  });
+
   testWidgets('変更履歴の不正な日付はRPCを呼ばず日本語で示す', (tester) async {
     final repository = _FakeCsvExportRepository();
     await tester.pumpWidget(

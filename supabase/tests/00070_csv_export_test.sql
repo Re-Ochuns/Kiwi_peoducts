@@ -14,9 +14,9 @@ values
 select private.set_user_access('70000000-0000-0000-0000-000000000002', 'active', array['member']);
 select private.set_user_access('70000000-0000-0000-0000-000000000003', 'active', array['administrator']);
 
-insert into public.varieties (id, code, name) values
-  ('71000000-0000-0000-0000-000000000001', 'CSV-VAR', '=SUM(1,1)'),
-  ('71000000-0000-0000-0000-000000000010', 'CSV-PERCENT', 'CSV 100% fruit');
+insert into public.varieties (id, code, name, created_by) values
+  ('71000000-0000-0000-0000-000000000001', 'CSV-VAR', '=SUM(1,1)', '70000000-0000-0000-0000-000000000002'),
+  ('71000000-0000-0000-0000-000000000010', 'CSV-PERCENT', 'CSV 100% fruit', '70000000-0000-0000-0000-000000000002');
 insert into public.orchards (id, code, name) values
   ('71000000-0000-0000-0000-000000000002', 'CSV-ORCHARD', 'CSV農園');
 insert into public.orchard_plots (id, orchard_id, code, name) values
@@ -196,6 +196,63 @@ select ok(
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '70000000-0000-0000-0000-000000000002', true);
+
+select ok(
+  starts_with(
+    result.response -> 'data' ->> 'csv',
+    chr(65279) || cases.expected_header || E'\r\n'),
+  cases.master_type || ' master export has the contracted header')
+from (values
+  ('75000000-0000-4000-8000-000000000001', 'variety', '"内部ID","コード","品種名","有効","バージョン","更新日時JST"'),
+  ('75000000-0000-4000-8000-000000000002', 'grade', '"内部ID","等級コード","表示順","有効","バージョン","更新日時JST"'),
+  ('75000000-0000-4000-8000-000000000003', 'orchard', '"内部ID","コード","農園名","有効","バージョン","更新日時JST"'),
+  ('75000000-0000-4000-8000-000000000004', 'orchard_plot', '"内部ID","農園内部ID","コード","区画名","有効","バージョン","更新日時JST"'),
+  ('75000000-0000-4000-8000-000000000005', 'tree', '"内部ID","区画内部ID","品種内部ID","コード","樹体名","有効","バージョン","更新日時JST"'),
+  ('75000000-0000-4000-8000-000000000006', 'supplier', '"内部ID","管理コード","仕入先名","有効","バージョン","更新日時JST"'),
+  ('75000000-0000-4000-8000-000000000007', 'worker', '"内部ID","コード","作業者名","有効","バージョン","更新日時JST"'),
+  ('75000000-0000-4000-8000-000000000008', 'storage_location', '"内部ID","コード","保管場所名","場所種別","有効","バージョン","更新日時JST"'),
+  ('75000000-0000-4000-8000-000000000009', 'sorting_deadline_rule', '"内部ID","収穫年","収穫月","品種内部ID","期限日数","有効","バージョン","更新日時JST"')
+) as cases(correlation_id, master_type, expected_header)
+cross join lateral (
+  select public.csv_export(public.test_csv_req(
+    cases.correlation_id,
+    jsonb_build_object(
+      'dataset', 'masters',
+      'filters', jsonb_build_object(
+        'master_type', cases.master_type, 'active', 'all')))) as response
+) result;
+
+select set_config('test.csv_master_private_field', public.csv_export(public.test_csv_req(
+  '76000000-0000-4000-8000-000000000001',
+  jsonb_build_object(
+    'dataset', 'masters',
+    'filters', jsonb_build_object(
+      'master_type', 'variety',
+      'search', '70000000-0000-0000-0000-000000000002',
+      'active', 'all'))))::text, true);
+select is(
+  current_setting('test.csv_master_private_field')::jsonb -> 'data' ->> 'row_count',
+  '0', 'master search excludes fields not searched by the screen');
+
+select set_config('test.csv_master_storage_label', public.csv_export(public.test_csv_req(
+  '76000000-0000-4000-8000-000000000002',
+  jsonb_build_object(
+    'dataset', 'masters',
+    'filters', jsonb_build_object(
+      'master_type', 'storage_location', 'search', '冷蔵庫', 'active', 'all'))))::text, true);
+select is(
+  current_setting('test.csv_master_storage_label')::jsonb -> 'data' ->> 'row_count',
+  '1', 'storage location search includes the localized related label');
+
+select set_config('test.csv_master_tree_parent', public.csv_export(public.test_csv_req(
+  '76000000-0000-4000-8000-000000000003',
+  jsonb_build_object(
+    'dataset', 'masters',
+    'filters', jsonb_build_object(
+      'master_type', 'tree', 'search', 'CSV農園', 'active', 'all'))))::text, true);
+select is(
+  current_setting('test.csv_master_tree_parent')::jsonb -> 'data' ->> 'row_count',
+  '0', 'tree search excludes orchard text not searched by the screen');
 
 select set_config('test.csv_history_member', public.csv_export(public.test_csv_req(
   '74000000-0000-4000-8000-000000000016',

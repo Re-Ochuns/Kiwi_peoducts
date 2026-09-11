@@ -179,7 +179,12 @@ void main() {
 
     testWidgets('再読込に失敗した場合は古い一覧ではなくエラーを表示する', (tester) async {
       final repository = FakeMasterRepository();
-      await _pumpMaster(tester, repository);
+      await _pumpMaster(
+        tester,
+        repository,
+        csvExportRepository: FakeCsvExportRepository(),
+      );
+      expect(find.byKey(const Key('master-csv-export')), findsOneWidget);
       repository.nextLoadFailure = const MasterFailure(
         message: '再読込に失敗しました。',
         retryable: true,
@@ -192,6 +197,7 @@ void main() {
       expect(find.text('再読込に失敗しました。'), findsOneWidget);
       expect(find.text('再試行'), findsOneWidget);
       expect(find.text('hayward'), findsNothing);
+      expect(find.byKey(const Key('master-csv-export')), findsNothing);
     });
   });
 

@@ -129,98 +129,101 @@ class _CsvExportDialogState extends State<CsvExportDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 720),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'CSV出力',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 8),
-              const Text('現在の条件に一致する全件を出力します。ページ番号は含みません。'),
-              const SizedBox(height: 20),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      DropdownButtonFormField<CsvDataset>(
-                        key: const Key('csv-dataset'),
-                        initialValue: _dataset,
-                        decoration: const InputDecoration(labelText: '出力対象'),
-                        items: [
-                          for (final dataset in CsvDataset.values)
-                            if (widget.availableDatasets.contains(dataset))
-                              DropdownMenuItem(
-                                value: dataset,
-                                child: Text(dataset.label),
-                              ),
-                        ],
-                        onChanged: _busy
-                            ? null
-                            : (value) {
-                                if (value == null) return;
-                                setState(() {
-                                  _dataset = value;
-                                  _searchController.clear();
-                                  _error = null;
-                                  _correlationId = null;
-                                });
-                              },
-                      ),
-                      const SizedBox(height: 16),
-                      ..._fields(),
-                      if (_error != null) ...[
-                        const SizedBox(height: 16),
-                        Text(
-                          _error!,
-                          key: const Key('csv-error'),
-                          style: const TextStyle(color: Color(0xFF9E2A2B)),
+    return PopScope(
+      canPop: !_busy,
+      child: Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560, maxHeight: 720),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'CSV出力',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                const Text('現在の条件に一致する全件を出力します。ページ番号は含みません。'),
+                const SizedBox(height: 20),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        DropdownButtonFormField<CsvDataset>(
+                          key: const Key('csv-dataset'),
+                          initialValue: _dataset,
+                          decoration: const InputDecoration(labelText: '出力対象'),
+                          items: [
+                            for (final dataset in CsvDataset.values)
+                              if (widget.availableDatasets.contains(dataset))
+                                DropdownMenuItem(
+                                  value: dataset,
+                                  child: Text(dataset.label),
+                                ),
+                          ],
+                          onChanged: _busy
+                              ? null
+                              : (value) {
+                                  if (value == null) return;
+                                  setState(() {
+                                    _dataset = value;
+                                    _searchController.clear();
+                                    _error = null;
+                                    _correlationId = null;
+                                  });
+                                },
                         ),
-                        if (_correlationId != null)
-                          Text(
-                            '問い合わせ番号: $_correlationId',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF56605A),
-                            ),
-                          ),
-                      ],
-                      if (_busy) ...[
                         const SizedBox(height: 16),
-                        const LinearProgressIndicator(),
-                        const SizedBox(height: 8),
-                        const Text('CSVを作成しています'),
+                        ..._fields(),
+                        if (_error != null) ...[
+                          const SizedBox(height: 16),
+                          Text(
+                            _error!,
+                            key: const Key('csv-error'),
+                            style: const TextStyle(color: Color(0xFF9E2A2B)),
+                          ),
+                          if (_correlationId != null)
+                            Text(
+                              '問い合わせ番号: $_correlationId',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF56605A),
+                              ),
+                            ),
+                        ],
+                        if (_busy) ...[
+                          const SizedBox(height: 16),
+                          const LinearProgressIndicator(),
+                          const SizedBox(height: 8),
+                          const Text('CSVを作成しています'),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              Wrap(
-                alignment: WrapAlignment.end,
-                spacing: 12,
-                runSpacing: 8,
-                children: [
-                  TextButton(
-                    onPressed: _busy ? null : () => Navigator.pop(context),
-                    child: const Text('キャンセル'),
-                  ),
-                  FilledButton(
-                    key: const Key('csv-submit'),
-                    onPressed: _busy ? null : _submit,
-                    child: const Text('CSVをダウンロード'),
-                  ),
-                ],
-              ),
-            ],
+                const SizedBox(height: 24),
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    TextButton(
+                      onPressed: _busy ? null : () => Navigator.pop(context),
+                      child: const Text('キャンセル'),
+                    ),
+                    FilledButton(
+                      key: const Key('csv-submit'),
+                      onPressed: _busy ? null : _submit,
+                      child: const Text('CSVをダウンロード'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -343,6 +346,7 @@ class _CsvExportDialogState extends State<CsvExportDialog> {
     });
     try {
       final result = await widget.repository.export(request);
+      if (!mounted) return;
       final started = await widget.downloader(result.bytes, result.filename);
       if (!mounted) return;
       if (!started) {
