@@ -57,6 +57,7 @@ SupabaseClient _client(List<Map<String, Object>> rows) {
         return http.Response(
           '[]',
           200,
+          request: request,
           headers: {'content-type': 'application/json'},
         );
       }
@@ -88,6 +89,7 @@ SupabaseClient _client(List<Map<String, Object>> rows) {
       return http.Response(
         jsonEncode(selected.take(51).toList()),
         200,
+        request: request,
         headers: {'content-type': 'application/json'},
       );
     }),
