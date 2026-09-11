@@ -380,5 +380,33 @@ select throws_ok($$select * from public.customer_list(null,false)$$,'42501',null
   'anonymous cannot execute customer reference RPC');
 reset role;
 
+-- Literal searches must escape the escape character before percent/underscore.
+update public.customers set name='A'||chr(92)||'B%_',address='TAIL'||chr(92)
+where id=(current_setting('test.customer')::jsonb->'data'->>'id')::uuid;
+set local role authenticated;
+select set_config('request.jwt.claim.sub','81000000-0000-0000-0000-000000000003',true);
+select is(
+  (select count(*) from public.customer_list(sample.term,false)
+   where customer_id=(current_setting('test.customer')::jsonb->'data'->>'id')::uuid),
+  sample.expected,'customer literal search: '||sample.term)
+from (values
+  (chr(92),1::bigint),
+  ('A'||chr(92)||'B%_',1::bigint),
+  ('%_',1::bigint),
+  ('A'||chr(92)||'B__',0::bigint),
+  ('TAIL'||chr(92),1::bigint)
+) as sample(term,expected);
+select is(
+  (select count(*) from public.order_list(null,sample.term)
+   where order_id=(current_setting('test.order')::jsonb->'data'->>'id')::uuid),
+  sample.expected,'order literal search: '||sample.term)
+from (values
+  (chr(92),1::bigint),
+  ('A'||chr(92)||'B%_',1::bigint),
+  ('%_',1::bigint),
+  ('A'||chr(92)||'B__',0::bigint)
+) as sample(term,expected);
+reset role;
+
 select * from finish();
 rollback;

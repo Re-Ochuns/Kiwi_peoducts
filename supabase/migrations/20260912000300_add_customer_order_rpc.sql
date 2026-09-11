@@ -560,7 +560,7 @@ language sql stable security invoker set search_path = '' as $$
   left join public.shipping_destinations d on d.customer_id=c.id and d.is_active
   where (include_inactive or c.is_active) and
     (coalesce(btrim(search_value),'')='' or concat_ws(' ',c.customer_code,c.name,c.nickname,c.postal_code,c.address)
-      ilike '%'||replace(replace(btrim(search_value),'%','\%'),'_','\_')||'%' escape '\')
+      ilike '%'||replace(replace(replace(btrim(search_value),chr(92),chr(92)||chr(92)),'%','\%'),'_','\_')||'%' escape '\')
   group by c.id order by c.customer_code,c.id;
 $$;
 
@@ -594,7 +594,7 @@ language sql stable security invoker set search_path = '' as $$
   from public.orders o join public.customers c on c.id=o.customer_id
   where (status_value is null or o.status=status_value)
     and (coalesce(btrim(search_value),'')='' or concat_ws(' ',o.order_number,c.name,c.nickname)
-      ilike '%'||replace(replace(btrim(search_value),'%','\%'),'_','\_')||'%' escape '\')
+      ilike '%'||replace(replace(replace(btrim(search_value),chr(92),chr(92)||chr(92)),'%','\%'),'_','\_')||'%' escape '\')
   order by o.scheduled_ship_on,o.order_number,o.id;
 $$;
 
