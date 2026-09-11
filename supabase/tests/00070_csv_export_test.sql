@@ -15,7 +15,8 @@ select private.set_user_access('70000000-0000-0000-0000-000000000002', 'active',
 select private.set_user_access('70000000-0000-0000-0000-000000000003', 'active', array['administrator']);
 
 insert into public.varieties (id, code, name) values
-  ('71000000-0000-0000-0000-000000000001', 'CSV-VAR', 'CSV 100% =SUM(1,1)');
+  ('71000000-0000-0000-0000-000000000001', 'CSV-VAR', '=SUM(1,1)'),
+  ('71000000-0000-0000-0000-000000000010', 'CSV-PERCENT', 'CSV 100% fruit');
 insert into public.orchards (id, code, name) values
   ('71000000-0000-0000-0000-000000000002', 'CSV-ORCHARD', 'CSV農園');
 insert into public.orchard_plots (id, orchard_id, code, name) values
@@ -122,7 +123,7 @@ select ok(
   (current_setting('test.csv_inventory')::jsonb -> 'data' ->> 'csv') like E'%"CSV ""第一""\n冷蔵庫"%',
   'quotes and embedded newlines are preserved and escaped');
 select ok(
-  (current_setting('test.csv_inventory')::jsonb -> 'data' ->> 'csv') like '%"''CSV 100% =SUM(1,1)"%',
+  position('"''=SUM(1,1)"' in current_setting('test.csv_inventory')::jsonb -> 'data' ->> 'csv') > 0,
   'formula-like text is prefixed with an apostrophe');
 select matches(
   current_setting('test.csv_inventory')::jsonb -> 'data' ->> 'filename',
@@ -193,13 +194,14 @@ select is(
    where correlation_id = '74000000-0000-4000-8000-000000000018'
      and result_code = 'VALIDATION_FAILED'),
   1::bigint, 'validation failure is audited');
+
+reset role;
+
 select throws_ok(
   $$update public.csv_export_audits set result_code = 'SUCCESS'
     where correlation_id = '74000000-0000-4000-8000-000000000018'$$,
   '23514', 'change history is append-only', 'export audit is append-only'
 );
-
-reset role;
 
 insert into public.containers (
   id, display_id, sorting_result_id, variety_id, grade_id,
