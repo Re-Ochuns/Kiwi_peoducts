@@ -38,30 +38,30 @@ M0とM1の検証後、確定した要件を反映してM2とM3を発行する。
 | ID | 担当 | Issue | 依存 |
 |---|---|---|---|
 | S2-00 | 共通 | [#54 S2・S3要件書とIssueバックログを更新する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/54) | S1完了判断 |
-| S2-01 | DB・CI | [#52 顧客・受注・追熟計画・割当・予約・作業タスクのDB基盤を作成する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/52) | S2-00、S1-01 |
-| S2-02 | バックエンド | [#50 顧客・配送先・受注登録と状態遷移RPCを実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/50) | S2-01 |
-| S2-03 | フロント | [#51 顧客・配送先・受注の管理画面を実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/51) | S2-02、FND-04 |
-| S2-04 | バックエンド | [#53 追熟計画・複数内訳・部分予約RPCを実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/53) | S2-01、S2-02、S1-07 |
-| S2-05 | フロント | [#55 作業者・管理者向け追熟計画作成画面を実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/55) | S2-04、S1-07 |
-| S2-06 | バックエンド | [#57 作業タスク生成とGoogleカレンダー同期を実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/57) | S2-04、O-13 |
-| S2-07 | フロント | [#56 スマホToDo・期限超過・作業リンク画面を実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/56) | S2-05、S2-06 |
-| S2-08 | フロント | [#58 PC予定・警告・予約不足画面を実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/58) | S2-02、S2-04、S2-06 |
-| S2-09 | 共通 | [#59 S2の統合テストと現場リハーサルを実施する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/59) | S2-01〜S2-08 |
+| S2-01 | DB・CI | [#52 顧客・受注・追熟計画・割当・予約・作業タスクのDB基盤を作成する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/52) | S2-00 [#54](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/54)、S1-01 [#10](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/10) |
+| S2-02 | バックエンド | [#50 顧客・配送先・受注登録と状態遷移RPCを実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/50) | S2-01 [#52](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/52) |
+| S2-03 | フロント | [#51 顧客・配送先・受注の管理画面を実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/51) | S2-02 [#50](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/50)、FND-04 [#5](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/5) |
+| S2-04 | バックエンド | [#53 追熟計画・複数内訳・部分予約RPCを実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/53) | S2-01 [#52](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/52)、S2-02 [#50](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/50)、S1-07 [#16](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/16) |
+| S2-05 | フロント | [#55 作業者・管理者向け追熟計画作成画面を実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/55) | S2-04 [#53](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/53)、S1-07 [#16](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/16) |
+| S2-06 | バックエンド | [#57 作業タスク生成とGoogleカレンダー同期を実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/57) | S2-04 [#53](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/53)、O-13 |
+| S2-07 | フロント | [#56 スマホToDo・期限超過・作業リンク画面を実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/56) | S2-05 [#55](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/55)、S2-06 [#57](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/57) |
+| S2-08 | フロント | [#58 PC予定・警告・予約不足画面を実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/58) | S2-02 [#50](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/50)、S2-04 [#53](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/53)、S2-06 [#57](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/57) |
+| S2-09 | 共通 | [#59 S2の統合テストと現場リハーサルを実施する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/59) | S2-01 [#52](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/52)、S2-02 [#50](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/50)、S2-03 [#51](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/51)、S2-04 [#53](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/53)、S2-05 [#55](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/55)、S2-06 [#57](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/57)、S2-07 [#56](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/56)、S2-08 [#58](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/58) |
 
 ## 5. M3 追熟実績・出荷・期限
 
 | ID | 担当 | Issue | 依存 |
 |---|---|---|---|
-| S3-01 | DB・CI | [#60 追熟実績・出荷・在庫イベント・期限管理のDB基盤を作成する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/60) | S2-01、S2-04 |
-| S3-02 | バックエンド | [#62 エチレン注入・抜き確認・寝かせ・追熟確認RPCを実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/62) | S3-01、S2-04 |
-| S3-03 | フロント | [#61 作業者向け追熟作業画面を実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/61) | S3-02、S2-07 |
-| S3-04 | バックエンド | [#63 追熟予定計算・確認期限・自動期限切れを実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/63) | S3-01、S3-02、追熟マスター |
-| S3-05 | バックエンド | [#64 部分出荷・在庫減算・出荷取消RPCを実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/64) | S3-01、S2-02、S2-04 |
-| S3-06 | フロント | [#69 出荷対象・部分出荷・出荷取消画面を実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/69) | S3-05、S2-03 |
-| S3-07 | フロント | [#67 PC工程ボードとコンテナ詳細・工程操作を実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/67) | S1-07、S2-04、S3-02、S3-05 |
-| S3-08 | バックエンド | [#65 追熟開始時のラベル生成・印刷状態管理を拡張する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/65) | S1-08、S1-09、S3-02 |
-| S3-09 | 共通 | [#66 受注・追熟・出荷CSVを実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/66) | S1-10-IMP、S2-02、S2-04、S3-05 |
-| S3-10 | 共通 | [#68 S3の統合テストと現場リハーサルを実施する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/68) | S3-01〜S3-09 |
+| S3-01 | DB・CI | [#60 追熟実績・出荷・在庫イベント・期限管理のDB基盤を作成する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/60) | S2-01 [#52](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/52)、S2-04 [#53](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/53) |
+| S3-02 | バックエンド | [#62 エチレン注入・抜き確認・寝かせ・追熟確認RPCを実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/62) | S3-01 [#60](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/60)、S2-04 [#53](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/53) |
+| S3-03 | フロント | [#61 作業者向け追熟作業画面を実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/61) | S3-02 [#62](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/62)、S2-07 [#56](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/56) |
+| S3-04 | バックエンド | [#63 追熟予定計算・確認期限・自動期限切れを実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/63) | S3-01 [#60](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/60)、S3-02 [#62](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/62)、追熟マスター |
+| S3-05 | バックエンド | [#64 部分出荷・在庫減算・出荷取消RPCを実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/64) | S3-01 [#60](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/60)、S2-02 [#50](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/50)、S2-04 [#53](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/53) |
+| S3-06 | フロント | [#69 出荷対象・部分出荷・出荷取消画面を実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/69) | S3-05 [#64](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/64)、S2-03 [#51](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/51) |
+| S3-07 | フロント | [#67 PC工程ボードとコンテナ詳細・工程操作を実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/67) | S1-07 [#16](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/16)、S2-04 [#53](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/53)、S3-02 [#62](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/62)、S3-05 [#64](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/64) |
+| S3-08 | バックエンド | [#65 追熟開始時のラベル生成・印刷状態管理を拡張する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/65) | S1-08 [#17](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/17)、S1-09 [#18](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/18)、S3-02 [#62](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/62) |
+| S3-09 | 共通 | [#66 受注・追熟・出荷CSVを実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/66) | S1-10-IMP [#48](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/48)、S2-02 [#50](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/50)、S2-04 [#53](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/53)、S3-05 [#64](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/64) |
+| S3-10 | 共通 | [#68 S3の統合テストと現場リハーサルを実施する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/68) | S3-01 [#60](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/60)、S3-02 [#62](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/62)、S3-03 [#61](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/61)、S3-04 [#63](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/63)、S3-05 [#64](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/64)、S3-06 [#69](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/69)、S3-07 [#67](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/67)、S3-08 [#65](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/65)、S3-09 [#66](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/66) |
 
 ## 6. M4 本番移行・安定化
 
