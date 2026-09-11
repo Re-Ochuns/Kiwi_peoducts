@@ -61,9 +61,9 @@ SupabaseClient _client(List<Map<String, Object>> rows) {
         );
       }
       final params = request.url.queryParameters;
-      expect(params['order'], 'created_at.desc,id.desc');
+      expect(params['order'], 'created_at.desc.nullslast,id.desc.nullslast');
       expect(params['limit'], '51');
-      final status = params['status'];
+      final status = params['status']?.replaceAll('"', '');
       expect(
         status,
         isIn([
