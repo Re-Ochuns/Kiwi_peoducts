@@ -6,26 +6,31 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'master_repository.dart';
 
 class SupabaseMasterRepository implements MasterRepository {
-  SupabaseMasterRepository(this._client);
+  SupabaseMasterRepository(this._client, {this.currentUserId});
 
   factory SupabaseMasterRepository.fromInitializedClient() =>
       SupabaseMasterRepository(Supabase.instance.client);
 
   final SupabaseClient _client;
+  final String? currentUserId;
 
   @override
   Future<MasterCatalog> loadCatalog() async {
     try {
-      final userId = _client.auth.currentUser?.id;
+      final userId = currentUserId ?? _client.auth.currentUser?.id;
       final requests = <Future<dynamic>>[
         if (userId == null)
           Future<dynamic>.value(null)
         else
           _client
               .from('profiles')
-              .select('role, access_status')
+              .select('access_status')
               .eq('id', userId)
               .maybeSingle(),
+        if (userId == null)
+          Future<dynamic>.value(const <Map<String, dynamic>>[])
+        else
+          _client.from('user_roles').select('role').eq('user_id', userId),
         for (final type in MasterType.values)
           _client.from(type.tableName).select(type.selectColumns),
       ];
@@ -34,10 +39,11 @@ class SupabaseMasterRepository implements MasterRepository {
       final profile = results.first is Map
           ? Map<String, dynamic>.from(results.first as Map)
           : const <String, dynamic>{};
+      final roles = results[1] is List ? results[1] as List : const [];
       final records = <MasterType, List<MasterRecord>>{};
       for (var index = 0; index < MasterType.values.length; index++) {
         final type = MasterType.values[index];
-        final rows = results[index + 1] as List;
+        final rows = results[index + 2] as List;
         final decoded = [
           for (final row in rows)
             _recordFromMap(type, Map<String, dynamic>.from(row as Map)),
@@ -47,8 +53,8 @@ class SupabaseMasterRepository implements MasterRepository {
       return MasterCatalog(
         records: records,
         canManage:
-            profile['role'] == 'administrator' &&
-            profile['access_status'] == 'active',
+            profile['access_status'] == 'active' &&
+            roles.any((value) => (value as Map)['role'] == 'administrator'),
       );
     } on TimeoutException {
       throw const MasterFailure(
