@@ -90,8 +90,9 @@ class _LabelTargetPageState extends State<LabelTargetPage> {
         setState(() => _moreError = '続きを読み込めませんでした。再試行してください。');
       }
     } finally {
-      if (mounted && generation == _loadGeneration)
+      if (mounted && generation == _loadGeneration) {
         setState(() => _loadingMore = false);
+      }
     }
   }
 
