@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kiwi_inventory/core/app_theme.dart';
+import 'package:kiwi_inventory/inventory/inventory_page.dart';
+import 'package:kiwi_inventory/inventory/inventory_repository.dart';
 import 'package:kiwi_inventory/main.dart';
 import 'package:kiwi_inventory/master/master_page.dart';
 import 'package:kiwi_inventory/master/master_repository.dart';
@@ -25,6 +27,33 @@ void main() {
       expect(find.byType(MasterPage), findsOneWidget);
       expect(find.text('hayward'), findsOneWidget);
       expect(repository.loadCalls, 1);
+    });
+
+    testWidgets('管理画面の在庫管理とマスターを相互に遷移する', (tester) async {
+      final masterRepository = FakeMasterRepository();
+      final inventoryRepository = _NavigationInventoryRepository();
+      await _setSurface(tester, const Size(1280, 900));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildAppTheme(),
+          home: ManagerHomePage(
+            masterRepository: masterRepository,
+            inventoryRepository: inventoryRepository,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('在庫管理'));
+      await tester.pumpAndSettle();
+      expect(find.byType(InventoryPage), findsOneWidget);
+
+      await tester.tap(find.text('マスター'));
+      await tester.pumpAndSettle();
+      expect(find.byType(MasterPage), findsOneWidget);
+
+      await tester.tap(find.text('在庫管理'));
+      await tester.pumpAndSettle();
+      expect(find.byType(InventoryPage), findsOneWidget);
     });
 
     testWidgets('900px幅で表示し、種類と検索条件を変更できる', (tester) async {
@@ -238,6 +267,21 @@ void main() {
       expect(find.byKey(const Key('master-field-code')), findsNothing);
     });
   });
+}
+
+class _NavigationInventoryRepository implements InventoryRepository {
+  @override
+  Future<InventoryPageData> loadPage(InventoryQuery query) async =>
+      InventoryPageData(
+        items: const [],
+        totalCount: 0,
+        page: query.page,
+        pageSize: query.pageSize,
+      );
+
+  @override
+  Future<InventoryDetailData> loadDetail(String containerId) =>
+      throw UnimplementedError();
 }
 
 Future<void> _pumpMaster(

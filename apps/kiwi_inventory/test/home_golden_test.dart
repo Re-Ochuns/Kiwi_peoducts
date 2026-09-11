@@ -2,11 +2,16 @@
 library;
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kiwi_inventory/auth/auth_repository.dart';
 import 'package:kiwi_inventory/core/app_theme.dart';
+import 'package:kiwi_inventory/inventory/inventory_page.dart';
+import 'package:kiwi_inventory/inventory/inventory_repository.dart';
+import 'package:kiwi_inventory/label/label_page.dart';
+import 'package:kiwi_inventory/label/label_repository.dart';
 import 'package:kiwi_inventory/main.dart';
 import 'package:kiwi_inventory/receiving/receiving_page.dart';
 import 'package:kiwi_inventory/receiving/receiving_repository.dart';
@@ -87,6 +92,80 @@ void main() {
     );
   });
 
+  testWidgets('390pxのラベル対象画面', (tester) async {
+    configureGoldenView(tester, const Size(390, 844));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(fontFamily: goldenFontFamily),
+        home: LabelTargetPage(repository: _GoldenLabelRepository()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(LabelTargetPage),
+      matchesGoldenFile('goldens/label_targets_390.png'),
+    );
+  });
+
+  testWidgets('390pxのラベル確認画面', (tester) async {
+    configureGoldenView(tester, const Size(390, 900));
+    final repository = _GoldenLabelRepository();
+    final data = await repository.load();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(fontFamily: goldenFontFamily),
+        home: LabelDetailPage(
+          repository: repository,
+          job: data.jobs.first,
+          workers: data.workers,
+          locations: data.locations,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(LabelDetailPage),
+      matchesGoldenFile('goldens/label_detail_390.png'),
+    );
+  });
+  testWidgets('390pxの在庫一覧', (tester) async {
+    configureGoldenView(tester, const Size(390, 844));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(fontFamily: goldenFontFamily),
+        home: InventoryPage(repository: _GoldenInventoryRepository()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(InventoryPage),
+      matchesGoldenFile('goldens/inventory_list_390.png'),
+    );
+  });
+
+  testWidgets('1280pxの管理在庫画面', (tester) async {
+    configureGoldenView(tester, const Size(1280, 900));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(fontFamily: goldenFontFamily),
+        home: ManagerInventoryPage(
+          repository: _GoldenInventoryRepository(canViewHistory: true),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('在庫-2026-001'));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(ManagerInventoryPage),
+      matchesGoldenFile('goldens/manager_inventory_1280.png'),
+    );
+  });
+
   testWidgets('1280pxのマスター管理画面', (tester) async {
     configureGoldenView(tester, const Size(1280, 900));
     await tester.pumpWidget(
@@ -104,6 +183,152 @@ void main() {
       matchesGoldenFile('goldens/manager_master_1280.png'),
     );
   });
+}
+
+class _GoldenInventoryRepository implements InventoryRepository {
+  _GoldenInventoryRepository({this.canViewHistory = false});
+
+  final bool canViewHistory;
+
+  static final _item = InventoryItem(
+    id: 'container-1',
+    displayId: '在庫-2026-001',
+    varietyName: 'ヘイワード',
+    gradeCode: 'M',
+    originalWeightHundredths: 1000,
+    currentWeightHundredths: 925,
+    reservedWeightHundredths: 200,
+    status: InventoryStatus.coldStorage,
+    locationCode: 'cold-01',
+    locationName: '第一冷蔵庫',
+    updatedAt: DateTime(2026, 9, 8, 9),
+  );
+
+  @override
+  Future<InventoryPageData> loadPage(InventoryQuery query) async =>
+      InventoryPageData(
+        items: [
+          _item,
+          InventoryItem(
+            id: 'container-2',
+            displayId: '在庫-2026-002',
+            varietyName: '香緑',
+            gradeCode: 'L',
+            originalWeightHundredths: 820,
+            currentWeightHundredths: 820,
+            reservedWeightHundredths: 0,
+            status: InventoryStatus.shippable,
+            locationCode: 'cold-02',
+            locationName: '第二冷蔵庫',
+            updatedAt: DateTime(2026, 9, 8, 8),
+          ),
+        ],
+        totalCount: 2,
+        page: query.page,
+        pageSize: query.pageSize,
+      );
+
+  @override
+  Future<InventoryDetailData> loadDetail(String containerId) async =>
+      InventoryDetailData(
+        item: _item,
+        source: InventorySource(
+          sortingDisplayId: '選果-2026-001',
+          sortedOn: DateTime(2026, 9, 2),
+          sortingWorkerName: '作業者A',
+          receivingDisplayId: '受入-2026-001',
+          receivedOn: DateTime(2026, 9, 1),
+          sourceType: 'harvest',
+          originName: '第一圃場 A区画',
+        ),
+        history: canViewHistory
+            ? [
+                InventoryHistoryEntry(
+                  operation: 'create',
+                  reason: '選果確定により作成',
+                  changedAt: DateTime.utc(2026, 9, 2, 5, 30),
+                  changedBy: '管理者A',
+                ),
+              ]
+            : const [],
+        canViewHistory: canViewHistory,
+      );
+}
+
+class _GoldenLabelRepository implements LabelRepository {
+  @override
+  Future<LabelLoadData> load({
+    bool completed = false,
+    LabelCursor? after,
+  }) async => LabelLoadData(
+    jobs: [
+      LabelJob(
+        id: 'label-1',
+        containerId: 'container-1',
+        containerDisplayId: '選果-2026-0148-1',
+        status: LabelJobStatus.notPrinted,
+        requiredCopies: 1,
+        printedCopies: 0,
+        reprintCount: 0,
+        originName: '第二農園 B区画',
+        varietyName: '香緑',
+        gradeCode: 'M',
+        weightHundredths: 1840,
+        sortedOn: DateTime(2026, 9, 8),
+        workerName: '作業者A',
+      ),
+      LabelJob(
+        id: 'label-2',
+        containerId: 'container-2',
+        containerDisplayId: '選果-2026-0147-2',
+        status: LabelJobStatus.partiallyPrinted,
+        requiredCopies: 2,
+        printedCopies: 1,
+        reprintCount: 0,
+        originName: '第一農園 A区画',
+        varietyName: 'ヘイワード',
+        gradeCode: 'L',
+        weightHundredths: 2050,
+        sortedOn: DateTime(2026, 9, 8),
+        workerName: '作業者B',
+      ),
+    ],
+    workers: const [LabelOption(id: 'worker-1', label: 'worker-01　作業者A')],
+    locations: const [LabelOption(id: 'location-1', label: 'cold-01　第一冷蔵庫')],
+  );
+
+  @override
+  Future<LabelPdf> fetchPdf({required String containerId}) async => LabelPdf(
+    bytes: Uint8List.fromList([1, 2, 3]),
+    filename: '$containerId.pdf',
+  );
+
+  @override
+  Future<LabelActionResult> markHandwritten({
+    required String labelJobId,
+    required String workerId,
+    required String idempotencyKey,
+    String? notes,
+    String? locationId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<LabelActionResult> markPrinted({
+    required String labelJobId,
+    required String workerId,
+    required int copies,
+    required String idempotencyKey,
+    String? locationId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<LabelActionResult> reprint({
+    required String labelJobId,
+    required String workerId,
+    required String reason,
+    required int copies,
+    required String idempotencyKey,
+  }) => throw UnimplementedError();
 }
 
 class _GoldenReceivingRepository implements ReceivingRepository {

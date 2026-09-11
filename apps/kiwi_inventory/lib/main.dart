@@ -9,6 +9,12 @@ import 'core/app_breakpoints.dart';
 import 'core/app_config.dart';
 import 'core/app_theme.dart';
 import 'core/common_state_view.dart';
+import 'inventory/inventory_page.dart';
+import 'inventory/inventory_repository.dart';
+import 'inventory/supabase_inventory_repository.dart';
+import 'label/label_page.dart';
+import 'label/label_repository.dart';
+import 'label/supabase_label_repository.dart';
 import 'master/master_page.dart';
 import 'master/master_repository.dart';
 import 'master/supabase_master_repository.dart';
@@ -35,6 +41,9 @@ Future<void> main() async {
       KiwiInventoryApp(
         authRepository: repository,
         masterRepository: SupabaseMasterRepository.fromInitializedClient(),
+        inventoryRepository:
+            SupabaseInventoryRepository.fromInitializedClient(),
+        labelRepository: SupabaseLabelRepository.fromInitializedClient(config),
         sortingRepository: SupabaseSortingRepository.fromInitializedClient(),
         receivingRepository:
             SupabaseReceivingRepository.fromInitializedClient(),
@@ -55,8 +64,10 @@ class KiwiInventoryApp extends StatelessWidget {
     this.startupError,
     this.currentDate,
     this.masterRepository,
+    this.labelRepository,
     this.sortingRepository,
     this.receivingRepository,
+    this.inventoryRepository,
     this.theme,
     super.key,
   });
@@ -65,7 +76,9 @@ class KiwiInventoryApp extends StatelessWidget {
   final String? startupError;
   final DateTime? currentDate;
   final MasterRepository? masterRepository;
+  final LabelRepository? labelRepository;
   final ReceivingRepository? receivingRepository;
+  final InventoryRepository? inventoryRepository;
   final SortingRepository? sortingRepository;
   final ThemeData? theme;
 
@@ -97,8 +110,10 @@ class KiwiInventoryApp extends StatelessWidget {
           onSignOut: signOut,
           currentDate: currentDate,
           masterRepository: masterRepository,
+          labelRepository: labelRepository,
           sortingRepository: sortingRepository,
           receivingRepository: receivingRepository,
+          inventoryRepository: inventoryRepository,
         ),
       ),
     );
@@ -110,13 +125,17 @@ class ResponsiveHomePage extends StatelessWidget {
     this.onSignOut,
     this.currentDate,
     this.masterRepository,
+    this.labelRepository,
     this.sortingRepository,
     this.receivingRepository,
+    this.inventoryRepository,
     super.key,
   });
   final DateTime? currentDate;
   final MasterRepository? masterRepository;
+  final LabelRepository? labelRepository;
   final ReceivingRepository? receivingRepository;
+  final InventoryRepository? inventoryRepository;
   final SortingRepository? sortingRepository;
 
   final VoidCallback? onSignOut;
@@ -130,12 +149,15 @@ class ResponsiveHomePage extends StatelessWidget {
               onSignOut: onSignOut,
               currentDate: currentDate,
               masterRepository: masterRepository,
+              inventoryRepository: inventoryRepository,
             )
           : WorkerHomePage(
               onSignOut: onSignOut,
               currentDate: currentDate,
+              labelRepository: labelRepository,
               sortingRepository: sortingRepository,
               receivingRepository: receivingRepository,
+              inventoryRepository: inventoryRepository,
             ),
     );
   }
@@ -203,12 +225,16 @@ class WorkerHomePage extends StatelessWidget {
   const WorkerHomePage({
     this.onSignOut,
     this.currentDate,
+    this.labelRepository,
     this.sortingRepository,
     this.receivingRepository,
+    this.inventoryRepository,
     super.key,
   });
   final DateTime? currentDate;
+  final LabelRepository? labelRepository;
   final ReceivingRepository? receivingRepository;
+  final InventoryRepository? inventoryRepository;
   final SortingRepository? sortingRepository;
 
   final VoidCallback? onSignOut;
@@ -257,8 +283,18 @@ class WorkerHomePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   ActionButton(
+                    label: 'ラベル発行',
+                    onPressed: () => _openLabels(context),
+                  ),
+                  const SizedBox(height: 10),
+                  ActionButton(
                     label: '追熟計画作成',
                     onPressed: () => preparing(context),
+                  ),
+                  const SizedBox(height: 10),
+                  ActionButton(
+                    label: '在庫参照',
+                    onPressed: () => _openInventory(context),
                   ),
                   const SizedBox(height: 32),
                   const SectionTitle('期限超過', count: '1件'),
@@ -323,6 +359,36 @@ class WorkerHomePage extends StatelessWidget {
       ),
     );
   }
+
+  void _openLabels(BuildContext context) {
+    final repository = labelRepository;
+    if (repository == null) {
+      preparing(context);
+      return;
+    }
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, _, _) => LabelTargetPage(repository: repository),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
+  }
+
+  void _openInventory(BuildContext context) {
+    final repository = inventoryRepository;
+    if (repository == null) {
+      preparing(context);
+      return;
+    }
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, _, _) => InventoryPage(repository: repository),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
+  }
 }
 
 class ManagerHomePage extends StatelessWidget {
@@ -330,10 +396,12 @@ class ManagerHomePage extends StatelessWidget {
     this.onSignOut,
     this.currentDate,
     this.masterRepository,
+    this.inventoryRepository,
     super.key,
   });
   final DateTime? currentDate;
   final MasterRepository? masterRepository;
+  final InventoryRepository? inventoryRepository;
 
   final VoidCallback? onSignOut;
 
@@ -440,16 +508,26 @@ class ManagerHomePage extends StatelessWidget {
   }
 
   void _openNavigation(BuildContext context, String item) {
-    if (item != 'マスター' || masterRepository == null) {
+    final Widget? page = switch (item) {
+      '在庫管理' when inventoryRepository != null => ManagerInventoryPage(
+        repository: inventoryRepository!,
+        masterRepository: masterRepository,
+        onSignOut: onSignOut,
+      ),
+      'マスター' when masterRepository != null => ManagerMasterPage(
+        repository: masterRepository!,
+        inventoryRepository: inventoryRepository,
+        onSignOut: onSignOut,
+      ),
+      _ => null,
+    };
+    if (page == null) {
       preparing(context, '$item画面は準備中です');
       return;
     }
     Navigator.of(context).push(
       PageRouteBuilder<void>(
-        pageBuilder: (_, _, _) => ManagerMasterPage(
-          repository: masterRepository!,
-          onSignOut: onSignOut,
-        ),
+        pageBuilder: (_, _, _) => page,
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,
       ),
@@ -460,11 +538,13 @@ class ManagerHomePage extends StatelessWidget {
 class ManagerMasterPage extends StatelessWidget {
   const ManagerMasterPage({
     required this.repository,
+    this.inventoryRepository,
     this.onSignOut,
     super.key,
   });
 
   final MasterRepository repository;
+  final InventoryRepository? inventoryRepository;
   final VoidCallback? onSignOut;
 
   @override
@@ -473,10 +553,27 @@ class ManagerMasterPage extends StatelessWidget {
       children: [
         ManagerNavigation(
           selectedItem: 'マスター',
-          onSignOut: onSignOut,
+          onSignOut: onSignOut == null
+              ? null
+              : () {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                  onSignOut!.call();
+                },
           onSelected: (item) {
             if (item == 'ホーム') {
               Navigator.of(context).pop();
+            } else if (item == '在庫管理' && inventoryRepository != null) {
+              Navigator.of(context).pushReplacement(
+                PageRouteBuilder<void>(
+                  pageBuilder: (_, _, _) => ManagerInventoryPage(
+                    repository: inventoryRepository!,
+                    masterRepository: repository,
+                    onSignOut: onSignOut,
+                  ),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
+              );
             } else {
               preparing(context, '$item画面は準備中です');
             }
@@ -484,6 +581,57 @@ class ManagerMasterPage extends StatelessWidget {
         ),
         const VerticalDivider(width: 1),
         Expanded(child: MasterPage(repository: repository, embedded: true)),
+      ],
+    ),
+  );
+}
+
+class ManagerInventoryPage extends StatelessWidget {
+  const ManagerInventoryPage({
+    required this.repository,
+    this.masterRepository,
+    this.onSignOut,
+    super.key,
+  });
+
+  final InventoryRepository repository;
+  final MasterRepository? masterRepository;
+  final VoidCallback? onSignOut;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: Row(
+      children: [
+        ManagerNavigation(
+          selectedItem: '在庫管理',
+          onSignOut: onSignOut == null
+              ? null
+              : () {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                  onSignOut!.call();
+                },
+          onSelected: (item) {
+            if (item == 'ホーム') {
+              Navigator.of(context).pop();
+            } else if (item == 'マスター' && masterRepository != null) {
+              Navigator.of(context).pushReplacement(
+                PageRouteBuilder<void>(
+                  pageBuilder: (_, _, _) => ManagerMasterPage(
+                    repository: masterRepository!,
+                    inventoryRepository: repository,
+                    onSignOut: onSignOut,
+                  ),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
+              );
+            } else {
+              preparing(context, '$item画面は準備中です');
+            }
+          },
+        ),
+        const VerticalDivider(width: 1),
+        Expanded(child: InventoryPage(repository: repository, embedded: true)),
       ],
     ),
   );

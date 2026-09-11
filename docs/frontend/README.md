@@ -23,6 +23,7 @@ lib/
 
 - [選果対象・選果入力画面](sorting-input.md)
 - [マスター管理画面](master-management.md)
+- [在庫一覧・詳細・履歴画面](inventory-reference.md)
 
 業務機能を追加するときは、機能単位のディレクトリにView、ViewModel、Repositoryインターフェースを配置します。ViewとViewModelからSupabaseを直接呼ばず、Repositoryを経由してください。ViewModelは`ChangeNotifier`を基本とし、Repositoryはコンストラクタから注入します。画面側はViewModelが公開する画面状態だけを参照します。
 
