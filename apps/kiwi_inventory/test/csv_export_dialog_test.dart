@@ -135,6 +135,32 @@ void main() {
     expect(find.text('マスター'), findsOneWidget);
     expect(find.text('変更履歴'), findsNothing);
   });
+
+  testWidgets('対象画面幅で横方向にあふれない', (tester) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    tester.view.devicePixelRatio = 1;
+
+    for (final width in [360.0, 390.0, 430.0, 1280.0]) {
+      tester.view.physicalSize = Size(width, 900);
+      await tester.pumpWidget(
+        _host(
+          CsvExportDialog(
+            repository: _FakeCsvExportRepository(),
+            initialRequest: CsvExportRequest.history(),
+            availableDatasets: const {CsvDataset.history},
+            downloader: (_, _) async => true,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull, reason: '${width.toInt()}px');
+      expect(find.byKey(const Key('csv-submit')), findsOneWidget);
+    }
+  });
 }
 
 Widget _host(Widget child) => MaterialApp(home: Scaffold(body: child));

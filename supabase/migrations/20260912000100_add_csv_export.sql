@@ -36,7 +36,7 @@ create or replace function private.csv_validate_filter_keys(
 )
 returns void
 language plpgsql
-immutable
+volatile
 set search_path = ''
 as $$
 declare
@@ -103,7 +103,7 @@ $$;
 create or replace function private.csv_inventory_payload(filters_value jsonb)
 returns jsonb
 language plpgsql
-stable
+volatile
 set search_path = ''
 as $$
 declare
@@ -244,7 +244,7 @@ create or replace function private.csv_master_row(
 )
 returns text
 language plpgsql
-immutable
+stable
 set search_path = ''
 as $$
 declare
@@ -294,7 +294,7 @@ $$;
 create or replace function private.csv_master_payload(filters_value jsonb)
 returns jsonb
 language plpgsql
-stable
+volatile
 set search_path = ''
 as $$
 declare
@@ -365,7 +365,7 @@ $$;
 create or replace function private.csv_history_payload(filters_value jsonb)
 returns jsonb
 language plpgsql
-stable
+volatile
 set search_path = ''
 as $$
 declare
