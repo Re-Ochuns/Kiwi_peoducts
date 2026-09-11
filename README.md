@@ -8,6 +8,7 @@
 - [Architecture Decision Records](docs/adr/README.md)
 - [RPC・DTO契約](contracts/README.md)
 - [ローカル開発ガイド](docs/development/README.md)
+- [段階1受入](docs/acceptance/README.md)
 
 ## クイックスタート
 
