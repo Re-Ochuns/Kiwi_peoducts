@@ -36,15 +36,14 @@ class SupabaseInventoryRepository implements InventoryRepository {
       }
 
       request = switch (query.sort) {
-        InventorySort.updatedDescending => request.order(
-          'updated_at',
-          ascending: false,
-        ),
-        InventorySort.displayIdAscending => request.order('display_id'),
-        InventorySort.currentWeightDescending => request.order(
-          'current_weight_kg',
-          ascending: false,
-        ),
+        InventorySort.updatedDescending =>
+          request.order('updated_at', ascending: false).order('display_id'),
+        InventorySort.displayIdAscending =>
+          request.order('display_id').order('id'),
+        InventorySort.currentWeightDescending =>
+          request
+              .order('current_weight_kg', ascending: false)
+              .order('display_id'),
       };
 
       final start = query.page * query.pageSize;

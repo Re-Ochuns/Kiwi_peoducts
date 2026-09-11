@@ -497,7 +497,12 @@ class ManagerInventoryPage extends StatelessWidget {
       children: [
         ManagerNavigation(
           selectedItem: '在庫管理',
-          onSignOut: onSignOut,
+          onSignOut: onSignOut == null
+              ? null
+              : () {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                  onSignOut!.call();
+                },
           onSelected: (item) {
             if (item == 'ホーム') {
               Navigator.of(context).pop();

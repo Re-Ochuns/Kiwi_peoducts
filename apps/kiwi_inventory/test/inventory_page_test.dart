@@ -121,6 +121,32 @@ void main() {
       expect(repository.lastQuery!.page, 1);
       expect(find.text('2ページ'), findsOneWidget);
     });
+
+    testWidgets('管理在庫画面からログアウトするとホームへ戻る', (tester) async {
+      final repository = FakeInventoryRepository();
+      var signOutCalls = 0;
+      await _setSurface(tester, const Size(1280, 900));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildAppTheme(),
+          home: ManagerHomePage(
+            inventoryRepository: repository,
+            onSignOut: () => signOutCalls++,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('在庫管理'));
+      await tester.pumpAndSettle();
+      expect(find.text(testItem.displayId), findsOneWidget);
+
+      await tester.tap(find.text('ログアウト'));
+      await tester.pumpAndSettle();
+
+      expect(signOutCalls, 1);
+      expect(find.text(testItem.displayId), findsNothing);
+      expect(find.text('優先して確認'), findsOneWidget);
+    });
   });
 
   group('在庫詳細', () {
@@ -156,6 +182,7 @@ void main() {
 
       expect(find.text('棚卸しにより数量を訂正'), findsOneWidget);
       expect(find.textContaining('担当 管理者A'), findsOneWidget);
+      expect(find.textContaining('2026年9月10日 09:30'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });
@@ -251,7 +278,7 @@ class FakeInventoryRepository implements InventoryRepository {
                 InventoryHistoryEntry(
                   operation: 'correct',
                   reason: '棚卸しにより数量を訂正',
-                  changedAt: DateTime(2026, 9, 10, 9, 30),
+                  changedAt: DateTime.utc(2026, 9, 10, 0, 30),
                   changedBy: '管理者A',
                 ),
               ]

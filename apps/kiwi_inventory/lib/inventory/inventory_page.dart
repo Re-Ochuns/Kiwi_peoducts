@@ -916,7 +916,9 @@ class _HistorySection extends StatelessWidget {
 String _formatDate(DateTime value) =>
     '${value.year}年${value.month}月${value.day}日';
 
-String _formatDateTime(DateTime value) =>
-    '${_formatDate(value)} '
-    '${value.hour.toString().padLeft(2, '0')}:'
-    '${value.minute.toString().padLeft(2, '0')}';
+String _formatDateTime(DateTime value) {
+  final jst = value.toUtc().add(const Duration(hours: 9));
+  return '${_formatDate(jst)} '
+      '${jst.hour.toString().padLeft(2, '0')}:'
+      '${jst.minute.toString().padLeft(2, '0')}';
+}
