@@ -47,6 +47,9 @@ order_registerのinput:
 order_numberはサーバーが「受注-年度-連番」で発行する。登録時statusはdraft、
 versionは1である。配送先名、受取人名、郵便番号、住所は
 shipping_destination_snapshotへコピーされ、配送先の後日更新では変化しない。
+order_updateでもshipping_destination_idが同じ場合は保存済みスナップショットを保持する。
+配送先IDを明示的に変更した場合のみ、所属・有効性を検証した新配送先の情報で再生成する。
+同一配送先の住所だけを再取込する操作は本RPCに含めない。
 
 order_updateは上記業務項目にorder_id、expected_version、reasonを加えた全項目更新。
 draftまたはconfirmedだけ変更できる。confirmedを変更するとorderをdraftへ戻し、
@@ -81,6 +84,14 @@ order_listはordered_weight_kg - allocated_weight_kgをshortage_weight_kgとし�
 ## 履歴と個人情報
 
 更新成功時はchange_historyへcreate/update/transitionを記録する。
+order_update/order_cancelの関連追熟計画にも、状態変更はtransition、それ以外はupdateとして変更前後を保存する。
+order_cancelの割当削除はdelete操作を追加し、before_dataに削除前の完全な行、
+after_dataに`{"id":"割当UUID","deleted":true}`を保存する。after_dataのNOT NULLは維持する。
+予約の全解除はtransition、部分減量はupdateとして変更前後を保存し、
+トリガーで予約量が変わったコンテナの変更前後もupdateとして記録する。
+計画のafter_dataは割当削除後の集計重量・用途区分を含む最終状態とする。
+全関連履歴は受注操作と同じreason・changed_by・correlation_idを使い、同一トランザクションで保存する。
+冪等再送では履歴を追加せず、途中エラーでは受注・関連データ・全履歴をまとめてロールバックする。
 サーバーログにはFunction名、利用者ID、相関ID、冪等性キー、エラーコードだけを記録し、
 顧客名、住所、自由入力を含めない。
 
@@ -88,3 +99,8 @@ order_listはordered_weight_kg - allocated_weight_kgをshortage_weight_kgとし�
 
 pgTAPで権限、複数配送先、楽観制御、冪等再送、日付・重量、
 配送先スナップショット、状態遷移、関連計画の再確認、キャンセル、履歴、参照RLSを検証する。
+
+## レビュー修正
+
+2026-09-12: 配送先IDが同一の更新ではスナップショットを保持し、関連計画・割当・予約・コンテナの履歴を追加。
+削除履歴のdelete操作とtombstone表現は本PRの契約レビュー対象とする。

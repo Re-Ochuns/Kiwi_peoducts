@@ -164,6 +164,9 @@ values('89400000-0000-0000-0000-000000000001','89000000-0000-0000-0000-000000000
   '89300000-0000-0000-0000-000000000001',2,
   '81000000-0000-0000-0000-000000000003','81000000-0000-0000-0000-000000000003');
 
+update public.ripening_lots set status='confirmed'
+where id='89000000-0000-0000-0000-000000000001';
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub','81000000-0000-0000-0000-000000000003',true);
 
@@ -182,6 +185,18 @@ select is((select needs_review from public.ripening_lots
   where id='89000000-0000-0000-0000-000000000001'),true,
   'confirmed order change marks related plan for review');
 
+select is(current_setting('test.order_updated')::jsonb->'data'->'shipping_destination_snapshot'->>'address',
+  '旧住所','date and notes updates preserve the original destination snapshot');
+select is((select count(*) from public.change_history
+  where entity_type='ripening_lot' and correlation_id='83000000-0000-4000-8000-000000000012'),
+  1::bigint,'order update audits the related plan');
+select is((select before_data->>'needs_review' from public.change_history
+  where entity_type='ripening_lot' and correlation_id='83000000-0000-4000-8000-000000000012'),
+  'false','plan audit retains the old review flag');
+select is((select after_data->>'needs_review' from public.change_history
+  where entity_type='ripening_lot' and correlation_id='83000000-0000-4000-8000-000000000012'),
+  'true','plan audit retains the new review flag');
+
 select set_config('test.reconfirmed',public.order_confirm(public.test_s2_req(
   '82000000-0000-4000-8000-000000000013','83000000-0000-4000-8000-000000000013',
   jsonb_build_object('order_id',current_setting('test.order')::jsonb->'data'->>'id',
@@ -189,6 +204,56 @@ select set_config('test.reconfirmed',public.order_confirm(public.test_s2_req(
 select is(current_setting('test.reconfirmed')::jsonb->'data'->>'status','confirmed',
   'changed order can be reconfirmed');
 
+select is((select operation from public.change_history
+  where entity_type='ripening_lot' and correlation_id='83000000-0000-4000-8000-000000000012'),
+  'transition','confirmed plan demotion is audited as a transition');
+select set_config('test.plan_before_failure',
+  (select to_jsonb(l)::text from public.ripening_lots l
+   where id='89000000-0000-0000-0000-000000000001'),true);
+
+-- Fail after allocation removal and reservation update, before their audit commits.
+reset role;
+create function public.test_reject_reservation_audit() returns trigger
+language plpgsql as $$
+begin
+  if new.entity_type='inventory_reservation' then
+    raise exception 'injected audit failure';
+  end if;
+  return new;
+end;
+$$;
+create trigger test_reject_reservation_audit before insert on public.change_history
+for each row execute function public.test_reject_reservation_audit();
+set local role authenticated;
+select throws_ok($cancel$select public.order_cancel(public.test_s2_req(
+  '82000000-0000-4000-8000-000000000014','83000000-0000-4000-8000-000000000014',
+  jsonb_build_object('order_id',current_setting('test.order')::jsonb->'data'->>'id',
+    'expected_version',4,'reason','顧客都合')))$cancel$,
+  'P0001','injected audit failure','audit failure aborts the entire cancellation');
+select is((select status from public.orders
+  where id=(current_setting('test.order')::jsonb->'data'->>'id')::uuid),
+  'confirmed','failed cancellation preserves the order');
+select is((select count(*) from public.ripening_allocations
+  where id='89100000-0000-0000-0000-000000000001'),1::bigint,
+  'failed cancellation restores the deleted allocation');
+select is((select reserved_weight_kg::numeric from public.containers
+  where id='89300000-0000-0000-0000-000000000001'),2::numeric,
+  'failed cancellation restores container reserved weight');
+select is((select status from public.inventory_reservations
+  where id='89400000-0000-0000-0000-000000000001'),'active',
+  'failed cancellation restores the reservation');
+select is((select to_jsonb(l) from public.ripening_lots l
+  where id='89000000-0000-0000-0000-000000000001'),
+  current_setting('test.plan_before_failure')::jsonb,
+  'failed cancellation restores the full plan including version and totals');
+select is((select count(*) from public.change_history
+  where correlation_id='83000000-0000-4000-8000-000000000014'),0::bigint,
+  'failed cancellation leaves no related audit records');
+reset role;
+drop trigger test_reject_reservation_audit on public.change_history;
+drop function public.test_reject_reservation_audit();
+set local role authenticated;
+-- Retry the same key after the rolled-back failure.
 select set_config('test.cancelled',public.order_cancel(public.test_s2_req(
   '82000000-0000-4000-8000-000000000014','83000000-0000-4000-8000-000000000014',
   jsonb_build_object('order_id',current_setting('test.order')::jsonb->'data'->>'id',
@@ -216,6 +281,93 @@ select cmp_ok((select count(*) from public.change_history
     and changed_by='81000000-0000-0000-0000-000000000003'),'>=',8::bigint,
   'mutations append audit history');
 
+select is((select count(*) from public.change_history
+  where correlation_id='83000000-0000-4000-8000-000000000014'),5::bigint,
+  'cancellation audits order, plan, allocation, reservation and container');
+select is((select before_data->>'allocated_weight_kg' from public.change_history
+  where entity_type='ripening_lot' and correlation_id='83000000-0000-4000-8000-000000000014'),
+  '2','plan cancellation audit captures the old allocation total');
+select is((select after_data->>'allocated_weight_kg' from public.change_history
+  where entity_type='ripening_lot' and correlation_id='83000000-0000-4000-8000-000000000014'),
+  '0','plan cancellation audit captures trigger-maintained final totals');
+select is((select operation from public.change_history
+  where entity_type='ripening_allocation' and correlation_id='83000000-0000-4000-8000-000000000014'),
+  'delete','allocation deletion has an explicit audit operation');
+select is((select after_data->>'deleted' from public.change_history
+  where entity_type='ripening_allocation' and correlation_id='83000000-0000-4000-8000-000000000014'),
+  'true','allocation deletion has a tombstone');
+select is((select before_data->>'order_id' from public.change_history
+  where entity_type='ripening_allocation' and correlation_id='83000000-0000-4000-8000-000000000014'),
+  current_setting('test.order')::jsonb->'data'->>'id','deleted allocation retains its order link');
+select is((select before_data->>'status' from public.change_history
+  where entity_type='inventory_reservation' and correlation_id='83000000-0000-4000-8000-000000000014'),
+  'active','reservation audit captures its old state');
+select is((select after_data->>'status' from public.change_history
+  where entity_type='inventory_reservation' and correlation_id='83000000-0000-4000-8000-000000000014'),
+  'released','reservation audit captures its released state');
+select is((select count(*) from public.change_history
+  where correlation_id='83000000-0000-4000-8000-000000000014'
+    and changed_by='81000000-0000-0000-0000-000000000003' and reason='顧客都合'),
+  5::bigint,'all related audits share the actor, reason and correlation');
+select is((public.order_cancel(public.test_s2_req(
+  '82000000-0000-4000-8000-000000000014','83000000-0000-4000-8000-000000000014',
+  jsonb_build_object('order_id',current_setting('test.order')::jsonb->'data'->>'id',
+    'expected_version',4,'reason','顧客都合'))))->>'idempotent_replay','true','cancellation replays after success');
+select is((select count(*) from public.change_history
+  where correlation_id='83000000-0000-4000-8000-000000000014'),5::bigint,
+  'cancellation replay does not duplicate any audit');
+
+-- A new draft order exercises explicit destination changes and replay.
+select set_config('test.snapshot_order',public.order_register(public.test_s2_req(
+  '82000000-0000-4000-8000-000000000020','83000000-0000-4000-8000-000000000020',
+  jsonb_build_object('customer_id',current_setting('test.customer')::jsonb->'data'->>'id',
+    'shipping_destination_id',current_setting('test.destination1')::jsonb->'data'->>'id',
+    'ordered_date','2027-06-10','scheduled_ship_date','2027-06-20',
+    'variety_id',current_setting('test.order')::jsonb->'data'->>'variety_id',
+    'grade_id',current_setting('test.order')::jsonb->'data'->>'grade_id',
+    'ordered_weight_kg',2)))::text,true);
+select set_config('test.destination_change_req',public.test_s2_req(
+  '82000000-0000-4000-8000-000000000021','83000000-0000-4000-8000-000000000021',
+  jsonb_build_object('order_id',current_setting('test.snapshot_order')::jsonb->'data'->>'id',
+    'expected_version',1,'customer_id',current_setting('test.customer')::jsonb->'data'->>'id',
+    'shipping_destination_id',current_setting('test.destination2')::jsonb->'data'->>'id',
+    'ordered_date','2027-06-10','scheduled_ship_date','2027-06-20',
+    'variety_id',current_setting('test.order')::jsonb->'data'->>'variety_id',
+    'grade_id',current_setting('test.order')::jsonb->'data'->>'grade_id',
+    'ordered_weight_kg',2,'reason','配送先変更'))::text,true);
+select set_config('test.destination_changed',public.order_update(
+  current_setting('test.destination_change_req')::jsonb)::text,true);
+select is(current_setting('test.destination_changed')::jsonb->'data'->'shipping_destination_snapshot'->>'address',
+  '支店住所','an explicit destination ID change refreshes the snapshot');
+select is(public.order_update(current_setting('test.destination_change_req')::jsonb)->>'idempotent_replay',
+  'true','destination change is idempotent');
+select is((select count(*) from public.change_history
+  where correlation_id='83000000-0000-4000-8000-000000000021'),1::bigint,
+  'destination change replay does not duplicate history');
+
+-- Exercise partial release and then full release on the draft reservation.
+reset role;
+delete from public.inventory_reservations where id='89400000-0000-0000-0000-000000000001';
+insert into public.inventory_reservations(id,ripening_lot_id,container_id,reserved_weight_kg,
+  created_by,updated_by)
+values('89400000-0000-0000-0000-000000000002','89000000-0000-0000-0000-000000000001',
+  '89300000-0000-0000-0000-000000000001',2,
+  '81000000-0000-0000-0000-000000000003','81000000-0000-0000-0000-000000000003');
+select private.release_order_reservations('89000000-0000-0000-0000-000000000001',0.5,
+  '81000000-0000-0000-0000-000000000003','部分解除','83000000-0000-4000-8000-000000000022');
+select is((select before_data->>'reserved_weight_kg' from public.change_history
+  where entity_type='inventory_reservation' and correlation_id='83000000-0000-4000-8000-000000000022'),
+  '2','partial release audit retains original weight');
+select is((select (after_data->>'reserved_weight_kg')::numeric from public.change_history
+  where entity_type='inventory_reservation' and correlation_id='83000000-0000-4000-8000-000000000022'),
+  1.5::numeric,'partial release audit retains remaining weight');
+select is((select operation from public.change_history
+  where entity_type='inventory_reservation' and correlation_id='83000000-0000-4000-8000-000000000022'),
+  'update','partial release is a weight update');
+select is((select after_data->>'status' from public.change_history
+  where entity_type='inventory_reservation' and correlation_id='83000000-0000-4000-8000-000000000022'),
+  'active','partial release keeps the reservation active');
+set local role authenticated;
 select set_config('request.jwt.claim.sub','81000000-0000-0000-0000-000000000001',true);
 select is((select count(*) from public.customer_list(null,false)),0::bigint,
   'pending user cannot read customer list');
