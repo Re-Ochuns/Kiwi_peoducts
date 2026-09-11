@@ -28,6 +28,7 @@ Issue #10（S1-01）の受入・選果・在庫・ラベル・変更履歴の基
 - `active`なmemberとadministratorは段階1のマスター・受入・在庫・ラベルを参照できる。
 - `change_history`はactiveなadministratorだけが参照できる。
 - authenticated利用者へテーブルの直接更新権限を付与しない。更新は後続Issueの監査・冪等性付きRPCに限定する。
+- マスターの作成・修正・無効化・再有効化は、activeなadministratorだけがマスターRPC（[master-rpc.md](master-rpc.md)、Issue #39）で実行できる。
 - `private.idempotency_records`はservice roleだけが操作でき、応答を24時間以上保持する。期限切れレコードはpg_cronが毎時15分に削除する。
 - Data APIのサーバー実行上限はクライアントの10秒より短い8秒とし、`authenticator` roleへ設定する。
 
