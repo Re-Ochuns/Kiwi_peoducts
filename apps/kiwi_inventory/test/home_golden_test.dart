@@ -186,7 +186,7 @@ class _GoldenInventoryRepository implements InventoryRepository {
                 InventoryHistoryEntry(
                   operation: 'create',
                   reason: '選果確定により作成',
-                  changedAt: DateTime(2026, 9, 2, 14, 30),
+                  changedAt: DateTime.utc(2026, 9, 2, 5, 30),
                   changedBy: '管理者A',
                 ),
               ]
