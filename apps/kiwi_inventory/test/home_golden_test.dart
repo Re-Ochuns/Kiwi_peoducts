@@ -23,6 +23,7 @@ import 'support/golden_test_environment.dart';
 import 'support/fake_csv_export_repository.dart';
 import 'support/fake_master_repository.dart';
 import 'support/fake_ripening_plan_repository.dart';
+import 'support/fake_work_task_repository.dart';
 
 void main() {
   final goldenDate = DateTime(2026, 9, 8);
@@ -49,7 +50,8 @@ void main() {
     await tester.pumpWidget(
       KiwiInventoryApp(
         authRepository: _GoldenAuthRepository(),
-        currentDate: goldenDate,
+        currentDate: DateTime(2026, 9, 12, 12),
+        workTaskRepository: FakeWorkTaskRepository(),
         theme: buildAppTheme(fontFamily: goldenFontFamily),
       ),
     );

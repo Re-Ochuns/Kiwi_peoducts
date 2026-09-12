@@ -29,6 +29,9 @@ import 'ripening/supabase_ripening_plan_repository.dart';
 import 'sorting/sorting_page.dart';
 import 'sorting/sorting_repository.dart';
 import 'sorting/supabase_sorting_repository.dart';
+import 'work_tasks/supabase_work_task_repository.dart';
+import 'work_tasks/work_task_repository.dart';
+import 'work_tasks/worker_todo.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,6 +59,7 @@ Future<void> main() async {
             SupabaseReceivingRepository.fromInitializedClient(),
         ripeningPlanRepository:
             SupabaseRipeningPlanRepository.fromInitializedClient(),
+        workTaskRepository: SupabaseWorkTaskRepository.fromInitializedClient(),
       ),
     );
   } catch (_) {
@@ -79,6 +83,7 @@ class KiwiInventoryApp extends StatelessWidget {
     this.receivingRepository,
     this.inventoryRepository,
     this.ripeningPlanRepository,
+    this.workTaskRepository,
     this.theme,
     super.key,
   });
@@ -92,6 +97,7 @@ class KiwiInventoryApp extends StatelessWidget {
   final ReceivingRepository? receivingRepository;
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
+  final WorkTaskRepository? workTaskRepository;
   final SortingRepository? sortingRepository;
   final ThemeData? theme;
 
@@ -102,6 +108,29 @@ class KiwiInventoryApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: theme ?? buildAppTheme(),
       home: _buildHome(),
+      onGenerateRoute: _onGenerateRoute,
+    );
+  }
+
+  Route<dynamic>? _onGenerateRoute(RouteSettings settings) {
+    final taskId = workTaskIdFromRoute(settings.name);
+    final repository = workTaskRepository;
+    if (taskId == null || repository == null) return null;
+    return PageRouteBuilder<void>(
+      settings: settings,
+      pageBuilder: (context, _, _) => WorkTaskRoutePage(
+        repository: repository,
+        taskId: taskId,
+        currentDate: currentDate,
+        targetPageBuilder: (task) => _buildWorkTaskTargetPage(
+          task,
+          currentDate: currentDate,
+          labelRepository: labelRepository,
+          sortingRepository: sortingRepository,
+        ),
+      ),
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
     );
   }
 
@@ -129,6 +158,7 @@ class KiwiInventoryApp extends StatelessWidget {
           receivingRepository: receivingRepository,
           inventoryRepository: inventoryRepository,
           ripeningPlanRepository: ripeningPlanRepository,
+          workTaskRepository: workTaskRepository,
         ),
       ),
     );
@@ -146,6 +176,7 @@ class ResponsiveHomePage extends StatelessWidget {
     this.receivingRepository,
     this.inventoryRepository,
     this.ripeningPlanRepository,
+    this.workTaskRepository,
     super.key,
   });
   final DateTime? currentDate;
@@ -155,6 +186,7 @@ class ResponsiveHomePage extends StatelessWidget {
   final ReceivingRepository? receivingRepository;
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
+  final WorkTaskRepository? workTaskRepository;
   final SortingRepository? sortingRepository;
 
   final VoidCallback? onSignOut;
@@ -181,6 +213,7 @@ class ResponsiveHomePage extends StatelessWidget {
               receivingRepository: receivingRepository,
               inventoryRepository: inventoryRepository,
               ripeningPlanRepository: ripeningPlanRepository,
+              workTaskRepository: workTaskRepository,
             ),
     );
   }
@@ -254,6 +287,7 @@ class WorkerHomePage extends StatelessWidget {
     this.receivingRepository,
     this.inventoryRepository,
     this.ripeningPlanRepository,
+    this.workTaskRepository,
     super.key,
   });
   final DateTime? currentDate;
@@ -262,6 +296,7 @@ class WorkerHomePage extends StatelessWidget {
   final ReceivingRepository? receivingRepository;
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
+  final WorkTaskRepository? workTaskRepository;
   final SortingRepository? sortingRepository;
 
   final VoidCallback? onSignOut;
@@ -324,28 +359,35 @@ class WorkerHomePage extends StatelessWidget {
                     onPressed: () => _openInventory(context),
                   ),
                   const SizedBox(height: 32),
-                  const SectionTitle('期限超過', count: '1件'),
-                  const SizedBox(height: 8),
-                  const TaskRow(task: overdueTask),
-                  const SizedBox(height: 28),
-                  const SectionTitle('本日の予定', count: '2件'),
-                  const SizedBox(height: 8),
-                  const TaskList(tasks: todayTasks),
-                  const SizedBox(height: 28),
-                  const SectionTitle('今後'),
-                  const SizedBox(height: 8),
-                  const TaskRow(
-                    task: WorkTask(
-                      title: '追熟確認',
-                      id: 'RIP-2026-0028',
-                      details: 'ヘイワード・M',
-                      weight: '18.40 kg',
-                      schedule: '9月10日 9:00',
-                      location: '第2追熟庫',
-                      status: '今後',
-                      tone: TaskTone.neutral,
+                  if (workTaskRepository == null) ...[
+                    const SectionTitle('期限超過', count: '1件'),
+                    const SizedBox(height: 8),
+                    const TaskRow(task: overdueTask),
+                    const SizedBox(height: 28),
+                    const SectionTitle('本日の予定', count: '2件'),
+                    const SizedBox(height: 8),
+                    const TaskList(tasks: todayTasks),
+                    const SizedBox(height: 28),
+                    const SectionTitle('今後の作業'),
+                    const SizedBox(height: 8),
+                    const TaskRow(
+                      task: WorkTask(
+                        title: '追熟確認',
+                        id: 'RIP-2026-0028',
+                        details: 'ヘイワード・M',
+                        weight: '18.40 kg',
+                        schedule: '9月10日 9:00',
+                        location: '第2追熟庫',
+                        status: '今後',
+                        tone: TaskTone.neutral,
+                      ),
                     ),
-                  ),
+                  ] else
+                    WorkerTodoSections(
+                      repository: workTaskRepository!,
+                      currentDate: currentDate,
+                      onOpenTask: (task) => _openTask(context, task),
+                    ),
                 ],
               ),
             ),
@@ -435,7 +477,51 @@ class WorkerHomePage extends StatelessWidget {
       ),
     );
   }
+
+  void _openTask(BuildContext context, WorkTaskItem task) {
+    final targetPage = _buildWorkTaskTargetPage(
+      task,
+      currentDate: currentDate,
+      labelRepository: labelRepository,
+      sortingRepository: sortingRepository,
+    );
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, _, _) => WorkTaskDetailPage(
+          task: task,
+          currentDate: currentDate,
+          onOpenTarget: targetPage == null
+              ? null
+              : () => Navigator.of(context).push(
+                  PageRouteBuilder<void>(
+                    pageBuilder: (_, _, _) => targetPage,
+                    transitionDuration: Duration.zero,
+                    reverseTransitionDuration: Duration.zero,
+                  ),
+                ),
+        ),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
+  }
 }
+
+Widget? _buildWorkTaskTargetPage(
+  WorkTaskItem task, {
+  required DateTime? currentDate,
+  required LabelRepository? labelRepository,
+  required SortingRepository? sortingRepository,
+}) => switch (task.type) {
+  WorkTaskType.sorting when sortingRepository != null => SortingTargetPage(
+    repository: sortingRepository,
+    currentDate: currentDate,
+  ),
+  WorkTaskType.labelPrinting when labelRepository != null => LabelTargetPage(
+    repository: labelRepository,
+  ),
+  _ => null,
+};
 
 class ManagerHomePage extends StatelessWidget {
   const ManagerHomePage({
