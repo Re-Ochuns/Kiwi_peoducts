@@ -17,10 +17,12 @@ import 'package:kiwi_inventory/label/label_repository.dart';
 import 'package:kiwi_inventory/main.dart';
 import 'package:kiwi_inventory/receiving/receiving_page.dart';
 import 'package:kiwi_inventory/receiving/receiving_repository.dart';
+import 'package:kiwi_inventory/ripening/ripening_plan_page.dart';
 
 import 'support/golden_test_environment.dart';
 import 'support/fake_csv_export_repository.dart';
 import 'support/fake_master_repository.dart';
+import 'support/fake_ripening_plan_repository.dart';
 
 void main() {
   final goldenDate = DateTime(2026, 9, 8);
@@ -92,6 +94,44 @@ void main() {
     await expectLater(
       find.byType(ReceivingPage),
       matchesGoldenFile('goldens/receiving_harvest_390.png'),
+    );
+  });
+
+  testWidgets('390pxの追熟計画作成画面', (tester) async {
+    configureGoldenView(tester, const Size(390, 844));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(fontFamily: goldenFontFamily),
+        home: RipeningPlanPage(
+          repository: FakeRipeningPlanRepository(),
+          currentDate: DateTime(2026, 9, 12, 9),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(RipeningPlanPage),
+      matchesGoldenFile('goldens/ripening_plan_390.png'),
+    );
+  });
+
+  testWidgets('1280pxの管理追熟計画作成画面', (tester) async {
+    configureGoldenView(tester, const Size(1280, 900));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(fontFamily: goldenFontFamily),
+        home: ManagerRipeningPlanPage(
+          repository: FakeRipeningPlanRepository(),
+          currentDate: DateTime(2026, 9, 12, 9),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(ManagerRipeningPlanPage),
+      matchesGoldenFile('goldens/manager_ripening_plan_1280.png'),
     );
   });
 

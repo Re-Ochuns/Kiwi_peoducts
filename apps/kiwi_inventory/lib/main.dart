@@ -23,6 +23,9 @@ import 'master/supabase_master_repository.dart';
 import 'receiving/receiving_page.dart';
 import 'receiving/receiving_repository.dart';
 import 'receiving/supabase_receiving_repository.dart';
+import 'ripening/ripening_plan_page.dart';
+import 'ripening/ripening_plan_repository.dart';
+import 'ripening/supabase_ripening_plan_repository.dart';
 import 'sorting/sorting_page.dart';
 import 'sorting/sorting_repository.dart';
 import 'sorting/supabase_sorting_repository.dart';
@@ -51,6 +54,8 @@ Future<void> main() async {
         sortingRepository: SupabaseSortingRepository.fromInitializedClient(),
         receivingRepository:
             SupabaseReceivingRepository.fromInitializedClient(),
+        ripeningPlanRepository:
+            SupabaseRipeningPlanRepository.fromInitializedClient(),
       ),
     );
   } catch (_) {
@@ -73,6 +78,7 @@ class KiwiInventoryApp extends StatelessWidget {
     this.sortingRepository,
     this.receivingRepository,
     this.inventoryRepository,
+    this.ripeningPlanRepository,
     this.theme,
     super.key,
   });
@@ -85,6 +91,7 @@ class KiwiInventoryApp extends StatelessWidget {
   final LabelRepository? labelRepository;
   final ReceivingRepository? receivingRepository;
   final InventoryRepository? inventoryRepository;
+  final RipeningPlanRepository? ripeningPlanRepository;
   final SortingRepository? sortingRepository;
   final ThemeData? theme;
 
@@ -121,6 +128,7 @@ class KiwiInventoryApp extends StatelessWidget {
           sortingRepository: sortingRepository,
           receivingRepository: receivingRepository,
           inventoryRepository: inventoryRepository,
+          ripeningPlanRepository: ripeningPlanRepository,
         ),
       ),
     );
@@ -137,6 +145,7 @@ class ResponsiveHomePage extends StatelessWidget {
     this.sortingRepository,
     this.receivingRepository,
     this.inventoryRepository,
+    this.ripeningPlanRepository,
     super.key,
   });
   final DateTime? currentDate;
@@ -145,6 +154,7 @@ class ResponsiveHomePage extends StatelessWidget {
   final LabelRepository? labelRepository;
   final ReceivingRepository? receivingRepository;
   final InventoryRepository? inventoryRepository;
+  final RipeningPlanRepository? ripeningPlanRepository;
   final SortingRepository? sortingRepository;
 
   final VoidCallback? onSignOut;
@@ -160,6 +170,7 @@ class ResponsiveHomePage extends StatelessWidget {
               csvExportRepository: csvExportRepository,
               masterRepository: masterRepository,
               inventoryRepository: inventoryRepository,
+              ripeningPlanRepository: ripeningPlanRepository,
             )
           : WorkerHomePage(
               onSignOut: onSignOut,
@@ -169,6 +180,7 @@ class ResponsiveHomePage extends StatelessWidget {
               sortingRepository: sortingRepository,
               receivingRepository: receivingRepository,
               inventoryRepository: inventoryRepository,
+              ripeningPlanRepository: ripeningPlanRepository,
             ),
     );
   }
@@ -241,6 +253,7 @@ class WorkerHomePage extends StatelessWidget {
     this.sortingRepository,
     this.receivingRepository,
     this.inventoryRepository,
+    this.ripeningPlanRepository,
     super.key,
   });
   final DateTime? currentDate;
@@ -248,6 +261,7 @@ class WorkerHomePage extends StatelessWidget {
   final LabelRepository? labelRepository;
   final ReceivingRepository? receivingRepository;
   final InventoryRepository? inventoryRepository;
+  final RipeningPlanRepository? ripeningPlanRepository;
   final SortingRepository? sortingRepository;
 
   final VoidCallback? onSignOut;
@@ -302,7 +316,7 @@ class WorkerHomePage extends StatelessWidget {
                   const SizedBox(height: 10),
                   ActionButton(
                     label: '追熟計画作成',
-                    onPressed: () => preparing(context),
+                    onPressed: () => _openRipeningPlan(context),
                   ),
                   const SizedBox(height: 10),
                   ActionButton(
@@ -405,6 +419,22 @@ class WorkerHomePage extends StatelessWidget {
       ),
     );
   }
+
+  void _openRipeningPlan(BuildContext context) {
+    final repository = ripeningPlanRepository;
+    if (repository == null) {
+      preparing(context);
+      return;
+    }
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, _, _) =>
+            RipeningPlanPage(repository: repository, currentDate: currentDate),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
+  }
 }
 
 class ManagerHomePage extends StatelessWidget {
@@ -414,12 +444,14 @@ class ManagerHomePage extends StatelessWidget {
     this.csvExportRepository,
     this.masterRepository,
     this.inventoryRepository,
+    this.ripeningPlanRepository,
     super.key,
   });
   final DateTime? currentDate;
   final CsvExportRepository? csvExportRepository;
   final MasterRepository? masterRepository;
   final InventoryRepository? inventoryRepository;
+  final RipeningPlanRepository? ripeningPlanRepository;
 
   final VoidCallback? onSignOut;
 
@@ -531,11 +563,21 @@ class ManagerHomePage extends StatelessWidget {
         repository: inventoryRepository!,
         masterRepository: masterRepository,
         csvExportRepository: csvExportRepository,
+        ripeningPlanRepository: ripeningPlanRepository,
         onSignOut: onSignOut,
       ),
       'マスター' when masterRepository != null => ManagerMasterPage(
         repository: masterRepository!,
         inventoryRepository: inventoryRepository,
+        csvExportRepository: csvExportRepository,
+        ripeningPlanRepository: ripeningPlanRepository,
+        onSignOut: onSignOut,
+      ),
+      '追熟計画' when ripeningPlanRepository != null => ManagerRipeningPlanPage(
+        repository: ripeningPlanRepository!,
+        currentDate: currentDate,
+        inventoryRepository: inventoryRepository,
+        masterRepository: masterRepository,
         csvExportRepository: csvExportRepository,
         onSignOut: onSignOut,
       ),
@@ -560,6 +602,7 @@ class ManagerMasterPage extends StatelessWidget {
     required this.repository,
     this.inventoryRepository,
     this.csvExportRepository,
+    this.ripeningPlanRepository,
     this.onSignOut,
     super.key,
   });
@@ -567,6 +610,7 @@ class ManagerMasterPage extends StatelessWidget {
   final MasterRepository repository;
   final InventoryRepository? inventoryRepository;
   final CsvExportRepository? csvExportRepository;
+  final RipeningPlanRepository? ripeningPlanRepository;
   final VoidCallback? onSignOut;
 
   @override
@@ -589,6 +633,21 @@ class ManagerMasterPage extends StatelessWidget {
                 PageRouteBuilder<void>(
                   pageBuilder: (_, _, _) => ManagerInventoryPage(
                     repository: inventoryRepository!,
+                    masterRepository: repository,
+                    csvExportRepository: csvExportRepository,
+                    ripeningPlanRepository: ripeningPlanRepository,
+                    onSignOut: onSignOut,
+                  ),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
+              );
+            } else if (item == '追熟計画' && ripeningPlanRepository != null) {
+              Navigator.of(context).pushReplacement(
+                PageRouteBuilder<void>(
+                  pageBuilder: (_, _, _) => ManagerRipeningPlanPage(
+                    repository: ripeningPlanRepository!,
+                    inventoryRepository: inventoryRepository,
                     masterRepository: repository,
                     csvExportRepository: csvExportRepository,
                     onSignOut: onSignOut,
@@ -620,6 +679,7 @@ class ManagerInventoryPage extends StatelessWidget {
     required this.repository,
     this.masterRepository,
     this.csvExportRepository,
+    this.ripeningPlanRepository,
     this.onSignOut,
     super.key,
   });
@@ -627,6 +687,7 @@ class ManagerInventoryPage extends StatelessWidget {
   final InventoryRepository repository;
   final MasterRepository? masterRepository;
   final CsvExportRepository? csvExportRepository;
+  final RipeningPlanRepository? ripeningPlanRepository;
   final VoidCallback? onSignOut;
 
   @override
@@ -651,6 +712,21 @@ class ManagerInventoryPage extends StatelessWidget {
                     repository: masterRepository!,
                     inventoryRepository: repository,
                     csvExportRepository: csvExportRepository,
+                    ripeningPlanRepository: ripeningPlanRepository,
+                    onSignOut: onSignOut,
+                  ),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
+              );
+            } else if (item == '追熟計画' && ripeningPlanRepository != null) {
+              Navigator.of(context).pushReplacement(
+                PageRouteBuilder<void>(
+                  pageBuilder: (_, _, _) => ManagerRipeningPlanPage(
+                    repository: ripeningPlanRepository!,
+                    inventoryRepository: repository,
+                    masterRepository: masterRepository,
+                    csvExportRepository: csvExportRepository,
                     onSignOut: onSignOut,
                   ),
                   transitionDuration: Duration.zero,
@@ -667,6 +743,85 @@ class ManagerInventoryPage extends StatelessWidget {
           child: InventoryPage(
             repository: repository,
             csvExportRepository: csvExportRepository,
+            embedded: true,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class ManagerRipeningPlanPage extends StatelessWidget {
+  const ManagerRipeningPlanPage({
+    required this.repository,
+    this.currentDate,
+    this.inventoryRepository,
+    this.masterRepository,
+    this.csvExportRepository,
+    this.onSignOut,
+    super.key,
+  });
+
+  final RipeningPlanRepository repository;
+  final DateTime? currentDate;
+  final InventoryRepository? inventoryRepository;
+  final MasterRepository? masterRepository;
+  final CsvExportRepository? csvExportRepository;
+  final VoidCallback? onSignOut;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: Row(
+      children: [
+        ManagerNavigation(
+          selectedItem: '追熟計画',
+          onSignOut: onSignOut == null
+              ? null
+              : () {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                  onSignOut!.call();
+                },
+          onSelected: (item) {
+            if (item == 'ホーム') {
+              Navigator.of(context).pop();
+            } else if (item == '在庫管理' && inventoryRepository != null) {
+              Navigator.of(context).pushReplacement(
+                PageRouteBuilder<void>(
+                  pageBuilder: (_, _, _) => ManagerInventoryPage(
+                    repository: inventoryRepository!,
+                    masterRepository: masterRepository,
+                    csvExportRepository: csvExportRepository,
+                    ripeningPlanRepository: repository,
+                    onSignOut: onSignOut,
+                  ),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
+              );
+            } else if (item == 'マスター' && masterRepository != null) {
+              Navigator.of(context).pushReplacement(
+                PageRouteBuilder<void>(
+                  pageBuilder: (_, _, _) => ManagerMasterPage(
+                    repository: masterRepository!,
+                    inventoryRepository: inventoryRepository,
+                    csvExportRepository: csvExportRepository,
+                    ripeningPlanRepository: repository,
+                    onSignOut: onSignOut,
+                  ),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
+              );
+            } else {
+              preparing(context, '$item画面は準備中です');
+            }
+          },
+        ),
+        const VerticalDivider(width: 1),
+        Expanded(
+          child: RipeningPlanPage(
+            repository: repository,
+            currentDate: currentDate,
             embedded: true,
           ),
         ),
