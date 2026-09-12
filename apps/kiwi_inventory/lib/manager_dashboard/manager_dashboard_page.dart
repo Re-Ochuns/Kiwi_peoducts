@@ -8,22 +8,22 @@ import 'manager_dashboard_repository.dart';
 class ManagerDashboardPage extends StatefulWidget {
   const ManagerDashboardPage({
     required this.repository,
-    required this.currentDate,
+    this.currentDate,
     required this.onOpenTask,
     required this.onOpenOrder,
     super.key,
   });
 
   final ManagerDashboardRepository repository;
-  final DateTime currentDate;
+  final DateTime? currentDate;
   final ValueChanged<WorkTaskItem> onOpenTask;
   final ValueChanged<OrderItem> onOpenOrder;
 
   @override
-  State<ManagerDashboardPage> createState() => _ManagerDashboardPageState();
+  State<ManagerDashboardPage> createState() => ManagerDashboardPageState();
 }
 
-class _ManagerDashboardPageState extends State<ManagerDashboardPage> {
+class ManagerDashboardPageState extends State<ManagerDashboardPage> {
   final _priorityKey = GlobalKey();
   final _todayKey = GlobalKey();
   final _upcomingKey = GlobalKey();
@@ -34,10 +34,10 @@ class _ManagerDashboardPageState extends State<ManagerDashboardPage> {
   @override
   void initState() {
     super.initState();
-    _load();
+    refresh();
   }
 
-  Future<void> _load() async {
+  Future<void> refresh() async {
     setState(() {
       _loading = true;
       _failure = null;
@@ -69,12 +69,12 @@ class _ManagerDashboardPageState extends State<ManagerDashboardPage> {
         title: failure.isPermissionDenied ? 'ホームを表示できません' : '予定と警告を読み込めませんでした',
         message: failure.message,
         actionLabel: failure.retryable ? '再試行' : null,
-        onAction: failure.retryable ? _load : null,
+        onAction: failure.retryable ? refresh : null,
       );
     }
 
     final data = _data!;
-    final now = widget.currentDate;
+    final now = widget.currentDate ?? DateTime.now();
     final today = data.todayTasks(now);
     final upcoming = data.upcomingTasks(now);
     final overdue = data.overdueTasks(now);
@@ -83,7 +83,7 @@ class _ManagerDashboardPageState extends State<ManagerDashboardPage> {
     final scheduleWarnings = data.scheduleWarningTasks;
 
     return RefreshIndicator(
-      onRefresh: _load,
+      onRefresh: refresh,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(32, 30, 32, 48),
@@ -110,7 +110,7 @@ class _ManagerDashboardPageState extends State<ManagerDashboardPage> {
                   const SizedBox(height: 18),
                   _ReloadFailureNotice(
                     message: failure.message,
-                    onRetry: failure.retryable ? _load : null,
+                    onRetry: failure.retryable ? refresh : null,
                   ),
                 ],
                 const SizedBox(height: 28),

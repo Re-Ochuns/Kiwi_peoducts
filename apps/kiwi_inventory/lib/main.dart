@@ -603,7 +603,7 @@ Widget? _buildWorkTaskTargetPage(
   _ => null,
 };
 
-class ManagerHomePage extends StatelessWidget {
+class ManagerHomePage extends StatefulWidget {
   const ManagerHomePage({
     this.onSignOut,
     this.currentDate,
@@ -626,6 +626,27 @@ class ManagerHomePage extends StatelessWidget {
   final VoidCallback? onSignOut;
 
   @override
+  State<ManagerHomePage> createState() => _ManagerHomePageState();
+}
+
+class _ManagerHomePageState extends State<ManagerHomePage> {
+  final _dashboardKey = GlobalKey<ManagerDashboardPageState>();
+  Future<void> _refreshDashboard() async {
+    if (mounted) await _dashboardKey.currentState?.refresh();
+  }
+
+  DateTime? get currentDate => widget.currentDate;
+  CsvExportRepository? get csvExportRepository => widget.csvExportRepository;
+  MasterRepository? get masterRepository => widget.masterRepository;
+  InventoryRepository? get inventoryRepository => widget.inventoryRepository;
+  RipeningPlanRepository? get ripeningPlanRepository =>
+      widget.ripeningPlanRepository;
+  WorkTaskRepository? get workTaskRepository => widget.workTaskRepository;
+  OrderManagementRepository? get orderManagementRepository =>
+      widget.orderManagementRepository;
+  VoidCallback? get onSignOut => widget.onSignOut;
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Row(
@@ -645,43 +666,48 @@ class ManagerHomePage extends StatelessWidget {
     final tasks = workTaskRepository;
     final orders = orderManagementRepository;
     return ManagerDashboardPage(
+      key: _dashboardKey,
       repository: tasks != null && orders != null
           ? DefaultManagerDashboardRepository(
               workTaskRepository: tasks,
               orderManagementRepository: orders,
             )
           : const _EmptyManagerDashboardRepository(),
-      currentDate: currentDate ?? DateTime.now(),
-      onOpenTask: (task) => Navigator.of(context).push(
-        PageRouteBuilder<void>(
-          pageBuilder: (_, _, _) => WorkTaskDetailPage(
-            task: task,
-            currentDate: currentDate,
-            backLabel: '← ホームへ戻る',
-            showCalendarSyncStatus: true,
-          ),
-          transitionDuration: Duration.zero,
-          reverseTransitionDuration: Duration.zero,
-        ),
-      ),
+      currentDate: currentDate,
+      onOpenTask: (task) => Navigator.of(context)
+          .push(
+            PageRouteBuilder<void>(
+              pageBuilder: (_, _, _) => WorkTaskDetailPage(
+                task: task,
+                currentDate: currentDate,
+                backLabel: '← ホームへ戻る',
+                showCalendarSyncStatus: true,
+              ),
+              transitionDuration: Duration.zero,
+              reverseTransitionDuration: Duration.zero,
+            ),
+          )
+          .then((_) => _refreshDashboard()),
       onOpenOrder: orders == null
           ? (_) {}
-          : (order) => Navigator.of(context).push(
-              PageRouteBuilder<void>(
-                pageBuilder: (_, _, _) => ManagerOrderPage(
-                  repository: orders,
-                  initialOrderId: order.id,
-                  currentDate: currentDate,
-                  ripeningPlanRepository: ripeningPlanRepository,
-                  inventoryRepository: inventoryRepository,
-                  masterRepository: masterRepository,
-                  csvExportRepository: csvExportRepository,
-                  onSignOut: onSignOut,
-                ),
-                transitionDuration: Duration.zero,
-                reverseTransitionDuration: Duration.zero,
-              ),
-            ),
+          : (order) => Navigator.of(context)
+                .push(
+                  PageRouteBuilder<void>(
+                    pageBuilder: (_, _, _) => ManagerOrderPage(
+                      repository: orders,
+                      initialOrderId: order.id,
+                      currentDate: currentDate,
+                      ripeningPlanRepository: ripeningPlanRepository,
+                      inventoryRepository: inventoryRepository,
+                      masterRepository: masterRepository,
+                      csvExportRepository: csvExportRepository,
+                      onSignOut: onSignOut,
+                    ),
+                    transitionDuration: Duration.zero,
+                    reverseTransitionDuration: Duration.zero,
+                  ),
+                )
+                .then((_) => _refreshDashboard()),
     );
   }
 
@@ -727,13 +753,15 @@ class ManagerHomePage extends StatelessWidget {
       preparing(context, '$item画面は準備中です');
       return;
     }
-    Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        pageBuilder: (_, _, _) => page,
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-      ),
-    );
+    Navigator.of(context)
+        .push(
+          PageRouteBuilder<void>(
+            pageBuilder: (_, _, _) => page,
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
+        )
+        .then((_) => _refreshDashboard());
   }
 }
 
