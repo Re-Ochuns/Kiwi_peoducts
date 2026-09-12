@@ -38,6 +38,9 @@ import 'work_tasks/supabase_work_task_repository.dart';
 import 'work_tasks/work_task_repository.dart';
 import 'work_tasks/worker_todo.dart';
 
+// Observe the home route itself: child routes can be replaced by sidebar navigation.
+final managerDashboardRouteObserver = RouteObserver<ModalRoute<dynamic>>();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final config = AppConfig.fromEnvironment();
@@ -119,6 +122,7 @@ class KiwiInventoryApp extends StatelessWidget {
       home: _buildHome(),
       initialRoute: workTaskInitialRoute(Uri.base),
       onGenerateRoute: _onGenerateRoute,
+      navigatorObservers: [managerDashboardRouteObserver],
     );
   }
 
@@ -629,7 +633,31 @@ class ManagerHomePage extends StatefulWidget {
   State<ManagerHomePage> createState() => _ManagerHomePageState();
 }
 
-class _ManagerHomePageState extends State<ManagerHomePage> {
+class _ManagerHomePageState extends State<ManagerHomePage> with RouteAware {
+  ModalRoute<dynamic>? _observedRoute;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route != _observedRoute) {
+      managerDashboardRouteObserver.unsubscribe(this);
+      _observedRoute = route;
+      if (route != null) managerDashboardRouteObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void didPopNext() {
+    _refreshDashboard();
+  }
+
+  @override
+  void dispose() {
+    managerDashboardRouteObserver.unsubscribe(this);
+    super.dispose();
+  }
+
   final _dashboardKey = GlobalKey<ManagerDashboardPageState>();
   Future<void> _refreshDashboard() async {
     if (mounted) await _dashboardKey.currentState?.refresh();
@@ -674,40 +702,36 @@ class _ManagerHomePageState extends State<ManagerHomePage> {
             )
           : const _EmptyManagerDashboardRepository(),
       currentDate: currentDate,
-      onOpenTask: (task) => Navigator.of(context)
-          .push(
-            PageRouteBuilder<void>(
-              pageBuilder: (_, _, _) => WorkTaskDetailPage(
-                task: task,
-                currentDate: currentDate,
-                backLabel: '← ホームへ戻る',
-                showCalendarSyncStatus: true,
-              ),
-              transitionDuration: Duration.zero,
-              reverseTransitionDuration: Duration.zero,
-            ),
-          )
-          .then((_) => _refreshDashboard()),
+      onOpenTask: (task) => Navigator.of(context).push(
+        PageRouteBuilder<void>(
+          pageBuilder: (_, _, _) => WorkTaskDetailPage(
+            task: task,
+            currentDate: currentDate,
+            backLabel: '← ホームへ戻る',
+            showCalendarSyncStatus: true,
+          ),
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
+        ),
+      ),
       onOpenOrder: orders == null
           ? (_) {}
-          : (order) => Navigator.of(context)
-                .push(
-                  PageRouteBuilder<void>(
-                    pageBuilder: (_, _, _) => ManagerOrderPage(
-                      repository: orders,
-                      initialOrderId: order.id,
-                      currentDate: currentDate,
-                      ripeningPlanRepository: ripeningPlanRepository,
-                      inventoryRepository: inventoryRepository,
-                      masterRepository: masterRepository,
-                      csvExportRepository: csvExportRepository,
-                      onSignOut: onSignOut,
-                    ),
-                    transitionDuration: Duration.zero,
-                    reverseTransitionDuration: Duration.zero,
-                  ),
-                )
-                .then((_) => _refreshDashboard()),
+          : (order) => Navigator.of(context).push(
+              PageRouteBuilder<void>(
+                pageBuilder: (_, _, _) => ManagerOrderPage(
+                  repository: orders,
+                  initialOrderId: order.id,
+                  currentDate: currentDate,
+                  ripeningPlanRepository: ripeningPlanRepository,
+                  inventoryRepository: inventoryRepository,
+                  masterRepository: masterRepository,
+                  csvExportRepository: csvExportRepository,
+                  onSignOut: onSignOut,
+                ),
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+              ),
+            ),
     );
   }
 
@@ -753,15 +777,13 @@ class _ManagerHomePageState extends State<ManagerHomePage> {
       preparing(context, '$item画面は準備中です');
       return;
     }
-    Navigator.of(context)
-        .push(
-          PageRouteBuilder<void>(
-            pageBuilder: (_, _, _) => page,
-            transitionDuration: Duration.zero,
-            reverseTransitionDuration: Duration.zero,
-          ),
-        )
-        .then((_) => _refreshDashboard());
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, _, _) => page,
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
   }
 }
 

@@ -36,6 +36,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        navigatorObservers: [managerDashboardRouteObserver],
         home: ManagerHomePage(
           workTaskRepository: FakeWorkTaskRepository(tasks: [task]),
           orderManagementRepository: FakeOrderManagementRepository(),
@@ -63,6 +64,7 @@ void main() {
     final tasks = SnapshotTasks();
     await tester.pumpWidget(
       MaterialApp(
+        navigatorObservers: [managerDashboardRouteObserver],
         home: ManagerHomePage(
           currentDate: DateTime(2026, 9, 12, 12),
           workTaskRepository: tasks,
