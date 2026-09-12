@@ -11,7 +11,7 @@ class SupabaseAuthRepository implements AuthRepository {
       url: config.supabaseUrl,
       publishableKey: config.supabaseKey,
     );
-    final redirectTo = Uri.base.origin;
+    final redirectTo = authRedirectTo(Uri.base);
     return SupabaseAuthRepository._(
       supabase.Supabase.instance.client,
       redirectTo,
@@ -60,4 +60,13 @@ class SupabaseAuthRepository implements AuthRepository {
     if (user == null) return null;
     return AuthUser(id: user.id, email: user.email);
   }
+}
+
+// Preserve task deep links across the full-page OAuth round trip.
+String authRedirectTo(Uri uri) {
+  final route = uri.fragment.startsWith('/') ? uri.fragment : uri.path;
+  if (RegExp(r'^/work-tasks/[^/?#]+$').hasMatch(route)) {
+    return Uri.parse('${uri.origin}/').replace(fragment: route).toString();
+  }
+  return uri.origin;
 }
