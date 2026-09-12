@@ -386,6 +386,7 @@ class _OrderFilters extends StatelessWidget {
         child: DropdownButtonFormField<OrderListFilter>(
           key: const Key('order-status-filter'),
           initialValue: filter,
+          isExpanded: true,
           icon: const SizedBox.shrink(),
           decoration: const InputDecoration(labelText: '状態'),
           items: [
@@ -469,6 +470,9 @@ class _OrderTable extends StatelessWidget {
           child: SingleChildScrollView(
             child: DataTable(
               columnSpacing: 16,
+              dataRowMaxHeight: MediaQuery.textScalerOf(context).scale(16) > 16
+                  ? 106
+                  : null,
               showCheckboxColumn: false,
               headingRowColor: WidgetStateProperty.all(const Color(0xFFF0F2F0)),
               columns: const [

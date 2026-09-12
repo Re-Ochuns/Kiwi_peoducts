@@ -138,6 +138,35 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('900px・文字200%でも受注の絞り込みと重量を確認できる', (tester) async {
+    final repository = FakeOrderManagementRepository();
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 900);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(),
+        home: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: ManagerOrderPage(repository: repository),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('20.00 kg'), findsOneWidget);
+    expect(find.text('不足 7.50 kg'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const Key('order-status-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('キャンセル').last);
+    await tester.pumpAndSettle();
+
+    expect(repository.lastFilter, OrderListFilter.cancelled);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('未出荷受注を初期表示し不足量を文字で識別できる', (tester) async {
     final repository = FakeOrderManagementRepository();
     await _pump(tester, repository);
