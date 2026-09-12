@@ -29,7 +29,8 @@ select vault.create_secret(
 -- 既存レコードの id は以下で確認できる（値は表示されない）:
 -- select id, name, description, created_at from vault.secrets order by name;
 
--- select vault.update_secret('<vault-secret-id>', '<新しい値>', '更新理由');
+-- 第3引数は名前、第4引数は説明。名前は null で既存値を維持する。
+-- select vault.update_secret('<vault-secret-id>', '<新しい値>', null, '更新理由');
 
 -- ── 確認（設定後に名前と更新日時だけを確認する） ──────────────────────────────
 
