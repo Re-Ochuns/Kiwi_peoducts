@@ -13,14 +13,22 @@ class SupabaseWorkTaskRepository implements WorkTaskRepository {
   final SupabaseClient _client;
 
   @override
-  Future<List<WorkTaskItem>> loadTasks() async {
+  Future<List<WorkTaskItem>> loadTasks() => _loadTasks(pendingOnly: true);
+
+  @override
+  Future<List<WorkTaskItem>> loadDashboardTasks() =>
+      _loadTasks(pendingOnly: false);
+
+  Future<List<WorkTaskItem>> _loadTasks({required bool pendingOnly}) async {
     try {
       const pageSize = 200;
       final tasks = <WorkTaskItem>[];
       for (var offset = 0; ; offset += pageSize) {
-        final raw = await _client
-            .rpc('work_task_list')
-            .eq('status', 'pending')
+        var query = _client.rpc('work_task_list');
+        query = pendingOnly
+            ? query.eq('status', 'pending')
+            : query.or('status.eq.pending,calendar_sync_status.eq.failed');
+        final raw = await query
             .order('due_at', ascending: true)
             .order('id', ascending: true)
             .range(offset, offset + pageSize - 1)
@@ -35,8 +43,10 @@ class SupabaseWorkTaskRepository implements WorkTaskRepository {
         if (rows.length < pageSize) return tasks;
       }
     } on TimeoutException {
-      throw const WorkTaskFailure(
-        message: 'ToDoを読み込めませんでした。時間をおいて再試行してください。',
+      throw WorkTaskFailure(
+        message: pendingOnly
+            ? 'ToDoを読み込めませんでした。時間をおいて再試行してください。'
+            : '予定と同期状態を読み込めませんでした。時間をおいて再試行してください。',
         code: 'TIMEOUT',
         retryable: true,
       );
@@ -45,8 +55,10 @@ class SupabaseWorkTaskRepository implements WorkTaskRepository {
     } on PostgrestException catch (error) {
       throw _failureForPostgrest(error);
     } catch (_) {
-      throw const WorkTaskFailure(
-        message: 'ToDoを読み込めませんでした。通信状況を確認してください。',
+      throw WorkTaskFailure(
+        message: pendingOnly
+            ? 'ToDoを読み込めませんでした。通信状況を確認してください。'
+            : '予定と同期状態を読み込めませんでした。通信状況を確認してください。',
         code: 'NETWORK_FAILED',
         retryable: true,
       );
@@ -76,6 +88,38 @@ class SupabaseWorkTaskRepository implements WorkTaskRepository {
     } catch (_) {
       throw const WorkTaskFailure(
         message: '作業を読み込めませんでした。通信状況を確認してください。',
+        code: 'NETWORK_FAILED',
+        retryable: true,
+      );
+    }
+  }
+
+  @override
+  Future<WorkTaskSyncWarnings> loadSyncWarnings() async {
+    try {
+      final raw = await _client
+          .rpc('work_task_sync_warnings')
+          .timeout(const Duration(seconds: 10));
+      final row = Map<String, dynamic>.from(raw as Map);
+      return WorkTaskSyncWarnings(
+        failedCount: _toInt(row['failed_count']),
+        pendingCount: _toInt(row['pending_count']),
+        overdueSyncCount: _toInt(row['overdue_sync_count']),
+        scheduleWarningCount: _toInt(row['schedule_warning_count']),
+      );
+    } on TimeoutException {
+      throw const WorkTaskFailure(
+        message: '予定の同期状態を読み込めませんでした。時間をおいて再試行してください。',
+        code: 'TIMEOUT',
+        retryable: true,
+      );
+    } on WorkTaskFailure {
+      rethrow;
+    } on PostgrestException catch (error) {
+      throw _failureForPostgrest(error);
+    } catch (_) {
+      throw const WorkTaskFailure(
+        message: '予定の同期状態を読み込めませんでした。通信状況を確認してください。',
         code: 'NETWORK_FAILED',
         retryable: true,
       );
@@ -184,6 +228,9 @@ WorkTaskItem _taskFromRow(
     location: details['location'] as String?,
     assignedWorkerId: row['assigned_worker_id'] as String?,
     scheduleWarning: row['schedule_warning'] as String?,
+    calendarSyncStatus:
+        row['calendar_sync_status'] as String? ?? 'not_required',
+    calendarSyncError: row['calendar_sync_error'] as String?,
   );
 }
 
@@ -198,6 +245,12 @@ int? _toHundredths(Object? value) {
   if (value == null) return null;
   final number = value is num ? value : num.tryParse(value.toString());
   return number == null ? null : (number * 100).round();
+}
+
+int _toInt(Object? value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value?.toString() ?? '') ?? 0;
 }
 
 WorkTaskFailure _failureForPostgrest(PostgrestException error) {

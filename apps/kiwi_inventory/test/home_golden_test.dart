@@ -70,6 +70,8 @@ void main() {
       KiwiInventoryApp(
         authRepository: _GoldenAuthRepository(),
         currentDate: goldenDate,
+        workTaskRepository: FakeWorkTaskRepository(),
+        orderManagementRepository: FakeOrderManagementRepository(),
         theme: buildAppTheme(fontFamily: goldenFontFamily),
       ),
     );

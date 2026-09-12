@@ -41,11 +41,18 @@ class Tasks implements WorkTaskRepository {
   }
 
   @override
+  Future<List<WorkTaskItem>> loadDashboardTasks() => loadTasks();
+
+  @override
   Future<WorkTaskItem?> loadTask(String id) async {
     detailReads++;
 
     return values.first;
   }
+
+  @override
+  Future<WorkTaskSyncWarnings> loadSyncWarnings() async =>
+      const WorkTaskSyncWarnings.empty();
 }
 
 void main() {
