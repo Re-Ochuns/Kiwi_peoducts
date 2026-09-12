@@ -1,6 +1,11 @@
 @Tags(['golden'])
 library;
 
+import 'package:kiwi_inventory/ripening/ripening_work_page.dart';
+import 'package:kiwi_inventory/work_tasks/work_task_repository.dart';
+
+import 'support/fake_ripening_work_repository.dart';
+
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -29,6 +34,46 @@ import 'support/fake_order_management_repository.dart';
 void main() {
   final goldenDate = DateTime(2026, 9, 8);
   setUpAll(loadGoldenTestFont);
+  for (final type in [
+    WorkTaskType.ethyleneInjection,
+    WorkTaskType.ethyleneRemovalCheck,
+    WorkTaskType.ripenessCheck,
+  ]) {
+    for (final width in [360.0, 390.0, 430.0]) {
+      testWidgets('追熟作業 ${type.name} ${width}px', (tester) async {
+        configureGoldenView(tester, Size(width, 1000));
+        await tester.pumpWidget(
+          MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: buildAppTheme(fontFamily: goldenFontFamily),
+            home: RipeningWorkPage(
+              repository: FakeRipeningWorkRepository(type: type),
+              taskId: 'task-1',
+              now: () => DateTime(2026, 9, 13, 12, 34),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile(
+            'goldens/ripening_work_${type.name}_${width.toInt()}.png',
+          ),
+        );
+        await tester.ensureVisible(find.byType(CheckboxListTile));
+        await tester.tap(find.byType(CheckboxListTile));
+        await tester.ensureVisible(find.text('完了内容を確認'));
+        await tester.tap(find.text('完了内容を確認'));
+        await tester.pumpAndSettle();
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile(
+            'goldens/ripening_confirm_${type.name}_${width.toInt()}.png',
+          ),
+        );
+      });
+    }
+  }
 
   testWidgets('390pxのログイン画面', (tester) async {
     configureGoldenView(tester, const Size(390, 844));

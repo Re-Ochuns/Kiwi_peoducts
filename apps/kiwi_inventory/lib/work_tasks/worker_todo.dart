@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_theme.dart';
+import '../ripening/ripening_work_page.dart';
 import 'work_task_repository.dart';
 
 typedef WorkTaskTargetPageBuilder = Widget? Function(WorkTaskItem task);
@@ -576,6 +577,7 @@ class _WorkTaskRoutePageState extends State<WorkTaskRoutePage> {
           );
         }
         final targetPage = widget.targetPageBuilder(task);
+        if (targetPage is RipeningWorkPage) return targetPage;
         return WorkTaskDetailPage(
           task: task,
           currentDate: widget.currentDate,

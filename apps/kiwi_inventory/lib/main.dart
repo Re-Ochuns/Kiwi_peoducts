@@ -1,3 +1,6 @@
+import 'ripening/ripening_work_page.dart';
+import 'ripening/ripening_work_repository.dart';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -94,6 +97,7 @@ class KiwiInventoryApp extends StatelessWidget {
     this.inventoryRepository,
     this.ripeningPlanRepository,
     this.workTaskRepository,
+    this.ripeningWorkRepository,
     this.orderManagementRepository,
     this.theme,
     super.key,
@@ -109,6 +113,7 @@ class KiwiInventoryApp extends StatelessWidget {
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
   final WorkTaskRepository? workTaskRepository;
+  final RipeningWorkRepository? ripeningWorkRepository;
   final OrderManagementRepository? orderManagementRepository;
   final SortingRepository? sortingRepository;
   final ThemeData? theme;
@@ -139,6 +144,7 @@ class KiwiInventoryApp extends StatelessWidget {
           currentDate: currentDate,
           targetPageBuilder: (task) => _buildWorkTaskTargetPage(
             task,
+            ripeningWorkRepository: ripeningWorkRepository,
             currentDate: currentDate,
             labelRepository: labelRepository,
             sortingRepository: sortingRepository,
@@ -174,6 +180,7 @@ class KiwiInventoryApp extends StatelessWidget {
       create: (_) => AuthController(repository),
       child: AuthGate(
         authenticatedBuilder: (_, signOut) => ResponsiveHomePage(
+          ripeningWorkRepository: ripeningWorkRepository,
           onSignOut: signOut,
           currentDate: currentDate,
           csvExportRepository: csvExportRepository,
@@ -203,6 +210,7 @@ class ResponsiveHomePage extends StatelessWidget {
     this.inventoryRepository,
     this.ripeningPlanRepository,
     this.workTaskRepository,
+    this.ripeningWorkRepository,
     this.orderManagementRepository,
     super.key,
   });
@@ -214,6 +222,7 @@ class ResponsiveHomePage extends StatelessWidget {
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
   final WorkTaskRepository? workTaskRepository;
+  final RipeningWorkRepository? ripeningWorkRepository;
   final OrderManagementRepository? orderManagementRepository;
   final SortingRepository? sortingRepository;
 
@@ -235,6 +244,7 @@ class ResponsiveHomePage extends StatelessWidget {
               orderManagementRepository: orderManagementRepository,
             )
           : WorkerHomePage(
+              ripeningWorkRepository: ripeningWorkRepository,
               onSignOut: onSignOut,
               currentDate: currentDate,
               csvExportRepository: csvExportRepository,
@@ -318,6 +328,7 @@ class WorkerHomePage extends StatefulWidget {
     this.inventoryRepository,
     this.ripeningPlanRepository,
     this.workTaskRepository,
+    this.ripeningWorkRepository,
     super.key,
   });
   final DateTime? currentDate;
@@ -327,6 +338,7 @@ class WorkerHomePage extends StatefulWidget {
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
   final WorkTaskRepository? workTaskRepository;
+  final RipeningWorkRepository? ripeningWorkRepository;
   final SortingRepository? sortingRepository;
 
   final VoidCallback? onSignOut;
@@ -561,6 +573,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   void _openTask(BuildContext context, WorkTaskItem task) {
     final targetPage = _buildWorkTaskTargetPage(
       task,
+      ripeningWorkRepository: widget.ripeningWorkRepository,
       currentDate: currentDate,
       labelRepository: labelRepository,
       sortingRepository: sortingRepository,
@@ -568,19 +581,21 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     Navigator.of(context)
         .push(
           PageRouteBuilder<void>(
-            pageBuilder: (_, _, _) => WorkTaskDetailPage(
-              task: task,
-              currentDate: currentDate,
-              onOpenTarget: targetPage == null
-                  ? null
-                  : () => Navigator.of(context).push(
-                      PageRouteBuilder<void>(
-                        pageBuilder: (_, _, _) => targetPage,
-                        transitionDuration: Duration.zero,
-                        reverseTransitionDuration: Duration.zero,
-                      ),
-                    ),
-            ),
+            pageBuilder: (_, _, _) => targetPage is RipeningWorkPage
+                ? targetPage
+                : WorkTaskDetailPage(
+                    task: task,
+                    currentDate: currentDate,
+                    onOpenTarget: targetPage == null
+                        ? null
+                        : () => Navigator.of(context).push(
+                            PageRouteBuilder<void>(
+                              pageBuilder: (_, _, _) => targetPage,
+                              transitionDuration: Duration.zero,
+                              reverseTransitionDuration: Duration.zero,
+                            ),
+                          ),
+                  ),
             transitionDuration: Duration.zero,
             reverseTransitionDuration: Duration.zero,
           ),
@@ -596,7 +611,12 @@ Widget? _buildWorkTaskTargetPage(
   required DateTime? currentDate,
   required LabelRepository? labelRepository,
   required SortingRepository? sortingRepository,
+  required RipeningWorkRepository? ripeningWorkRepository,
 }) => switch (task.type) {
+  WorkTaskType.ethyleneInjection ||
+  WorkTaskType.ethyleneRemovalCheck ||
+  WorkTaskType.ripenessCheck when ripeningWorkRepository != null =>
+    RipeningWorkPage(repository: ripeningWorkRepository, taskId: task.id),
   WorkTaskType.sorting when sortingRepository != null => SortingTargetPage(
     repository: sortingRepository,
     currentDate: currentDate,
