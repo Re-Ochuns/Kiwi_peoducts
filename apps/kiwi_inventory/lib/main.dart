@@ -20,6 +20,9 @@ import 'label/supabase_label_repository.dart';
 import 'master/master_page.dart';
 import 'master/master_repository.dart';
 import 'master/supabase_master_repository.dart';
+import 'orders/order_management_page.dart';
+import 'orders/order_management_repository.dart';
+import 'orders/supabase_order_management_repository.dart';
 import 'receiving/receiving_page.dart';
 import 'receiving/receiving_repository.dart';
 import 'receiving/supabase_receiving_repository.dart';
@@ -51,6 +54,8 @@ Future<void> main() async {
         csvExportRepository:
             SupabaseCsvExportRepository.fromInitializedClient(),
         masterRepository: SupabaseMasterRepository.fromInitializedClient(),
+        orderManagementRepository:
+            SupabaseOrderManagementRepository.fromInitializedClient(),
         inventoryRepository:
             SupabaseInventoryRepository.fromInitializedClient(),
         labelRepository: SupabaseLabelRepository.fromInitializedClient(config),
@@ -84,6 +89,7 @@ class KiwiInventoryApp extends StatelessWidget {
     this.inventoryRepository,
     this.ripeningPlanRepository,
     this.workTaskRepository,
+    this.orderManagementRepository,
     this.theme,
     super.key,
   });
@@ -98,6 +104,7 @@ class KiwiInventoryApp extends StatelessWidget {
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
   final WorkTaskRepository? workTaskRepository;
+  final OrderManagementRepository? orderManagementRepository;
   final SortingRepository? sortingRepository;
   final ThemeData? theme;
 
@@ -171,6 +178,7 @@ class KiwiInventoryApp extends StatelessWidget {
           inventoryRepository: inventoryRepository,
           ripeningPlanRepository: ripeningPlanRepository,
           workTaskRepository: workTaskRepository,
+          orderManagementRepository: orderManagementRepository,
         ),
       ),
     );
@@ -189,6 +197,7 @@ class ResponsiveHomePage extends StatelessWidget {
     this.inventoryRepository,
     this.ripeningPlanRepository,
     this.workTaskRepository,
+    this.orderManagementRepository,
     super.key,
   });
   final DateTime? currentDate;
@@ -199,6 +208,7 @@ class ResponsiveHomePage extends StatelessWidget {
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
   final WorkTaskRepository? workTaskRepository;
+  final OrderManagementRepository? orderManagementRepository;
   final SortingRepository? sortingRepository;
 
   final VoidCallback? onSignOut;
@@ -215,6 +225,7 @@ class ResponsiveHomePage extends StatelessWidget {
               masterRepository: masterRepository,
               inventoryRepository: inventoryRepository,
               ripeningPlanRepository: ripeningPlanRepository,
+              orderManagementRepository: orderManagementRepository,
             )
           : WorkerHomePage(
               onSignOut: onSignOut,
@@ -597,6 +608,7 @@ class ManagerHomePage extends StatelessWidget {
     this.masterRepository,
     this.inventoryRepository,
     this.ripeningPlanRepository,
+    this.orderManagementRepository,
     super.key,
   });
   final DateTime? currentDate;
@@ -604,6 +616,7 @@ class ManagerHomePage extends StatelessWidget {
   final MasterRepository? masterRepository;
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
+  final OrderManagementRepository? orderManagementRepository;
 
   final VoidCallback? onSignOut;
 
@@ -711,9 +724,19 @@ class ManagerHomePage extends StatelessWidget {
 
   void _openNavigation(BuildContext context, String item) {
     final Widget? page = switch (item) {
+      '受注' when orderManagementRepository != null => ManagerOrderPage(
+        repository: orderManagementRepository!,
+        currentDate: currentDate,
+        ripeningPlanRepository: ripeningPlanRepository,
+        inventoryRepository: inventoryRepository,
+        masterRepository: masterRepository,
+        csvExportRepository: csvExportRepository,
+        onSignOut: onSignOut,
+      ),
       '在庫管理' when inventoryRepository != null => ManagerInventoryPage(
         repository: inventoryRepository!,
         masterRepository: masterRepository,
+        orderManagementRepository: orderManagementRepository,
         csvExportRepository: csvExportRepository,
         ripeningPlanRepository: ripeningPlanRepository,
         onSignOut: onSignOut,
@@ -721,12 +744,14 @@ class ManagerHomePage extends StatelessWidget {
       'マスター' when masterRepository != null => ManagerMasterPage(
         repository: masterRepository!,
         inventoryRepository: inventoryRepository,
+        orderManagementRepository: orderManagementRepository,
         csvExportRepository: csvExportRepository,
         ripeningPlanRepository: ripeningPlanRepository,
         onSignOut: onSignOut,
       ),
       '追熟計画' when ripeningPlanRepository != null => ManagerRipeningPlanPage(
         repository: ripeningPlanRepository!,
+        orderManagementRepository: orderManagementRepository,
         currentDate: currentDate,
         inventoryRepository: inventoryRepository,
         masterRepository: masterRepository,
@@ -755,6 +780,7 @@ class ManagerMasterPage extends StatelessWidget {
     this.inventoryRepository,
     this.csvExportRepository,
     this.ripeningPlanRepository,
+    this.orderManagementRepository,
     this.onSignOut,
     super.key,
   });
@@ -763,6 +789,7 @@ class ManagerMasterPage extends StatelessWidget {
   final InventoryRepository? inventoryRepository;
   final CsvExportRepository? csvExportRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
+  final OrderManagementRepository? orderManagementRepository;
   final VoidCallback? onSignOut;
 
   @override
@@ -780,6 +807,21 @@ class ManagerMasterPage extends StatelessWidget {
           onSelected: (item) {
             if (item == 'ホーム') {
               Navigator.of(context).pop();
+            } else if (item == '受注' && orderManagementRepository != null) {
+              Navigator.of(context).pushReplacement(
+                PageRouteBuilder<void>(
+                  pageBuilder: (_, _, _) => ManagerOrderPage(
+                    repository: orderManagementRepository!,
+                    ripeningPlanRepository: ripeningPlanRepository,
+                    inventoryRepository: inventoryRepository,
+                    masterRepository: repository,
+                    csvExportRepository: csvExportRepository,
+                    onSignOut: onSignOut,
+                  ),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
+              );
             } else if (item == '在庫管理' && inventoryRepository != null) {
               Navigator.of(context).pushReplacement(
                 PageRouteBuilder<void>(
@@ -788,6 +830,7 @@ class ManagerMasterPage extends StatelessWidget {
                     masterRepository: repository,
                     csvExportRepository: csvExportRepository,
                     ripeningPlanRepository: ripeningPlanRepository,
+                    orderManagementRepository: orderManagementRepository,
                     onSignOut: onSignOut,
                   ),
                   transitionDuration: Duration.zero,
@@ -802,6 +845,7 @@ class ManagerMasterPage extends StatelessWidget {
                     inventoryRepository: inventoryRepository,
                     masterRepository: repository,
                     csvExportRepository: csvExportRepository,
+                    orderManagementRepository: orderManagementRepository,
                     onSignOut: onSignOut,
                   ),
                   transitionDuration: Duration.zero,
@@ -832,6 +876,7 @@ class ManagerInventoryPage extends StatelessWidget {
     this.masterRepository,
     this.csvExportRepository,
     this.ripeningPlanRepository,
+    this.orderManagementRepository,
     this.onSignOut,
     super.key,
   });
@@ -840,6 +885,7 @@ class ManagerInventoryPage extends StatelessWidget {
   final MasterRepository? masterRepository;
   final CsvExportRepository? csvExportRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
+  final OrderManagementRepository? orderManagementRepository;
   final VoidCallback? onSignOut;
 
   @override
@@ -857,6 +903,21 @@ class ManagerInventoryPage extends StatelessWidget {
           onSelected: (item) {
             if (item == 'ホーム') {
               Navigator.of(context).pop();
+            } else if (item == '受注' && orderManagementRepository != null) {
+              Navigator.of(context).pushReplacement(
+                PageRouteBuilder<void>(
+                  pageBuilder: (_, _, _) => ManagerOrderPage(
+                    repository: orderManagementRepository!,
+                    ripeningPlanRepository: ripeningPlanRepository,
+                    inventoryRepository: repository,
+                    masterRepository: masterRepository,
+                    csvExportRepository: csvExportRepository,
+                    onSignOut: onSignOut,
+                  ),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
+              );
             } else if (item == 'マスター' && masterRepository != null) {
               Navigator.of(context).pushReplacement(
                 PageRouteBuilder<void>(
@@ -865,6 +926,7 @@ class ManagerInventoryPage extends StatelessWidget {
                     inventoryRepository: repository,
                     csvExportRepository: csvExportRepository,
                     ripeningPlanRepository: ripeningPlanRepository,
+                    orderManagementRepository: orderManagementRepository,
                     onSignOut: onSignOut,
                   ),
                   transitionDuration: Duration.zero,
@@ -879,6 +941,7 @@ class ManagerInventoryPage extends StatelessWidget {
                     inventoryRepository: repository,
                     masterRepository: masterRepository,
                     csvExportRepository: csvExportRepository,
+                    orderManagementRepository: orderManagementRepository,
                     onSignOut: onSignOut,
                   ),
                   transitionDuration: Duration.zero,
@@ -910,6 +973,7 @@ class ManagerRipeningPlanPage extends StatelessWidget {
     this.inventoryRepository,
     this.masterRepository,
     this.csvExportRepository,
+    this.orderManagementRepository,
     this.onSignOut,
     super.key,
   });
@@ -919,6 +983,7 @@ class ManagerRipeningPlanPage extends StatelessWidget {
   final InventoryRepository? inventoryRepository;
   final MasterRepository? masterRepository;
   final CsvExportRepository? csvExportRepository;
+  final OrderManagementRepository? orderManagementRepository;
   final VoidCallback? onSignOut;
 
   @override
@@ -936,6 +1001,21 @@ class ManagerRipeningPlanPage extends StatelessWidget {
           onSelected: (item) {
             if (item == 'ホーム') {
               Navigator.of(context).pop();
+            } else if (item == '受注' && orderManagementRepository != null) {
+              Navigator.of(context).pushReplacement(
+                PageRouteBuilder<void>(
+                  pageBuilder: (_, _, _) => ManagerOrderPage(
+                    repository: orderManagementRepository!,
+                    ripeningPlanRepository: repository,
+                    inventoryRepository: inventoryRepository,
+                    masterRepository: masterRepository,
+                    csvExportRepository: csvExportRepository,
+                    onSignOut: onSignOut,
+                  ),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
+              );
             } else if (item == '在庫管理' && inventoryRepository != null) {
               Navigator.of(context).pushReplacement(
                 PageRouteBuilder<void>(
@@ -944,6 +1024,7 @@ class ManagerRipeningPlanPage extends StatelessWidget {
                     masterRepository: masterRepository,
                     csvExportRepository: csvExportRepository,
                     ripeningPlanRepository: repository,
+                    orderManagementRepository: orderManagementRepository,
                     onSignOut: onSignOut,
                   ),
                   transitionDuration: Duration.zero,
@@ -958,6 +1039,7 @@ class ManagerRipeningPlanPage extends StatelessWidget {
                     inventoryRepository: inventoryRepository,
                     csvExportRepository: csvExportRepository,
                     ripeningPlanRepository: repository,
+                    orderManagementRepository: orderManagementRepository,
                     onSignOut: onSignOut,
                   ),
                   transitionDuration: Duration.zero,
@@ -977,6 +1059,99 @@ class ManagerRipeningPlanPage extends StatelessWidget {
             embedded: true,
           ),
         ),
+      ],
+    ),
+  );
+}
+
+class ManagerOrderPage extends StatelessWidget {
+  const ManagerOrderPage({
+    required this.repository,
+    this.currentDate,
+    this.ripeningPlanRepository,
+    this.inventoryRepository,
+    this.masterRepository,
+    this.csvExportRepository,
+    this.onSignOut,
+    super.key,
+  });
+
+  final OrderManagementRepository repository;
+  final DateTime? currentDate;
+  final RipeningPlanRepository? ripeningPlanRepository;
+  final InventoryRepository? inventoryRepository;
+  final MasterRepository? masterRepository;
+  final CsvExportRepository? csvExportRepository;
+  final VoidCallback? onSignOut;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: Row(
+      children: [
+        ManagerNavigation(
+          selectedItem: '受注',
+          onSignOut: onSignOut == null
+              ? null
+              : () {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                  onSignOut!.call();
+                },
+          onSelected: (item) {
+            if (item == 'ホーム') {
+              Navigator.of(context).pop();
+            } else if (item == '追熟計画' && ripeningPlanRepository != null) {
+              Navigator.of(context).pushReplacement(
+                PageRouteBuilder<void>(
+                  pageBuilder: (_, _, _) => ManagerRipeningPlanPage(
+                    repository: ripeningPlanRepository!,
+                    currentDate: currentDate,
+                    inventoryRepository: inventoryRepository,
+                    masterRepository: masterRepository,
+                    csvExportRepository: csvExportRepository,
+                    orderManagementRepository: repository,
+                    onSignOut: onSignOut,
+                  ),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
+              );
+            } else if (item == '在庫管理' && inventoryRepository != null) {
+              Navigator.of(context).pushReplacement(
+                PageRouteBuilder<void>(
+                  pageBuilder: (_, _, _) => ManagerInventoryPage(
+                    repository: inventoryRepository!,
+                    masterRepository: masterRepository,
+                    csvExportRepository: csvExportRepository,
+                    ripeningPlanRepository: ripeningPlanRepository,
+                    orderManagementRepository: repository,
+                    onSignOut: onSignOut,
+                  ),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
+              );
+            } else if (item == 'マスター' && masterRepository != null) {
+              Navigator.of(context).pushReplacement(
+                PageRouteBuilder<void>(
+                  pageBuilder: (_, _, _) => ManagerMasterPage(
+                    repository: masterRepository!,
+                    inventoryRepository: inventoryRepository,
+                    csvExportRepository: csvExportRepository,
+                    ripeningPlanRepository: ripeningPlanRepository,
+                    orderManagementRepository: repository,
+                    onSignOut: onSignOut,
+                  ),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
+              );
+            } else {
+              preparing(context, '$item画面は準備中です');
+            }
+          },
+        ),
+        const VerticalDivider(width: 1),
+        Expanded(child: OrderManagementPage(repository: repository)),
       ],
     ),
   );

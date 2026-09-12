@@ -24,6 +24,7 @@ import 'support/fake_csv_export_repository.dart';
 import 'support/fake_master_repository.dart';
 import 'support/fake_ripening_plan_repository.dart';
 import 'support/fake_work_task_repository.dart';
+import 'support/fake_order_management_repository.dart';
 
 void main() {
   final goldenDate = DateTime(2026, 9, 8);
@@ -233,6 +234,24 @@ void main() {
     await expectLater(
       find.byType(ManagerMasterPage),
       matchesGoldenFile('goldens/manager_master_1280.png'),
+    );
+  });
+
+  testWidgets('1280pxの受注管理画面', (tester) async {
+    configureGoldenView(tester, const Size(1280, 900));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(fontFamily: goldenFontFamily),
+        home: ManagerOrderPage(repository: FakeOrderManagementRepository()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('受注-2026-001'));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(ManagerOrderPage),
+      matchesGoldenFile('goldens/manager_orders_1280.png'),
     );
   });
 
