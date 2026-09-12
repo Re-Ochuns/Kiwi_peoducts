@@ -22,6 +22,18 @@ void main() {
         calendarSyncStatus: 'failed',
         calendarSyncError: 'GOOGLE_TEMPORARY',
       ),
+      WorkTaskItem(
+        id: 'cancelled-sync-failed',
+        type: WorkTaskType.shipping,
+        targetId: 'order-3',
+        targetDisplayId: '受注-2026-003',
+        scheduledAt: DateTime(2026, 9, 10, 10),
+        dueAt: DateTime(2026, 9, 10, 12),
+        status: 'cancelled',
+        targetUrl: '/work-tasks/cancelled-sync-failed',
+        calendarSyncStatus: 'failed',
+        calendarSyncError: 'GOOGLE_TEMPORARY',
+      ),
     ];
     final repository = DefaultManagerDashboardRepository(
       workTaskRepository: FakeWorkTaskRepository(
@@ -49,8 +61,11 @@ void main() {
       'sync-failed',
     ]);
     expect(data.shortageOrders.single.number, '受注-2026-001');
-    expect(data.syncFailedTasks.single.id, 'sync-failed');
-    expect(data.attentionCount(now), 4);
+    expect(data.syncFailedTasks.map((task) => task.id), [
+      'cancelled-sync-failed',
+      'sync-failed',
+    ]);
+    expect(data.attentionCount(now), 5);
   });
 
   test('受注読み込み失敗をホーム用エラーへ変換する', () async {

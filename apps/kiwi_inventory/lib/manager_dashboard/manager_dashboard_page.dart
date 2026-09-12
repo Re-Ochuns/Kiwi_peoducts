@@ -106,6 +106,13 @@ class _ManagerDashboardPageState extends State<ManagerDashboardPage> {
                     color: Color(0xFF56605A),
                   ),
                 ),
+                if (failure != null) ...[
+                  const SizedBox(height: 18),
+                  _ReloadFailureNotice(
+                    message: failure.message,
+                    onRetry: failure.retryable ? _load : null,
+                  ),
+                ],
                 const SizedBox(height: 28),
                 _SummaryStrip(
                   items: [
@@ -196,6 +203,30 @@ class _ManagerDashboardPageState extends State<ManagerDashboardPage> {
       Scrollable.ensureVisible(target, duration: Duration.zero);
     }
   }
+}
+
+class _ReloadFailureNotice extends StatelessWidget {
+  const _ReloadFailureNotice({required this.message, this.onRetry});
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      border: Border.all(color: const Color(0xFFB42318)),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    child: Row(
+      children: [
+        Expanded(child: Text(message)),
+        if (onRetry != null) ...[
+          const SizedBox(width: 16),
+          OutlinedButton(onPressed: onRetry, child: const Text('再試行')),
+        ],
+      ],
+    ),
+  );
 }
 
 class _SummaryItem {

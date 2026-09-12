@@ -107,6 +107,35 @@ void main() {
     await client.dispose();
   });
 
+  test('管理ホームでは中止済みを含む同期失敗を取得する', () async {
+    final client = _client((request) {
+      expect(request.url.path, endsWith('/rpc/work_task_list'));
+      expect(request.url.queryParameters.containsKey('status'), isFalse);
+      expect(
+        request.url.queryParameters['or'],
+        '(status.eq.pending,calendar_sync_status.eq.failed)',
+      );
+      return _json([
+        {
+          'id': 'task-cancelled',
+          'task_type': 'shipping',
+          'scheduled_at': '2026-09-12T01:00:00Z',
+          'due_at': '2026-09-12T02:00:00Z',
+          'status': 'cancelled',
+          'target_url': '/work-tasks/task-cancelled',
+          'calendar_sync_status': 'failed',
+          'calendar_sync_error': 'GOOGLE_TEMPORARY',
+        },
+      ], request);
+    });
+
+    final tasks = await SupabaseWorkTaskRepository(client).loadDashboardTasks();
+
+    expect(tasks.single.status, 'cancelled');
+    expect(tasks.single.calendarSyncStatus, 'failed');
+    await client.dispose();
+  });
+
   test('同期警告の件数を変換する', () async {
     final client = _client((request) {
       expect(request.url.path, endsWith('/rpc/work_task_sync_warnings'));

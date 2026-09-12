@@ -166,6 +166,8 @@ class WorkTaskFailure implements Exception {
 abstract interface class WorkTaskRepository {
   Future<List<WorkTaskItem>> loadTasks();
 
+  Future<List<WorkTaskItem>> loadDashboardTasks();
+
   Future<WorkTaskItem?> loadTask(String taskId);
 
   Future<WorkTaskSyncWarnings> loadSyncWarnings();

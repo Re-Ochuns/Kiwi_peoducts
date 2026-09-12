@@ -89,6 +89,48 @@ void main() {
     expect(openedTask?.id, 'sync-failed');
   });
 
+  testWidgets('管理ホームの同期失敗から詳細を開いてホームへ戻れる', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final task = WorkTaskItem(
+      id: 'cancelled-sync-failed',
+      type: WorkTaskType.shipping,
+      targetId: 'order-3',
+      targetDisplayId: '受注-2026-003',
+      scheduledAt: DateTime(2026, 9, 10, 10),
+      dueAt: DateTime(2026, 9, 10, 12),
+      status: 'cancelled',
+      targetUrl: '/work-tasks/cancelled-sync-failed',
+      calendarSyncStatus: 'failed',
+      calendarSyncError: 'GOOGLE_TEMPORARY',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ManagerHomePage(
+          currentDate: DateTime(2026, 9, 12, 12),
+          workTaskRepository: FakeWorkTaskRepository(tasks: [task]),
+          orderManagementRepository: FakeOrderManagementRepository(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('受注-2026-003'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Googleカレンダー'), findsOneWidget);
+    expect(find.text('同期失敗・自動再試行'), findsOneWidget);
+    expect(find.text('作業状態'), findsOneWidget);
+    expect(find.text('中止'), findsOneWidget);
+    expect(find.text('← ホームへ戻る'), findsOneWidget);
+
+    await tester.tap(find.text('← ホームへ戻る'));
+    await tester.pumpAndSettle();
+    expect(find.text('優先して確認'), findsOneWidget);
+  });
+
   testWidgets('読み込み失敗時に再試行できる', (tester) async {
     final repository = _RetryRepository();
     await tester.pumpWidget(

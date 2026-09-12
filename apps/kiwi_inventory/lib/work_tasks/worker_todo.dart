@@ -362,12 +362,16 @@ class WorkTaskDetailPage extends StatelessWidget {
     required this.task,
     this.onOpenTarget,
     this.currentDate,
+    this.backLabel = '← ToDoへ戻る',
+    this.showCalendarSyncStatus = false,
     super.key,
   });
 
   final WorkTaskItem task;
   final VoidCallback? onOpenTarget;
   final DateTime? currentDate;
+  final String backLabel;
+  final bool showCalendarSyncStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -386,7 +390,7 @@ class WorkTaskDetailPage extends StatelessWidget {
             foregroundColor: AppColors.green,
             minimumSize: const Size(48, 48),
           ),
-          child: const Text('← ToDoへ戻る', style: TextStyle(fontSize: 16)),
+          child: Text(backLabel, style: const TextStyle(fontSize: 16)),
         ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
@@ -438,6 +442,12 @@ class WorkTaskDetailPage extends StatelessWidget {
                       prominent: true,
                     ),
                   _DetailValue(label: '品種・等級', value: task.productLabel),
+                  if (showCalendarSyncStatus)
+                    _DetailValue(
+                      label: '作業状態',
+                      value: _workTaskStatusLabel(task.status),
+                      error: task.status == 'cancelled',
+                    ),
                   _DetailValue(
                     label: '予定',
                     value: _formatDateTime(task.scheduledAt),
@@ -455,6 +465,13 @@ class WorkTaskDetailPage extends StatelessWidget {
                       value: _warningLabel(task.scheduleWarning!),
                       error: true,
                     ),
+                  if (showCalendarSyncStatus &&
+                      task.calendarSyncStatus != 'not_required')
+                    _DetailValue(
+                      label: 'Googleカレンダー',
+                      value: _calendarSyncLabel(task.calendarSyncStatus),
+                      error: task.calendarSyncStatus == 'failed',
+                    ),
                   if (onOpenTarget != null) ...[
                     const SizedBox(height: 28),
                     FilledButton(
@@ -471,6 +488,20 @@ class WorkTaskDetailPage extends StatelessWidget {
     );
   }
 }
+
+String _calendarSyncLabel(String status) => switch (status) {
+  'pending' => '同期待ち',
+  'synced' => '同期済み',
+  'failed' => '同期失敗・自動再試行',
+  _ => '同期対象外',
+};
+
+String _workTaskStatusLabel(String status) => switch (status) {
+  'pending' => '未完了',
+  'completed' => '完了',
+  'cancelled' => '中止',
+  _ => '要確認',
+};
 
 class WorkTaskRoutePage extends StatefulWidget {
   const WorkTaskRoutePage({

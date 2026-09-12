@@ -28,6 +28,9 @@ class FakeWorkTaskRepository implements WorkTaskRepository {
   }
 
   @override
+  Future<List<WorkTaskItem>> loadDashboardTasks() => loadTasks();
+
+  @override
   Future<WorkTaskItem?> loadTask(String taskId) async {
     loadTaskCalls++;
     return tasks.cast<WorkTaskItem?>().firstWhere(

@@ -13,14 +13,22 @@ class SupabaseWorkTaskRepository implements WorkTaskRepository {
   final SupabaseClient _client;
 
   @override
-  Future<List<WorkTaskItem>> loadTasks() async {
+  Future<List<WorkTaskItem>> loadTasks() => _loadTasks(pendingOnly: true);
+
+  @override
+  Future<List<WorkTaskItem>> loadDashboardTasks() =>
+      _loadTasks(pendingOnly: false);
+
+  Future<List<WorkTaskItem>> _loadTasks({required bool pendingOnly}) async {
     try {
       const pageSize = 200;
       final tasks = <WorkTaskItem>[];
       for (var offset = 0; ; offset += pageSize) {
-        final raw = await _client
-            .rpc('work_task_list')
-            .eq('status', 'pending')
+        var query = _client.rpc('work_task_list');
+        query = pendingOnly
+            ? query.eq('status', 'pending')
+            : query.or('status.eq.pending,calendar_sync_status.eq.failed');
+        final raw = await query
             .order('due_at', ascending: true)
             .order('id', ascending: true)
             .range(offset, offset + pageSize - 1)
@@ -35,8 +43,10 @@ class SupabaseWorkTaskRepository implements WorkTaskRepository {
         if (rows.length < pageSize) return tasks;
       }
     } on TimeoutException {
-      throw const WorkTaskFailure(
-        message: 'ToDoを読み込めませんでした。時間をおいて再試行してください。',
+      throw WorkTaskFailure(
+        message: pendingOnly
+            ? 'ToDoを読み込めませんでした。時間をおいて再試行してください。'
+            : '予定と同期状態を読み込めませんでした。時間をおいて再試行してください。',
         code: 'TIMEOUT',
         retryable: true,
       );
@@ -45,8 +55,10 @@ class SupabaseWorkTaskRepository implements WorkTaskRepository {
     } on PostgrestException catch (error) {
       throw _failureForPostgrest(error);
     } catch (_) {
-      throw const WorkTaskFailure(
-        message: 'ToDoを読み込めませんでした。通信状況を確認してください。',
+      throw WorkTaskFailure(
+        message: pendingOnly
+            ? 'ToDoを読み込めませんでした。通信状況を確認してください。'
+            : '予定と同期状態を読み込めませんでした。通信状況を確認してください。',
         code: 'NETWORK_FAILED',
         retryable: true,
       );

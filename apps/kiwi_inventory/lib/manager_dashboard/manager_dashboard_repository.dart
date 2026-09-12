@@ -45,11 +45,8 @@ class ManagerDashboardData {
     );
   }
 
-  List<WorkTaskItem> get syncFailedTasks => _sortedTasks(
-    tasks.where(
-      (task) => task.isPending && task.calendarSyncStatus == 'failed',
-    ),
-  );
+  List<WorkTaskItem> get syncFailedTasks =>
+      _sortedTasks(tasks.where((task) => task.calendarSyncStatus == 'failed'));
 
   List<WorkTaskItem> get scheduleWarningTasks => _sortedTasks(
     tasks.where(
@@ -72,7 +69,7 @@ class ManagerDashboardData {
     };
     return taskIds.length +
         shortageOrders.length +
-        syncWarnings.overdueSyncCount;
+        (syncWarnings.overdueSyncCount > 0 ? 1 : 0);
   }
 }
 
@@ -93,7 +90,7 @@ class DefaultManagerDashboardRepository implements ManagerDashboardRepository {
   Future<ManagerDashboardData> load() async {
     try {
       final results = await Future.wait<Object>([
-        workTaskRepository.loadTasks(),
+        workTaskRepository.loadDashboardTasks(),
         workTaskRepository.loadSyncWarnings(),
         orderManagementRepository.load(filter: OrderListFilter.active),
       ]);

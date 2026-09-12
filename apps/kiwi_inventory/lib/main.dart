@@ -652,7 +652,18 @@ class ManagerHomePage extends StatelessWidget {
             )
           : const _EmptyManagerDashboardRepository(),
       currentDate: currentDate ?? DateTime.now(),
-      onOpenTask: (task) => Navigator.of(context).pushNamed(task.targetUrl),
+      onOpenTask: (task) => Navigator.of(context).push(
+        PageRouteBuilder<void>(
+          pageBuilder: (_, _, _) => WorkTaskDetailPage(
+            task: task,
+            currentDate: currentDate,
+            backLabel: '← ホームへ戻る',
+            showCalendarSyncStatus: true,
+          ),
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
+        ),
+      ),
       onOpenOrder: orders == null
           ? (_) {}
           : (order) => Navigator.of(context).push(
