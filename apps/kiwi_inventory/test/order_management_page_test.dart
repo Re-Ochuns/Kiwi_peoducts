@@ -6,8 +6,97 @@ import 'package:kiwi_inventory/orders/order_management_page.dart';
 import 'package:kiwi_inventory/orders/order_management_repository.dart';
 
 import 'support/fake_order_management_repository.dart';
+import 'support/fake_ripening_plan_repository.dart';
 
 void main() {
+  testWidgets('ホームから追熟計画を経由して受注管理へ遷移する', (tester) async {
+    final repository = FakeOrderManagementRepository();
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1280, 900);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(),
+        home: ManagerHomePage(
+          orderManagementRepository: repository,
+          ripeningPlanRepository: FakeRipeningPlanRepository(),
+        ),
+      ),
+    );
+    await tester.tap(find.text('追熟計画').first);
+    await tester.pumpAndSettle();
+    expect(find.byType(ManagerRipeningPlanPage), findsOneWidget);
+    await tester.tap(find.text('受注').first);
+    await tester.pumpAndSettle();
+    expect(find.byType(OrderManagementPage), findsOneWidget);
+    expect(repository.loadCalls, 1);
+  });
+
+  for (final value in ['0.07', '1.10', '2.01', '4.10']) {
+    testWidgets('注文量$value kgを保存できる', (tester) async {
+      final repository = FakeOrderManagementRepository();
+      await _pump(tester, repository);
+      await tester.tap(find.byKey(const Key('order-register')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('order-weight')), value);
+      await tester.tap(find.byKey(const Key('order-confirm-input')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('order-save')));
+      await tester.pumpAndSettle();
+      expect(repository.lastOrderInput?.orderedWeight, double.parse(value));
+    });
+  }
+
+  testWidgets('0.01kg未満の桁と非有限値を拒否する', (tester) async {
+    final repository = FakeOrderManagementRepository();
+    await _pump(tester, repository);
+    await tester.tap(find.byKey(const Key('order-register')));
+    await tester.pumpAndSettle();
+    for (final value in ['1.001', 'NaN', 'Infinity', '0', '-1']) {
+      await tester.enterText(find.byKey(const Key('order-weight')), value);
+      await tester.tap(find.byKey(const Key('order-confirm-input')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('order-save')), findsNothing);
+    }
+    expect(repository.registerOrderCalls, 0);
+  });
+
+  testWidgets('顧客一覧の検索結果にない顧客の受注も編集できる', (tester) async {
+    final repository = FakeOrderManagementRepository();
+    final data = await repository.load(filter: OrderListFilter.active);
+    final detail = await repository.loadOrder(repository.order.id);
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1280, 900);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(),
+        home: Scaffold(
+          body: OrderFormDialog(
+            repository: repository,
+            existing: detail,
+            data: OrderManagementData(
+              orders: data.orders,
+              customers: const [],
+              orderCustomers: data.customers,
+              varieties: data.varieties,
+              grades: data.grades,
+              canManage: true,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.enterText(find.byKey(const Key('order-reason')), '数量変更');
+    await tester.tap(find.byKey(const Key('order-confirm-input')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('order-save')));
+    await tester.pumpAndSettle();
+    expect(repository.lastOrderInput?.customerId, repository.customer.id);
+  });
+
   testWidgets('管理ホームから受注管理へ遷移する', (tester) async {
     final repository = FakeOrderManagementRepository();
     tester.view.devicePixelRatio = 1;

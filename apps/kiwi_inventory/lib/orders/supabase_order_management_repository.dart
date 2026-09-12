@@ -63,6 +63,11 @@ class SupabaseOrderManagementRepository implements OrderManagementRepository {
             .eq('is_active', true)
             .order('display_order'),
         ...orderRequests,
+        if (customerSearch.trim().isNotEmpty)
+          _client.rpc(
+            'customer_list',
+            params: {'search_value': null, 'include_inactive': false},
+          ),
       ]).timeout(const Duration(seconds: 10));
       final profile = results[0] is Map
           ? Map<String, dynamic>.from(results[0] as Map)
@@ -70,7 +75,10 @@ class SupabaseOrderManagementRepository implements OrderManagementRepository {
       final roles = results[1] is List ? results[1] as List : const [];
       final orders =
           <OrderItem>[
-            for (final result in results.skip(5))
+            for (final result
+                in results
+                    .skip(5)
+                    .take(filter == OrderListFilter.active ? 4 : 1))
               for (final row in result as List)
                 _orderFromMap(Map<String, dynamic>.from(row as Map)),
           ]..sort((left, right) {
@@ -81,6 +89,12 @@ class SupabaseOrderManagementRepository implements OrderManagementRepository {
         orders: orders,
         customers: [
           for (final row in results[2] as List)
+            _customerFromMap(Map<String, dynamic>.from(row as Map)),
+        ],
+        orderCustomers: [
+          for (final row
+              in (customerSearch.trim().isEmpty ? results[2] : results.last)
+                  as List)
             _customerFromMap(Map<String, dynamic>.from(row as Map)),
         ],
         varieties: [

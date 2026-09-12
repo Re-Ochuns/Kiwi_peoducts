@@ -205,10 +205,14 @@ class OrderManagementData {
     required this.varieties,
     required this.grades,
     required this.canManage,
+    this.orderCustomers,
   });
 
   final List<OrderItem> orders;
   final List<CustomerSummary> customers;
+  // Unfiltered candidates for order forms, independent of the customer list.
+  final List<CustomerSummary>? orderCustomers;
+  List<CustomerSummary> get customerOptions => orderCustomers ?? customers;
   final List<OrderReference> varieties;
   final List<OrderReference> grades;
   final bool canManage;

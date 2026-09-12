@@ -21,7 +21,9 @@ void main() {
         ];
       }
       if (request.url.path.endsWith('/customer_list')) {
-        return [_customerRow];
+        return (jsonDecode(request.body) as Map)['search_value'] == null
+            ? [_customerRow]
+            : <Object>[];
       }
       if (request.url.path.endsWith('/varieties')) {
         return [
@@ -44,9 +46,14 @@ void main() {
       currentUserId: _userId,
     );
 
-    final data = await repository.load(filter: OrderListFilter.active);
+    final data = await repository.load(
+      filter: OrderListFilter.active,
+      customerSearch: '別顧客',
+    );
 
     expect(data.canManage, isTrue);
+    expect(data.customers, isEmpty);
+    expect(data.customerOptions.single.id, _customerId);
     expect(data.orders, hasLength(1));
     expect(data.orders.single.number, '受注-2026-001');
     expect(data.orders.single.shortageWeight, 7.5);

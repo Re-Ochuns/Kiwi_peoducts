@@ -1532,7 +1532,8 @@ class _OrderFormDialogState extends State<OrderFormDialog> {
     final existing = widget.existing;
     final now = DateTime.now();
     _customerId =
-        existing?.item.customerId ?? widget.data.customers.firstOrNull?.id;
+        existing?.item.customerId ??
+        widget.data.customerOptions.firstOrNull?.id;
     _destinationId = existing?.shippingDestinationId;
     _varietyId =
         existing?.item.varietyId ?? widget.data.varieties.firstOrNull?.id;
@@ -1653,7 +1654,7 @@ class _OrderFormDialogState extends State<OrderFormDialog> {
             initialValue: _customerId,
             icon: const SizedBox.shrink(),
             items: [
-              for (final customer in widget.data.customers)
+              for (final customer in widget.data.customerOptions)
                 DropdownMenuItem(
                   value: customer.id,
                   child: Text('${customer.code}　${customer.displayName}'),
@@ -1763,7 +1764,7 @@ class _OrderFormDialogState extends State<OrderFormDialog> {
   );
 
   Widget _confirmation() {
-    final customer = widget.data.customers
+    final customer = widget.data.customerOptions
         .where((item) => item.id == _customerId)
         .firstOrNull;
     final destination = _destinations
@@ -1803,8 +1804,9 @@ class _OrderFormDialogState extends State<OrderFormDialog> {
     }
     final weight = double.tryParse(_weight.text);
     if (weight == null ||
+        !weight.isFinite ||
         weight <= 0 ||
-        (weight * 100).roundToDouble() != weight * 100) {
+        !RegExp(r'^\d+(?:\.\d{1,2})?$').hasMatch(_weight.text.trim())) {
       setState(() => _error = '注文量は0より大きい0.01kg単位で入力してください。');
       return;
     }

@@ -599,6 +599,7 @@ class ManagerHomePage extends StatelessWidget {
       ),
       '追熟計画' when ripeningPlanRepository != null => ManagerRipeningPlanPage(
         repository: ripeningPlanRepository!,
+        orderManagementRepository: orderManagementRepository,
         currentDate: currentDate,
         inventoryRepository: inventoryRepository,
         masterRepository: masterRepository,
