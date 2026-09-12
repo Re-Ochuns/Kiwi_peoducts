@@ -8,6 +8,57 @@ import 'package:kiwi_inventory/work_tasks/work_task_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
+  test(
+    'pending tasks beyond the API row cap are paged and labels are bounded',
+    () async {
+      final offsets = <int>[];
+      var targetRequests = 0;
+      final client = _client((request) {
+        final query = request.url.queryParameters;
+        if (request.url.path.endsWith('/rpc/work_task_list')) {
+          expect(query['status'], 'eq.pending');
+          expect(query['order'], 'due_at.asc.nullslast,id.asc.nullslast');
+          final offset = int.parse(query['offset']!);
+          final limit = int.parse(query['limit']!);
+          expect(limit, 200);
+          offsets.add(offset);
+          final count = offset + limit <= 1005 ? limit : 1005 - offset;
+          return _json(
+            List.generate(
+              count,
+              (i) => {
+                'id': 'task-${offset + i}',
+                'task_type': 'ethylene_injection',
+                'ripening_lot_id': 'ripening-${offset + i}',
+                'scheduled_at': '2026-09-12T01:00:00Z',
+                'due_at': '2026-09-12T02:00:00Z',
+                'status': 'pending',
+                'target_url': '/work-tasks/task-${offset + i}',
+              },
+            ),
+            request,
+          );
+        }
+        if (request.url.path.endsWith('/ripening_lots')) {
+          targetRequests++;
+          final ids = query['id']!
+              .substring(4, query['id']!.length - 1)
+              .split(',');
+          expect(ids.length, lessThanOrEqualTo(200));
+          return _json([
+            for (final id in ids) {'id': id, 'display_id': id},
+          ], request);
+        }
+        throw StateError('unexpected request: ${request.url}');
+      });
+      final tasks = await SupabaseWorkTaskRepository(client).loadTasks();
+      expect(tasks.length, 1005);
+      expect(tasks.last.id, 'task-1004');
+      expect(offsets, [0, 200, 400, 600, 800, 1000]);
+      expect(targetRequests, 6);
+      await client.dispose();
+    },
+  );
   test('作業一覧と対象表示IDをToDoへ変換する', () async {
     final client = _client((request) {
       if (request.url.path.endsWith('/rpc/work_task_list')) {

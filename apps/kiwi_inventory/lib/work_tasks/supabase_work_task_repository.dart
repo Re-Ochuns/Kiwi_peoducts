@@ -15,15 +15,25 @@ class SupabaseWorkTaskRepository implements WorkTaskRepository {
   @override
   Future<List<WorkTaskItem>> loadTasks() async {
     try {
-      final raw = await _client
-          .rpc('work_task_list')
-          .timeout(const Duration(seconds: 10));
-      final rows = [
-        for (final value in raw as List)
-          Map<String, dynamic>.from(value as Map),
-      ];
-      final labels = await _loadTargetLabels(rows);
-      return [for (final row in rows) _taskFromRow(row, labels)];
+      const pageSize = 200;
+      final tasks = <WorkTaskItem>[];
+      for (var offset = 0; ; offset += pageSize) {
+        final raw = await _client
+            .rpc('work_task_list')
+            .eq('status', 'pending')
+            .order('due_at', ascending: true)
+            .order('id', ascending: true)
+            .range(offset, offset + pageSize - 1)
+            .timeout(const Duration(seconds: 10));
+        final rows = [
+          for (final value in raw as List)
+            Map<String, dynamic>.from(value as Map),
+        ];
+        // Resolve targets per page to keep IN filters within URL size limits.
+        final labels = await _loadTargetLabels(rows);
+        tasks.addAll(rows.map((row) => _taskFromRow(row, labels)));
+        if (rows.length < pageSize) return tasks;
+      }
     } on TimeoutException {
       throw const WorkTaskFailure(
         message: 'ToDoを読み込めませんでした。時間をおいて再試行してください。',

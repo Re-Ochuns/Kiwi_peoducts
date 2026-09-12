@@ -672,3 +672,10 @@ String _warningLabel(String warning) => switch (warning) {
   'COMPLETION_BEFORE_REMOVAL' => '追熟完了予定がエチレン抜き確認より前です',
   _ => warning,
 };
+
+// DB links use a path; Flutter Web otherwise only reads the hash at startup.
+// Retain hash links used by OAuth and existing browser navigation as well.
+String? workTaskInitialRoute(Uri uri) {
+  final route = uri.fragment.startsWith('/') ? uri.fragment : uri.path;
+  return workTaskIdFromRoute(route) == null ? null : route;
+}

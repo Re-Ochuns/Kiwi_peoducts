@@ -1,9 +1,33 @@
+import 'package:kiwi_inventory/work_tasks/worker_todo.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kiwi_inventory/work_tasks/work_task_repository.dart';
 
 import 'support/fake_work_task_repository.dart';
 
 void main() {
+  test('DB path and OAuth hash links select the task initial route', () {
+    expect(
+      workTaskInitialRoute(Uri.parse('https://example.test/work-tasks/task-1')),
+      '/work-tasks/task-1',
+    );
+    expect(
+      workTaskInitialRoute(
+        Uri.parse('https://example.test/#/work-tasks/task-1'),
+      ),
+      '/work-tasks/task-1',
+    );
+    expect(
+      workTaskInitialRoute(
+        Uri.parse('https://example.test/work-tasks/task-1?code=oauth'),
+      ),
+      '/work-tasks/task-1',
+    );
+    expect(workTaskInitialRoute(Uri.parse('https://example.test/')), isNull);
+    expect(
+      workTaskInitialRoute(Uri.parse('https://example.test/other')),
+      isNull,
+    );
+  });
   test('期限超過・ToDo・今後を優先順に分け、完了済みを除外する', () {
     final groups = WorkTaskGroups.fromTasks([
       ...testWorkTasks,

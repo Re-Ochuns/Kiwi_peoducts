@@ -108,6 +108,7 @@ class KiwiInventoryApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: theme ?? buildAppTheme(),
       home: _buildHome(),
+      initialRoute: workTaskInitialRoute(Uri.base),
       onGenerateRoute: _onGenerateRoute,
     );
   }
