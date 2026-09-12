@@ -56,7 +56,7 @@ CLIには毎回次の指定を付けた。
 
 1. supabase db start / db reset: S1/S2/S3全migrationとseedから再構築成功。
 2. supabase db lint --local --fail-on warning: schema errorsなし。
-3. supabase test db: 18ファイル733件成功。
+3. supabase test db: 最終版で18ファイル743件成功。
 4. 追加テーブル全権限と重複操作の10テスト追加後、対象schemaテスト69件成功。
    並行イベントテスト4件も全体テストで成功。
 
@@ -69,7 +69,8 @@ CLIには毎回次の指定を付けた。
 失敗側のイベントが残らず、操作ID重複時の残量・履歴変更もロールバックされる。
 
 ## 未検証
-- GitHubへのpushが自動承認レビューで拒否されたため、PR・CIは未実行。
+- CIの結果は本ブランチのPull Requestで確認する。
 - 本番適用、実環境の認証・接続、バックアップ復旧は未実施。
 - 公開RPCがまだないため、#62等とのAPI・画面を通した業務受入は未実施。
 - DB/バックエンド担当レビューとマージは未実施。Issue #60はCloseしていない。
+
