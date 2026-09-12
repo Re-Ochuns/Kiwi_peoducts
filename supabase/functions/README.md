@@ -8,6 +8,8 @@ A5 PDF、Google Calendar、外部API、再試行など、秘密情報または�
 
 - `label-pdf`: 選果後コンテナのA5ラベルPDFを生成する（Issue #17 / ADR-0002）。詳細は[docs/edge-functions/label-pdf.md](../../docs/edge-functions/label-pdf.md)。
 
+- `calendar-sync`: 作業タスクを農園共通Googleカレンダーへ一方向同期する（Issue #57）。[設定・運用手順](../../docs/edge-functions/calendar-sync.md)。
+
 ## テスト
 
 各Functionのユニットテストは`tests/`へ置き、リポジトリルートの`supabase/functions`で実行する。
