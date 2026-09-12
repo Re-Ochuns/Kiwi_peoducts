@@ -44,6 +44,8 @@ class WorkTaskItem {
     this.location,
     this.assignedWorkerId,
     this.scheduleWarning,
+    this.calendarSyncStatus = 'not_required',
+    this.calendarSyncError,
   });
 
   final String id;
@@ -60,6 +62,8 @@ class WorkTaskItem {
   final String? location;
   final String? assignedWorkerId;
   final String? scheduleWarning;
+  final String calendarSyncStatus;
+  final String? calendarSyncError;
 
   bool get isPending => status == 'pending';
 
@@ -70,6 +74,28 @@ class WorkTaskItem {
     ].whereType<String>().where((value) => value.trim().isNotEmpty).toList();
     return values.isEmpty ? '品種・等級未設定' : values.join('・');
   }
+}
+
+class WorkTaskSyncWarnings {
+  const WorkTaskSyncWarnings({
+    required this.failedCount,
+    required this.pendingCount,
+    required this.overdueSyncCount,
+    required this.scheduleWarningCount,
+  });
+
+  const WorkTaskSyncWarnings.empty()
+    : failedCount = 0,
+      pendingCount = 0,
+      overdueSyncCount = 0,
+      scheduleWarningCount = 0;
+
+  final int failedCount;
+  final int pendingCount;
+  final int overdueSyncCount;
+  final int scheduleWarningCount;
+
+  int get syncAttentionCount => failedCount + overdueSyncCount;
 }
 
 class WorkTaskGroups {
@@ -141,6 +167,8 @@ abstract interface class WorkTaskRepository {
   Future<List<WorkTaskItem>> loadTasks();
 
   Future<WorkTaskItem?> loadTask(String taskId);
+
+  Future<WorkTaskSyncWarnings> loadSyncWarnings();
 }
 
 String formatWorkTaskWeight(int hundredths) =>

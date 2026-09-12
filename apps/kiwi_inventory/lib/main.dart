@@ -20,6 +20,8 @@ import 'label/supabase_label_repository.dart';
 import 'master/master_page.dart';
 import 'master/master_repository.dart';
 import 'master/supabase_master_repository.dart';
+import 'manager_dashboard/manager_dashboard_page.dart';
+import 'manager_dashboard/manager_dashboard_repository.dart';
 import 'orders/order_management_page.dart';
 import 'orders/order_management_repository.dart';
 import 'orders/supabase_order_management_repository.dart';
@@ -225,6 +227,7 @@ class ResponsiveHomePage extends StatelessWidget {
               masterRepository: masterRepository,
               inventoryRepository: inventoryRepository,
               ripeningPlanRepository: ripeningPlanRepository,
+              workTaskRepository: workTaskRepository,
               orderManagementRepository: orderManagementRepository,
             )
           : WorkerHomePage(
@@ -608,6 +611,7 @@ class ManagerHomePage extends StatelessWidget {
     this.masterRepository,
     this.inventoryRepository,
     this.ripeningPlanRepository,
+    this.workTaskRepository,
     this.orderManagementRepository,
     super.key,
   });
@@ -616,6 +620,7 @@ class ManagerHomePage extends StatelessWidget {
   final MasterRepository? masterRepository;
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
+  final WorkTaskRepository? workTaskRepository;
   final OrderManagementRepository? orderManagementRepository;
 
   final VoidCallback? onSignOut;
@@ -630,95 +635,42 @@ class ManagerHomePage extends StatelessWidget {
             onSelected: (item) => _openNavigation(context, item),
           ),
           const VerticalDivider(width: 1),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(32, 30, 32, 48),
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1120),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Text(
-                        'ホーム',
-                        style: TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        formattedToday(currentDate),
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF56605A),
-                        ),
-                      ),
-                      const SizedBox(height: 28),
-                      const SummaryStrip(),
-                      const SizedBox(height: 34),
-                      const SectionTitle('優先して確認'),
-                      const SizedBox(height: 10),
-                      const TaskList(
-                        tasks: [
-                          WorkTask(
-                            title: '選果期限を超過しています',
-                            id: 'LOT-2026-0142',
-                            details: 'ヘイワード・M',
-                            weight: '48.25 kg',
-                            schedule: '期限 9月6日',
-                            location: '第一冷蔵庫',
-                            status: '期限超過',
-                            tone: TaskTone.error,
-                          ),
-                          WorkTask(
-                            title: '予約量が在庫を上回っています',
-                            id: 'INV-2026-0081',
-                            details: '香緑・L',
-                            weight: '不足 4.20 kg',
-                            schedule: '出荷予定 9月11日',
-                            location: '第二冷蔵庫',
-                            status: '要確認',
-                            tone: TaskTone.warning,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 34),
-                      const Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: ScheduleColumn(
-                              title: 'ToDo',
-                              rows: [
-                                ('10:00', 'エチレン注入', 'RIP-2026-0031'),
-                                ('14:00', '選果登録', 'LOT-2026-0148'),
-                                ('16:30', '出荷確認', 'ORD-2026-0106'),
-                              ],
-                            ),
-                          ),
-                          SizedBox(width: 32),
-                          Expanded(
-                            child: ScheduleColumn(
-                              title: '今後7日',
-                              rows: [
-                                ('9月9日', '追熟開始', 'RIP-2026-0034'),
-                                ('9月10日', '追熟確認', 'RIP-2026-0028'),
-                                ('9月11日', '出荷予定', 'ORD-2026-0109'),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+          Expanded(child: _buildDashboard(context)),
         ],
       ),
+    );
+  }
+
+  Widget _buildDashboard(BuildContext context) {
+    final tasks = workTaskRepository;
+    final orders = orderManagementRepository;
+    return ManagerDashboardPage(
+      repository: tasks != null && orders != null
+          ? DefaultManagerDashboardRepository(
+              workTaskRepository: tasks,
+              orderManagementRepository: orders,
+            )
+          : const _EmptyManagerDashboardRepository(),
+      currentDate: currentDate ?? DateTime.now(),
+      onOpenTask: (task) => Navigator.of(context).pushNamed(task.targetUrl),
+      onOpenOrder: orders == null
+          ? (_) {}
+          : (order) => Navigator.of(context).push(
+              PageRouteBuilder<void>(
+                pageBuilder: (_, _, _) => ManagerOrderPage(
+                  repository: orders,
+                  initialOrderId: order.id,
+                  currentDate: currentDate,
+                  ripeningPlanRepository: ripeningPlanRepository,
+                  inventoryRepository: inventoryRepository,
+                  masterRepository: masterRepository,
+                  csvExportRepository: csvExportRepository,
+                  onSignOut: onSignOut,
+                ),
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+              ),
+            ),
     );
   }
 
@@ -772,6 +724,23 @@ class ManagerHomePage extends StatelessWidget {
       ),
     );
   }
+}
+
+class _EmptyManagerDashboardRepository implements ManagerDashboardRepository {
+  const _EmptyManagerDashboardRepository();
+
+  @override
+  Future<ManagerDashboardData> load() async => const ManagerDashboardData(
+    tasks: [],
+    orders: OrderManagementData(
+      orders: [],
+      customers: [],
+      varieties: [],
+      grades: [],
+      canManage: false,
+    ),
+    syncWarnings: WorkTaskSyncWarnings.empty(),
+  );
 }
 
 class ManagerMasterPage extends StatelessWidget {
@@ -1068,6 +1037,7 @@ class ManagerOrderPage extends StatelessWidget {
   const ManagerOrderPage({
     required this.repository,
     this.currentDate,
+    this.initialOrderId,
     this.ripeningPlanRepository,
     this.inventoryRepository,
     this.masterRepository,
@@ -1078,6 +1048,7 @@ class ManagerOrderPage extends StatelessWidget {
 
   final OrderManagementRepository repository;
   final DateTime? currentDate;
+  final String? initialOrderId;
   final RipeningPlanRepository? ripeningPlanRepository;
   final InventoryRepository? inventoryRepository;
   final MasterRepository? masterRepository;
@@ -1151,7 +1122,12 @@ class ManagerOrderPage extends StatelessWidget {
           },
         ),
         const VerticalDivider(width: 1),
-        Expanded(child: OrderManagementPage(repository: repository)),
+        Expanded(
+          child: OrderManagementPage(
+            repository: repository,
+            initialOrderId: initialOrderId,
+          ),
+        ),
       ],
     ),
   );

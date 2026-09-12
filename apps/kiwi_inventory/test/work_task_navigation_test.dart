@@ -46,6 +46,10 @@ class Tasks implements WorkTaskRepository {
 
     return values.first;
   }
+
+  @override
+  Future<WorkTaskSyncWarnings> loadSyncWarnings() async =>
+      const WorkTaskSyncWarnings.empty();
 }
 
 void main() {

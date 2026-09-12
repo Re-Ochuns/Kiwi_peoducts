@@ -1,13 +1,17 @@
 import 'package:kiwi_inventory/work_tasks/work_task_repository.dart';
 
 class FakeWorkTaskRepository implements WorkTaskRepository {
-  FakeWorkTaskRepository({List<WorkTaskItem>? tasks, this.loadFailures = 0})
-    : tasks = tasks ?? testWorkTasks;
+  FakeWorkTaskRepository({
+    List<WorkTaskItem>? tasks,
+    this.loadFailures = 0,
+    this.syncWarnings = const WorkTaskSyncWarnings.empty(),
+  }) : tasks = tasks ?? testWorkTasks;
 
   final List<WorkTaskItem> tasks;
   int loadFailures;
   int loadCalls = 0;
   int loadTaskCalls = 0;
+  final WorkTaskSyncWarnings syncWarnings;
 
   @override
   Future<List<WorkTaskItem>> loadTasks() async {
@@ -31,6 +35,9 @@ class FakeWorkTaskRepository implements WorkTaskRepository {
       orElse: () => null,
     );
   }
+
+  @override
+  Future<WorkTaskSyncWarnings> loadSyncWarnings() async => syncWarnings;
 }
 
 final testWorkTasks = [

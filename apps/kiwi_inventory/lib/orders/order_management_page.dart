@@ -7,9 +7,14 @@ import 'order_management_repository.dart';
 enum _ManagementView { orders, customers }
 
 class OrderManagementPage extends StatefulWidget {
-  const OrderManagementPage({required this.repository, super.key});
+  const OrderManagementPage({
+    required this.repository,
+    this.initialOrderId,
+    super.key,
+  });
 
   final OrderManagementRepository repository;
+  final String? initialOrderId;
 
   @override
   State<OrderManagementPage> createState() => _OrderManagementPageState();
@@ -29,6 +34,7 @@ class _OrderManagementPageState extends State<OrderManagementPage> {
   @override
   void initState() {
     super.initState();
+    _selectedOrderId = widget.initialOrderId;
     _load();
   }
 

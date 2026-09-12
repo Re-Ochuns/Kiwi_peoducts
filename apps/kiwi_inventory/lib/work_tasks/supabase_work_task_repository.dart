@@ -82,6 +82,38 @@ class SupabaseWorkTaskRepository implements WorkTaskRepository {
     }
   }
 
+  @override
+  Future<WorkTaskSyncWarnings> loadSyncWarnings() async {
+    try {
+      final raw = await _client
+          .rpc('work_task_sync_warnings')
+          .timeout(const Duration(seconds: 10));
+      final row = Map<String, dynamic>.from(raw as Map);
+      return WorkTaskSyncWarnings(
+        failedCount: _toInt(row['failed_count']),
+        pendingCount: _toInt(row['pending_count']),
+        overdueSyncCount: _toInt(row['overdue_sync_count']),
+        scheduleWarningCount: _toInt(row['schedule_warning_count']),
+      );
+    } on TimeoutException {
+      throw const WorkTaskFailure(
+        message: '予定の同期状態を読み込めませんでした。時間をおいて再試行してください。',
+        code: 'TIMEOUT',
+        retryable: true,
+      );
+    } on WorkTaskFailure {
+      rethrow;
+    } on PostgrestException catch (error) {
+      throw _failureForPostgrest(error);
+    } catch (_) {
+      throw const WorkTaskFailure(
+        message: '予定の同期状態を読み込めませんでした。通信状況を確認してください。',
+        code: 'NETWORK_FAILED',
+        retryable: true,
+      );
+    }
+  }
+
   Future<Map<String, String>> _loadTargetLabels(
     List<Map<String, dynamic>> rows,
   ) async {
@@ -184,6 +216,9 @@ WorkTaskItem _taskFromRow(
     location: details['location'] as String?,
     assignedWorkerId: row['assigned_worker_id'] as String?,
     scheduleWarning: row['schedule_warning'] as String?,
+    calendarSyncStatus:
+        row['calendar_sync_status'] as String? ?? 'not_required',
+    calendarSyncError: row['calendar_sync_error'] as String?,
   );
 }
 
@@ -198,6 +233,12 @@ int? _toHundredths(Object? value) {
   if (value == null) return null;
   final number = value is num ? value : num.tryParse(value.toString());
   return number == null ? null : (number * 100).round();
+}
+
+int _toInt(Object? value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value?.toString() ?? '') ?? 0;
 }
 
 WorkTaskFailure _failureForPostgrest(PostgrestException error) {
