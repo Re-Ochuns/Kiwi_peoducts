@@ -18,10 +18,10 @@ class WorkerTodoSections extends StatefulWidget {
   final DateTime? currentDate;
 
   @override
-  State<WorkerTodoSections> createState() => _WorkerTodoSectionsState();
+  State<WorkerTodoSections> createState() => WorkerTodoSectionsState();
 }
 
-class _WorkerTodoSectionsState extends State<WorkerTodoSections> {
+class WorkerTodoSectionsState extends State<WorkerTodoSections> {
   late Future<List<WorkTaskItem>> _tasks;
 
   @override
@@ -38,6 +38,15 @@ class _WorkerTodoSectionsState extends State<WorkerTodoSections> {
 
   void _load() {
     _tasks = widget.repository.loadTasks();
+  }
+
+  Future<void> refresh() async {
+    setState(_load);
+    try {
+      await _tasks;
+    } catch (_) {
+      /* FutureBuilder displays the failure. */
+    }
   }
 
   void _retry() {

@@ -118,19 +118,30 @@ class KiwiInventoryApp extends StatelessWidget {
     if (taskId == null || repository == null) return null;
     return PageRouteBuilder<void>(
       settings: settings,
-      pageBuilder: (context, _, _) => WorkTaskRoutePage(
-        repository: repository,
-        taskId: taskId,
-        currentDate: currentDate,
-        targetPageBuilder: (task) => _buildWorkTaskTargetPage(
-          task,
+      pageBuilder: (context, _, _) => _authenticated(
+        (_, _) => WorkTaskRoutePage(
+          repository: repository,
+          taskId: taskId,
           currentDate: currentDate,
-          labelRepository: labelRepository,
-          sortingRepository: sortingRepository,
+          targetPageBuilder: (task) => _buildWorkTaskTargetPage(
+            task,
+            currentDate: currentDate,
+            labelRepository: labelRepository,
+            sortingRepository: sortingRepository,
+          ),
         ),
       ),
       transitionDuration: Duration.zero,
       reverseTransitionDuration: Duration.zero,
+    );
+  }
+
+  Widget _authenticated(Widget Function(BuildContext, VoidCallback) builder) {
+    final repository = authRepository;
+    if (repository == null) return _buildHome();
+    return ChangeNotifierProvider(
+      create: (_) => AuthController(repository),
+      child: AuthGate(authenticatedBuilder: builder),
     );
   }
 
@@ -277,7 +288,7 @@ const todayTasks = [
   ),
 ];
 
-class WorkerHomePage extends StatelessWidget {
+class WorkerHomePage extends StatefulWidget {
   const WorkerHomePage({
     this.onSignOut,
     this.currentDate,
@@ -302,93 +313,119 @@ class WorkerHomePage extends StatelessWidget {
   final VoidCallback? onSignOut;
 
   @override
+  State<WorkerHomePage> createState() => _WorkerHomePageState();
+}
+
+class _WorkerHomePageState extends State<WorkerHomePage> {
+  final _todoKey = GlobalKey<WorkerTodoSectionsState>();
+  Future<void> _refreshTasks() async {
+    await _todoKey.currentState?.refresh();
+  }
+
+  DateTime? get currentDate => widget.currentDate;
+  CsvExportRepository? get csvExportRepository => widget.csvExportRepository;
+  LabelRepository? get labelRepository => widget.labelRepository;
+  ReceivingRepository? get receivingRepository => widget.receivingRepository;
+  InventoryRepository? get inventoryRepository => widget.inventoryRepository;
+  RipeningPlanRepository? get ripeningPlanRepository =>
+      widget.ripeningPlanRepository;
+  WorkTaskRepository? get workTaskRepository => widget.workTaskRepository;
+  SortingRepository? get sortingRepository => widget.sortingRepository;
+  VoidCallback? get onSignOut => widget.onSignOut;
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: _plainAppBar('おおくま農園', onSignOut: onSignOut),
       body: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 40),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 430),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    formattedToday(currentDate),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF56605A),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'ToDo',
-                    style: TextStyle(
-                      fontSize: 30,
-                      height: 1.3,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const SectionTitle('作業を始める'),
-                  const SizedBox(height: 12),
-                  ActionButton(
-                    label: '収穫・仕入れ登録',
-                    onPressed: () => _openReceiving(context),
-                  ),
-                  const SizedBox(height: 10),
-                  ActionButton(
-                    label: '選果登録',
-                    onPressed: () => _openSorting(context),
-                  ),
-                  const SizedBox(height: 10),
-                  ActionButton(
-                    label: 'ラベル発行',
-                    onPressed: () => _openLabels(context),
-                  ),
-                  const SizedBox(height: 10),
-                  ActionButton(
-                    label: '追熟計画作成',
-                    onPressed: () => _openRipeningPlan(context),
-                  ),
-                  const SizedBox(height: 10),
-                  ActionButton(
-                    label: '在庫参照',
-                    onPressed: () => _openInventory(context),
-                  ),
-                  const SizedBox(height: 32),
-                  if (workTaskRepository == null) ...[
-                    const SectionTitle('期限超過', count: '1件'),
-                    const SizedBox(height: 8),
-                    const TaskRow(task: overdueTask),
-                    const SizedBox(height: 28),
-                    const SectionTitle('本日の予定', count: '2件'),
-                    const SizedBox(height: 8),
-                    const TaskList(tasks: todayTasks),
-                    const SizedBox(height: 28),
-                    const SectionTitle('今後の作業'),
-                    const SizedBox(height: 8),
-                    const TaskRow(
-                      task: WorkTask(
-                        title: '追熟確認',
-                        id: 'RIP-2026-0028',
-                        details: 'ヘイワード・M',
-                        weight: '18.40 kg',
-                        schedule: '9月10日 9:00',
-                        location: '第2追熟庫',
-                        status: '今後',
-                        tone: TaskTone.neutral,
+          child: RefreshIndicator(
+            onRefresh: _refreshTasks,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 40),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 430),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      formattedToday(currentDate),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF56605A),
                       ),
                     ),
-                  ] else
-                    WorkerTodoSections(
-                      repository: workTaskRepository!,
-                      currentDate: currentDate,
-                      onOpenTask: (task) => _openTask(context, task),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'ToDo',
+                      style: TextStyle(
+                        fontSize: 30,
+                        height: 1.3,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                ],
+                    const SizedBox(height: 24),
+                    const SectionTitle('作業を始める'),
+                    const SizedBox(height: 12),
+                    ActionButton(
+                      label: '収穫・仕入れ登録',
+                      onPressed: () => _openReceiving(context),
+                    ),
+                    const SizedBox(height: 10),
+                    ActionButton(
+                      label: '選果登録',
+                      onPressed: () => _openSorting(context),
+                    ),
+                    const SizedBox(height: 10),
+                    ActionButton(
+                      label: 'ラベル発行',
+                      onPressed: () => _openLabels(context),
+                    ),
+                    const SizedBox(height: 10),
+                    ActionButton(
+                      label: '追熟計画作成',
+                      onPressed: () => _openRipeningPlan(context),
+                    ),
+                    const SizedBox(height: 10),
+                    ActionButton(
+                      label: '在庫参照',
+                      onPressed: () => _openInventory(context),
+                    ),
+                    const SizedBox(height: 32),
+                    if (workTaskRepository == null) ...[
+                      const SectionTitle('期限超過', count: '1件'),
+                      const SizedBox(height: 8),
+                      const TaskRow(task: overdueTask),
+                      const SizedBox(height: 28),
+                      const SectionTitle('本日の予定', count: '2件'),
+                      const SizedBox(height: 8),
+                      const TaskList(tasks: todayTasks),
+                      const SizedBox(height: 28),
+                      const SectionTitle('今後の作業'),
+                      const SizedBox(height: 8),
+                      const TaskRow(
+                        task: WorkTask(
+                          title: '追熟確認',
+                          id: 'RIP-2026-0028',
+                          details: 'ヘイワード・M',
+                          weight: '18.40 kg',
+                          schedule: '9月10日 9:00',
+                          location: '第2追熟庫',
+                          status: '今後',
+                          tone: TaskTone.neutral,
+                        ),
+                      ),
+                    ] else
+                      WorkerTodoSections(
+                        key: _todoKey,
+                        repository: workTaskRepository!,
+                        currentDate: currentDate,
+                        onOpenTask: (task) => _openTask(context, task),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -403,14 +440,18 @@ class WorkerHomePage extends StatelessWidget {
       preparing(context);
       return;
     }
-    Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        pageBuilder: (_, _, _) =>
-            ReceivingPage(repository: repository, currentDate: currentDate),
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-      ),
-    );
+    Navigator.of(context)
+        .push(
+          PageRouteBuilder<void>(
+            pageBuilder: (_, _, _) =>
+                ReceivingPage(repository: repository, currentDate: currentDate),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
+        )
+        .then((_) {
+          if (mounted) _refreshTasks();
+        });
   }
 
   void _openSorting(BuildContext context) {
@@ -419,14 +460,20 @@ class WorkerHomePage extends StatelessWidget {
       preparing(context);
       return;
     }
-    Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        pageBuilder: (_, _, _) =>
-            SortingTargetPage(repository: repository, currentDate: currentDate),
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-      ),
-    );
+    Navigator.of(context)
+        .push(
+          PageRouteBuilder<void>(
+            pageBuilder: (_, _, _) => SortingTargetPage(
+              repository: repository,
+              currentDate: currentDate,
+            ),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
+        )
+        .then((_) {
+          if (mounted) _refreshTasks();
+        });
   }
 
   void _openLabels(BuildContext context) {
@@ -435,13 +482,17 @@ class WorkerHomePage extends StatelessWidget {
       preparing(context);
       return;
     }
-    Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        pageBuilder: (_, _, _) => LabelTargetPage(repository: repository),
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-      ),
-    );
+    Navigator.of(context)
+        .push(
+          PageRouteBuilder<void>(
+            pageBuilder: (_, _, _) => LabelTargetPage(repository: repository),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
+        )
+        .then((_) {
+          if (mounted) _refreshTasks();
+        });
   }
 
   void _openInventory(BuildContext context) {
@@ -450,16 +501,20 @@ class WorkerHomePage extends StatelessWidget {
       preparing(context);
       return;
     }
-    Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        pageBuilder: (_, _, _) => InventoryPage(
-          repository: repository,
-          csvExportRepository: csvExportRepository,
-        ),
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-      ),
-    );
+    Navigator.of(context)
+        .push(
+          PageRouteBuilder<void>(
+            pageBuilder: (_, _, _) => InventoryPage(
+              repository: repository,
+              csvExportRepository: csvExportRepository,
+            ),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
+        )
+        .then((_) {
+          if (mounted) _refreshTasks();
+        });
   }
 
   void _openRipeningPlan(BuildContext context) {
@@ -468,14 +523,20 @@ class WorkerHomePage extends StatelessWidget {
       preparing(context);
       return;
     }
-    Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        pageBuilder: (_, _, _) =>
-            RipeningPlanPage(repository: repository, currentDate: currentDate),
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-      ),
-    );
+    Navigator.of(context)
+        .push(
+          PageRouteBuilder<void>(
+            pageBuilder: (_, _, _) => RipeningPlanPage(
+              repository: repository,
+              currentDate: currentDate,
+            ),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
+        )
+        .then((_) {
+          if (mounted) _refreshTasks();
+        });
   }
 
   void _openTask(BuildContext context, WorkTaskItem task) {
@@ -485,25 +546,29 @@ class WorkerHomePage extends StatelessWidget {
       labelRepository: labelRepository,
       sortingRepository: sortingRepository,
     );
-    Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        pageBuilder: (_, _, _) => WorkTaskDetailPage(
-          task: task,
-          currentDate: currentDate,
-          onOpenTarget: targetPage == null
-              ? null
-              : () => Navigator.of(context).push(
-                  PageRouteBuilder<void>(
-                    pageBuilder: (_, _, _) => targetPage,
-                    transitionDuration: Duration.zero,
-                    reverseTransitionDuration: Duration.zero,
-                  ),
-                ),
-        ),
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-      ),
-    );
+    Navigator.of(context)
+        .push(
+          PageRouteBuilder<void>(
+            pageBuilder: (_, _, _) => WorkTaskDetailPage(
+              task: task,
+              currentDate: currentDate,
+              onOpenTarget: targetPage == null
+                  ? null
+                  : () => Navigator.of(context).push(
+                      PageRouteBuilder<void>(
+                        pageBuilder: (_, _, _) => targetPage,
+                        transitionDuration: Duration.zero,
+                        reverseTransitionDuration: Duration.zero,
+                      ),
+                    ),
+            ),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
+        )
+        .then((_) {
+          if (mounted) _refreshTasks();
+        });
   }
 }
 
