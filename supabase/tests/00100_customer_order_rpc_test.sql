@@ -282,8 +282,8 @@ select cmp_ok((select count(*) from public.change_history
   'mutations append audit history');
 
 select is((select count(*) from public.change_history
-  where correlation_id='83000000-0000-4000-8000-000000000014'),5::bigint,
-  'cancellation audits order, plan, allocation, reservation and container');
+  where correlation_id='83000000-0000-4000-8000-000000000014'),6::bigint,
+  'cancellation audits order, plan, allocation, reservation, container and shipping task');
 select is((select before_data->>'allocated_weight_kg' from public.change_history
   where entity_type='ripening_lot' and correlation_id='83000000-0000-4000-8000-000000000014'),
   '2','plan cancellation audit captures the old allocation total');
@@ -308,13 +308,13 @@ select is((select after_data->>'status' from public.change_history
 select is((select count(*) from public.change_history
   where correlation_id='83000000-0000-4000-8000-000000000014'
     and changed_by='81000000-0000-0000-0000-000000000003' and reason='顧客都合'),
-  5::bigint,'all related audits share the actor, reason and correlation');
+  6::bigint,'all related audits share the actor, reason and correlation');
 select is((public.order_cancel(public.test_s2_req(
   '82000000-0000-4000-8000-000000000014','83000000-0000-4000-8000-000000000014',
   jsonb_build_object('order_id',current_setting('test.order')::jsonb->'data'->>'id',
     'expected_version',4,'reason','顧客都合'))))->>'idempotent_replay','true','cancellation replays after success');
 select is((select count(*) from public.change_history
-  where correlation_id='83000000-0000-4000-8000-000000000014'),5::bigint,
+  where correlation_id='83000000-0000-4000-8000-000000000014'),6::bigint,
   'cancellation replay does not duplicate any audit');
 
 -- A new draft order exercises explicit destination changes and replay.
