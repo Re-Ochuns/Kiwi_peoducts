@@ -8,7 +8,6 @@ import 'package:kiwi_inventory/auth/auth_repository.dart';
 import 'package:kiwi_inventory/work_tasks/work_task_repository.dart';
 
 import 'support/fake_work_task_repository.dart';
-import 'support/fake_ripening_work_repository.dart';
 
 class SignedOutAuth implements AuthRepository {
   AuthUser? user;
@@ -105,34 +104,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('作業確認'), findsOneWidget);
     expect(tasks.detailReads, 1);
-  });
-  testWidgets('Googleカレンダーの直接URLから追熟作業画面へ進める', (tester) async {
-    tester.binding.platformDispatcher.defaultRouteNameTestValue =
-        '/work-tasks/task-overdue';
-    addTearDown(
-      tester.binding.platformDispatcher.clearDefaultRouteNameTestValue,
-    );
-    final auth = SignedOutAuth();
-    addTearDown(auth.changes.close);
-    final tasks = Tasks();
-    final ripeningWork = FakeRipeningWorkRepository();
-    await tester.pumpWidget(
-      KiwiInventoryApp(
-        authRepository: auth,
-        workTaskRepository: tasks,
-        ripeningWorkRepository: ripeningWork,
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Googleでログイン'));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('エチレン注入へ進む'));
-    await tester.tap(find.text('エチレン注入へ進む'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('実績を入力'), findsOneWidget);
-    expect(find.text('追熟-2026-001'), findsOneWidget);
-    expect(ripeningWork.loadCalls, 1);
   });
   testWidgets('returning to ToDo should refresh completed tasks', (
     tester,

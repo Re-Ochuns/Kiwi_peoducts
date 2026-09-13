@@ -581,18 +581,13 @@ class _WorkTaskRoutePageState extends State<WorkTaskRoutePage> {
           currentDate: widget.currentDate,
           onOpenTarget: targetPage == null
               ? null
-              : () async {
-                  final completed = await Navigator.of(context).push<bool>(
-                    PageRouteBuilder<bool>(
-                      pageBuilder: (_, _, _) => targetPage,
-                      transitionDuration: Duration.zero,
-                      reverseTransitionDuration: Duration.zero,
-                    ),
-                  );
-                  if (completed == true && context.mounted) {
-                    Navigator.of(context).pop();
-                  }
-                },
+              : () => Navigator.of(context).push(
+                  PageRouteBuilder<void>(
+                    pageBuilder: (_, _, _) => targetPage,
+                    transitionDuration: Duration.zero,
+                    reverseTransitionDuration: Duration.zero,
+                  ),
+                ),
         );
       },
     );

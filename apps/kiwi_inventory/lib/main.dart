@@ -31,9 +31,6 @@ import 'receiving/supabase_receiving_repository.dart';
 import 'ripening/ripening_plan_page.dart';
 import 'ripening/ripening_plan_repository.dart';
 import 'ripening/supabase_ripening_plan_repository.dart';
-import 'ripening_work/ripening_work_page.dart';
-import 'ripening_work/ripening_work_repository.dart';
-import 'ripening_work/supabase_ripening_work_repository.dart';
 import 'sorting/sorting_page.dart';
 import 'sorting/sorting_repository.dart';
 import 'sorting/supabase_sorting_repository.dart';
@@ -72,8 +69,6 @@ Future<void> main() async {
             SupabaseReceivingRepository.fromInitializedClient(),
         ripeningPlanRepository:
             SupabaseRipeningPlanRepository.fromInitializedClient(),
-        ripeningWorkRepository:
-            SupabaseRipeningWorkRepository.fromInitializedClient(),
         workTaskRepository: SupabaseWorkTaskRepository.fromInitializedClient(),
       ),
     );
@@ -98,7 +93,6 @@ class KiwiInventoryApp extends StatelessWidget {
     this.receivingRepository,
     this.inventoryRepository,
     this.ripeningPlanRepository,
-    this.ripeningWorkRepository,
     this.workTaskRepository,
     this.orderManagementRepository,
     this.theme,
@@ -114,7 +108,6 @@ class KiwiInventoryApp extends StatelessWidget {
   final ReceivingRepository? receivingRepository;
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
-  final RipeningWorkRepository? ripeningWorkRepository;
   final WorkTaskRepository? workTaskRepository;
   final OrderManagementRepository? orderManagementRepository;
   final SortingRepository? sortingRepository;
@@ -149,7 +142,6 @@ class KiwiInventoryApp extends StatelessWidget {
             currentDate: currentDate,
             labelRepository: labelRepository,
             sortingRepository: sortingRepository,
-            ripeningWorkRepository: ripeningWorkRepository,
           ),
         ),
       ),
@@ -191,7 +183,6 @@ class KiwiInventoryApp extends StatelessWidget {
           receivingRepository: receivingRepository,
           inventoryRepository: inventoryRepository,
           ripeningPlanRepository: ripeningPlanRepository,
-          ripeningWorkRepository: ripeningWorkRepository,
           workTaskRepository: workTaskRepository,
           orderManagementRepository: orderManagementRepository,
         ),
@@ -211,7 +202,6 @@ class ResponsiveHomePage extends StatelessWidget {
     this.receivingRepository,
     this.inventoryRepository,
     this.ripeningPlanRepository,
-    this.ripeningWorkRepository,
     this.workTaskRepository,
     this.orderManagementRepository,
     super.key,
@@ -223,7 +213,6 @@ class ResponsiveHomePage extends StatelessWidget {
   final ReceivingRepository? receivingRepository;
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
-  final RipeningWorkRepository? ripeningWorkRepository;
   final WorkTaskRepository? workTaskRepository;
   final OrderManagementRepository? orderManagementRepository;
   final SortingRepository? sortingRepository;
@@ -254,7 +243,6 @@ class ResponsiveHomePage extends StatelessWidget {
               receivingRepository: receivingRepository,
               inventoryRepository: inventoryRepository,
               ripeningPlanRepository: ripeningPlanRepository,
-              ripeningWorkRepository: ripeningWorkRepository,
               workTaskRepository: workTaskRepository,
             ),
     );
@@ -329,7 +317,6 @@ class WorkerHomePage extends StatefulWidget {
     this.receivingRepository,
     this.inventoryRepository,
     this.ripeningPlanRepository,
-    this.ripeningWorkRepository,
     this.workTaskRepository,
     super.key,
   });
@@ -339,7 +326,6 @@ class WorkerHomePage extends StatefulWidget {
   final ReceivingRepository? receivingRepository;
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
-  final RipeningWorkRepository? ripeningWorkRepository;
   final WorkTaskRepository? workTaskRepository;
   final SortingRepository? sortingRepository;
 
@@ -362,8 +348,6 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   InventoryRepository? get inventoryRepository => widget.inventoryRepository;
   RipeningPlanRepository? get ripeningPlanRepository =>
       widget.ripeningPlanRepository;
-  RipeningWorkRepository? get ripeningWorkRepository =>
-      widget.ripeningWorkRepository;
   WorkTaskRepository? get workTaskRepository => widget.workTaskRepository;
   SortingRepository? get sortingRepository => widget.sortingRepository;
   VoidCallback? get onSignOut => widget.onSignOut;
@@ -580,7 +564,6 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       currentDate: currentDate,
       labelRepository: labelRepository,
       sortingRepository: sortingRepository,
-      ripeningWorkRepository: ripeningWorkRepository,
     );
     Navigator.of(context)
         .push(
@@ -590,18 +573,13 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
               currentDate: currentDate,
               onOpenTarget: targetPage == null
                   ? null
-                  : () async {
-                      final completed = await Navigator.of(context).push<bool>(
-                        PageRouteBuilder<bool>(
-                          pageBuilder: (_, _, _) => targetPage,
-                          transitionDuration: Duration.zero,
-                          reverseTransitionDuration: Duration.zero,
-                        ),
-                      );
-                      if (completed == true && context.mounted) {
-                        Navigator.of(context).pop();
-                      }
-                    },
+                  : () => Navigator.of(context).push(
+                      PageRouteBuilder<void>(
+                        pageBuilder: (_, _, _) => targetPage,
+                        transitionDuration: Duration.zero,
+                        reverseTransitionDuration: Duration.zero,
+                      ),
+                    ),
             ),
             transitionDuration: Duration.zero,
             reverseTransitionDuration: Duration.zero,
@@ -618,7 +596,6 @@ Widget? _buildWorkTaskTargetPage(
   required DateTime? currentDate,
   required LabelRepository? labelRepository,
   required SortingRepository? sortingRepository,
-  required RipeningWorkRepository? ripeningWorkRepository,
 }) => switch (task.type) {
   WorkTaskType.sorting when sortingRepository != null => SortingTargetPage(
     repository: sortingRepository,
@@ -627,14 +604,6 @@ Widget? _buildWorkTaskTargetPage(
   WorkTaskType.labelPrinting when labelRepository != null => LabelTargetPage(
     repository: labelRepository,
   ),
-  WorkTaskType.ethyleneInjection ||
-  WorkTaskType.ethyleneRemovalCheck ||
-  WorkTaskType.ripenessCheck when ripeningWorkRepository != null =>
-    RipeningWorkPage(
-      repository: ripeningWorkRepository,
-      task: task,
-      currentDate: currentDate,
-    ),
   _ => null,
 };
 
