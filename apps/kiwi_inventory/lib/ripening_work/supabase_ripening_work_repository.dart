@@ -44,7 +44,7 @@ class SupabaseRipeningWorkRepository implements RipeningWorkRepository {
         version: (row['version'] as num).toInt(),
         status: row['status'] as String,
         weightHundredths: _toHundredths(row['total_weight_kg']),
-        locationId: row['storage_location_id'] as String,
+        locationId: _currentLocationId(row),
         workerId: row['assigned_worker_id'] as String,
         plannedEthyleneAt: DateTime.parse(row['planned_ethylene_at'] as String)
             .toLocal(),
@@ -213,4 +213,15 @@ RipeningWorkFailure _postgrestFailure(PostgrestException error) {
     code: error.code,
     retryable: true,
   );
+}
+
+// Once work starts, the physical container location supersedes the plan.
+// Multiple locations require an explicit choice instead of an arbitrary default.
+String? _currentLocationId(Map<String, dynamic> row) {
+  final containers = row['containers'] as List? ?? const [];
+  if (containers.isEmpty) return row['storage_location_id'] as String;
+  final locations = containers
+      .map((raw) => (raw as Map)['location_id'])
+      .toSet();
+  return locations.length == 1 ? locations.single as String? : null;
 }

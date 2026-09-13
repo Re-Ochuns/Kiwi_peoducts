@@ -5,9 +5,11 @@ class FakeRipeningWorkRepository implements RipeningWorkRepository {
     RipeningWorkDetails? details,
     this.loadFailures = 0,
     this.completeFailures = 0,
+    this.conflict = false,
   }) : details = details ?? testRipeningWorkDetails;
 
   final RipeningWorkDetails details;
+  final bool conflict;
   int loadFailures;
   int completeFailures;
   int loadCalls = 0;
@@ -40,6 +42,12 @@ class FakeRipeningWorkRepository implements RipeningWorkRepository {
     lastType = type;
     lastInput = input;
     completionKeys.add(idempotencyKey);
+    if (conflict) {
+      throw const RipeningWorkFailure(
+        message: '最新情報を読み直してください。',
+        code: 'CONFLICT_STALE',
+      );
+    }
     if (completeFailures > 0) {
       completeFailures--;
       throw const RipeningWorkFailure(

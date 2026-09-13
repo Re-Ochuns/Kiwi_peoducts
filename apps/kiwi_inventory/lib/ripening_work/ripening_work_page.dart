@@ -72,6 +72,7 @@ class _RipeningWorkPageState extends State<RipeningWorkPage> {
       if (!mounted) return;
       setState(() {
         _details = details;
+        _submitFailure = null;
         _locationId =
             details.locations.any((option) => option.id == _locationId)
             ? _locationId
@@ -118,9 +119,9 @@ class _RipeningWorkPageState extends State<RipeningWorkPage> {
         ),
       ),
       body: SafeArea(
-        child: _loading && details == null
+        child: _loading
             ? CommonStateView.loading(title: '${_type.label}を読み込んでいます')
-            : _loadFailure != null && details == null
+            : _loadFailure != null
             ? CommonStateView.error(
                 title: '${_type.label}を表示できません',
                 message: _loadFailure!.message,

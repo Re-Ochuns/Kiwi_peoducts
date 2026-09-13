@@ -59,7 +59,7 @@ class RipeningWorkDetails {
   final int version;
   final String status;
   final int weightHundredths;
-  final String locationId;
+  final String? locationId;
   final String workerId;
   final DateTime plannedEthyleneAt;
   final DateTime plannedCompletionAt;

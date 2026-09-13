@@ -202,6 +202,35 @@ void main() {
     expect(repository.completionKeys.first, repository.completionKeys.last);
   });
 
+  testWidgets('競合後の再読込失敗を表示し古い詳細では送信させない', (tester) async {
+    final repository = FakeRipeningWorkRepository(conflict: true);
+    await tester.pumpWidget(_app(repository: repository));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('ripening-work-temperature')),
+      '18',
+    );
+    await tester.pump();
+    await _confirm(tester);
+    repository.loadFailures = 1;
+    await tester.ensureVisible(find.text('最新状態を読み込む'));
+    await tester.tap(find.text('最新状態を読み込む'));
+    await tester.pumpAndSettle();
+    expect(find.text('追熟作業を読み込めませんでした。'), findsOneWidget);
+    expect(find.byKey(const Key('ripening-work-confirm-input')), findsNothing);
+    await tester.tap(find.text('再試行'));
+    await tester.pumpAndSettle();
+    expect(find.text('最新情報を読み直してください。'), findsNothing);
+    expect(repository.loadCalls, 3);
+    final field = tester.widget<TextField>(
+      find.descendant(
+        of: find.byKey(const Key('ripening-work-temperature')),
+        matching: find.byType(TextField),
+      ),
+    );
+    expect(field.controller!.text, '18');
+  });
+
   testWidgets('読込失敗から再試行できる', (tester) async {
     final repository = FakeRipeningWorkRepository(loadFailures: 1);
     await tester.pumpWidget(_app(repository: repository));

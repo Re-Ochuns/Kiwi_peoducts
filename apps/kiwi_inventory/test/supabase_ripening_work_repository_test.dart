@@ -59,6 +59,55 @@ void main() {
     await client.dispose();
   });
 
+  for (final scenario in <(List<Map<String, String>>, String?)>[
+    ([], 'location-1'),
+    (
+      [
+        {'location_id': 'location-2'},
+      ],
+      'location-2',
+    ),
+    (
+      [
+        {'location_id': 'location-2'},
+        {'location_id': 'location-2'},
+      ],
+      'location-2',
+    ),
+    (
+      [
+        {'location_id': 'location-1'},
+        {'location_id': 'location-2'},
+      ],
+      null,
+    ),
+  ]) {
+    test('現物場所を初期選択し複数場所は明示選択する: ${scenario.$1}', () async {
+      final client = _client((request) {
+        if (request.url.path.endsWith('/rpc/ripening_work_get')) {
+          return _json({
+            'id': 'ripening-1',
+            'display_id': '追熟-2026-001',
+            'status': 'in_progress',
+            'version': 3,
+            'total_weight_kg': 20.5,
+            'storage_location_id': 'location-1',
+            'assigned_worker_id': 'worker-1',
+            'planned_ethylene_at': '2026-09-12T00:00:00Z',
+            'planned_completion_at': '2026-09-19T00:00:00Z',
+            'containers': scenario.$1,
+            'results': [],
+          }, request);
+        }
+        return _json([], request);
+      });
+      final details = await SupabaseRipeningWorkRepository(client)
+          .load('ripening-1');
+      expect(details.locationId, scenario.$2);
+      await client.dispose();
+    });
+  }
+
   test('抜き確認を共通封筒で送り成功応答を変換する', () async {
     Map<String, dynamic>? requestBody;
     final client = _client((request) {
