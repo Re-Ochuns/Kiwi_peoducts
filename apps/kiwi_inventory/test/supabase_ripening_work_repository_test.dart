@@ -142,6 +142,27 @@ void main() {
     );
     await client.dispose();
   });
+
+  test('権限エラーを再試行不可として画面へ返す', () async {
+    final client = _client(
+      (request) async => http.Response(
+        jsonEncode({'code': '42501', 'message': 'permission denied'}),
+        403,
+        request: request,
+        headers: {'content-type': 'application/json'},
+      ),
+    );
+
+    await expectLater(
+      SupabaseRipeningWorkRepository(client).load('ripening-1'),
+      throwsA(
+        isA<RipeningWorkFailure>()
+            .having((error) => error.code, 'code', 'AUTH_FORBIDDEN')
+            .having((error) => error.retryable, 'retryable', isFalse),
+      ),
+    );
+    await client.dispose();
+  });
 }
 
 SupabaseClient _client(
