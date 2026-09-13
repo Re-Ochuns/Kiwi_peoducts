@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../core/app_theme.dart';
 import '../core/common_state_view.dart';
+import '../csv_export/business_csv_button.dart';
+import '../csv_export/csv_export_repository.dart';
 import 'shipping_repository.dart';
 
 class ShippingPage extends StatefulWidget {
   const ShippingPage({
     required this.repository,
+    this.csvExportRepository,
     this.initialOrderId,
     this.currentDate,
     this.embedded = false,
@@ -14,6 +17,7 @@ class ShippingPage extends StatefulWidget {
   });
 
   final ShippingRepository repository;
+  final CsvExportRepository? csvExportRepository;
   final String? initialOrderId;
   final DateTime? currentDate;
   final bool embedded;
@@ -188,6 +192,12 @@ class _ShippingPageState extends State<ShippingPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (widget.csvExportRepository != null)
+            BusinessCsvButton(
+              repository: widget.csvExportRepository!,
+              enabled: !_loadingOrders && _failure == null && !_submitting,
+              request: CsvExportRequest.business(dataset: CsvDataset.shipments),
+            ),
           const Text(
             '出荷予定・実績',
             style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
@@ -393,6 +403,19 @@ class _ShippingPageState extends State<ShippingPage> {
                 ),
               ),
               const SizedBox(height: 36),
+              if (widget.csvExportRepository != null)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: BusinessCsvButton(
+                    repository: widget.csvExportRepository!,
+                    enabled:
+                        !_loadingDetail && _failure == null && !_submitting,
+                    request: CsvExportRequest.business(
+                      dataset: CsvDataset.shipments,
+                      orderId: detail.order.id,
+                    ),
+                  ),
+                ),
               const Text(
                 '出荷実績',
                 style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),

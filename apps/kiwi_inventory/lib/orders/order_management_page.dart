@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../core/app_theme.dart';
 import '../core/common_state_view.dart';
+import '../csv_export/business_csv_button.dart';
+import '../csv_export/csv_export_repository.dart';
 import 'order_management_repository.dart';
 
 enum _ManagementView { orders, customers }
@@ -9,11 +11,13 @@ enum _ManagementView { orders, customers }
 class OrderManagementPage extends StatefulWidget {
   const OrderManagementPage({
     required this.repository,
+    this.csvExportRepository,
     this.initialOrderId,
     super.key,
   });
 
   final OrderManagementRepository repository;
+  final CsvExportRepository? csvExportRepository;
   final String? initialOrderId;
 
   @override
@@ -28,6 +32,8 @@ class _OrderManagementPageState extends State<OrderManagementPage> {
   OrderManagementData? _data;
   OrderManagementFailure? _failure;
   bool _loading = true;
+  String _appliedSearch = '';
+  OrderListFilter _appliedFilter = OrderListFilter.active;
   String? _selectedOrderId;
   String? _selectedCustomerId;
 
@@ -51,15 +57,19 @@ class _OrderManagementPageState extends State<OrderManagementPage> {
       _failure = null;
       _data = null;
     });
+    final search = _orderSearch.text;
+    final filter = _filter;
     try {
       final data = await widget.repository.load(
-        filter: _filter,
-        search: _orderSearch.text,
+        filter: filter,
+        search: search,
         customerSearch: _customerSearch.text,
       );
       if (!mounted) return;
       setState(() {
         _data = data;
+        _appliedSearch = search;
+        _appliedFilter = filter;
         _loading = false;
         if (data.orders.every((item) => item.id != _selectedOrderId)) {
           _selectedOrderId = null;
@@ -85,6 +95,20 @@ class _OrderManagementPageState extends State<OrderManagementPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (_view == _ManagementView.orders &&
+                widget.csvExportRepository != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: BusinessCsvButton(
+                  repository: widget.csvExportRepository!,
+                  enabled: !_loading && _failure == null && _data != null,
+                  request: CsvExportRequest.business(
+                    dataset: CsvDataset.orders,
+                    search: _appliedSearch,
+                    status: _appliedFilter.status?.value ?? 'active',
+                  ),
+                ),
+              ),
             Row(
               children: [
                 const Expanded(

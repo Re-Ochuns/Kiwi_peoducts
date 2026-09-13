@@ -2,18 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/common_state_view.dart';
+import '../csv_export/business_csv_button.dart';
+import '../csv_export/csv_export_repository.dart';
 import 'ripening_plan_repository.dart';
 import 'supabase_ripening_plan_repository.dart';
 
 class RipeningPlanPage extends StatefulWidget {
   const RipeningPlanPage({
     required this.repository,
+    this.csvExportRepository,
     this.currentDate,
     this.embedded = false,
     super.key,
   });
 
   final RipeningPlanRepository repository;
+  final CsvExportRepository? csvExportRepository;
   final DateTime? currentDate;
   final bool embedded;
 
@@ -106,7 +110,26 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
               actionLabel: _loadFailure!.retryable ? '再試行' : null,
               onAction: _loadFailure!.retryable ? _load : null,
             )
-          : _buildForm(),
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (widget.csvExportRepository != null)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: BusinessCsvButton(
+                        repository: widget.csvExportRepository!,
+                        enabled: !_busy,
+                        request: CsvExportRequest.business(
+                          dataset: CsvDataset.ripening,
+                        ),
+                      ),
+                    ),
+                  ),
+                Expanded(child: _buildForm()),
+              ],
+            ),
     );
     if (widget.embedded) return body;
     return Scaffold(

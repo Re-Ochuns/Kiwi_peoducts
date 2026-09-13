@@ -90,6 +90,7 @@ class _CsvExportDialogState extends State<CsvExportDialog> {
   String _masterType = 'variety';
   String _active = 'active';
   String _historyType = '';
+  String _businessStatus = 'all';
   bool _busy = false;
   String? _error;
   String? _correlationId;
@@ -116,6 +117,7 @@ class _CsvExportDialogState extends State<CsvExportDialog> {
     _masterType = filters['master_type'] as String? ?? 'variety';
     _active = filters['active'] as String? ?? 'active';
     _historyType = filters['entity_type'] as String? ?? '';
+    _businessStatus = filters['status'] as String? ?? 'all';
   }
 
   @override
@@ -173,6 +175,9 @@ class _CsvExportDialogState extends State<CsvExportDialog> {
                                   setState(() {
                                     _dataset = value;
                                     _searchController.clear();
+                                    _businessStatus = 'all';
+                                    _fromDateController.clear();
+                                    _toDateController.clear();
                                     _error = null;
                                     _correlationId = null;
                                   });
@@ -232,6 +237,64 @@ class _CsvExportDialogState extends State<CsvExportDialog> {
   }
 
   List<Widget> _fields() => switch (_dataset) {
+    CsvDataset.orders || CsvDataset.ripening || CsvDataset.shipments => [
+      if (_dataset == CsvDataset.shipments)
+        Text(
+          widget.initialRequest.filters['order_id'] == null
+              ? '出荷予定・実績一覧の受注に属する明細を出力します。取消明細も含みます。'
+              : '選択した受注の出荷明細を出力します。取消明細も含みます。',
+        ),
+      TextField(
+        key: const Key('csv-business-search'),
+        controller: _searchController,
+        enabled: !_busy,
+        maxLength: 100,
+        decoration: InputDecoration(
+          labelText: switch (_dataset) {
+            CsvDataset.orders => '受注番号・顧客名・愛称',
+            CsvDataset.ripening => '追熟ID・品種・等級',
+            _ => '出荷ID・受注番号・顧客・コンテナID',
+          },
+        ),
+      ),
+      _stringDropdown(
+        key: ValueKey('csv-business-status-${_dataset.value}'),
+        label: '状態',
+        value: _businessStatus,
+        values: {
+          'all': 'すべて',
+          if (_dataset == CsvDataset.orders) 'active': '未出荷',
+          if (_dataset != CsvDataset.shipments) 'draft': '下書き',
+          'confirmed': '確定',
+          if (_dataset != CsvDataset.shipments) 'in_progress': '進行中',
+          if (_dataset == CsvDataset.orders) ...{
+            'partially_shipped': '一部出荷',
+            'shipped': '出荷済み',
+          },
+          if (_dataset == CsvDataset.ripening) 'completed': '完了',
+          'cancelled': 'キャンセル',
+        },
+        onChanged: (value) => setState(() => _businessStatus = value),
+      ),
+      const SizedBox(height: 12),
+      Text(switch (_dataset) {
+        CsvDataset.orders => '期間：出荷予定日',
+        CsvDataset.ripening => '期間：注入予定日（日本時間）',
+        _ => '期間：出荷実績日（日本時間）',
+      }),
+      TextField(
+        key: const Key('csv-business-from'),
+        controller: _fromDateController,
+        enabled: !_busy,
+        decoration: const InputDecoration(labelText: '開始日（YYYY-MM-DD、任意）'),
+      ),
+      TextField(
+        key: const Key('csv-business-to'),
+        controller: _toDateController,
+        enabled: !_busy,
+        decoration: const InputDecoration(labelText: '終了日（YYYY-MM-DD、任意）'),
+      ),
+    ],
     CsvDataset.inventory => [
       TextField(
         key: const Key('csv-inventory-search'),
@@ -401,6 +464,22 @@ class _CsvExportDialogState extends State<CsvExportDialog> {
     if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
       setState(() => _error = '開始日は終了日以前を指定してください。');
       return null;
+    }
+    if ({
+      CsvDataset.orders,
+      CsvDataset.ripening,
+      CsvDataset.shipments,
+    }.contains(_dataset)) {
+      return CsvExportRequest.business(
+        dataset: _dataset,
+        search: _searchController.text,
+        status: _businessStatus,
+        fromDate: fromDate,
+        toDate: toDate,
+        orderId: _dataset == widget.initialRequest.dataset
+            ? widget.initialRequest.filters['order_id'] as String?
+            : null,
+      );
     }
     return CsvExportRequest.history(
       entityType: _historyType.isEmpty ? null : _historyType,
