@@ -152,4 +152,10 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
     timers = list(pool.map(lambda _: request('rpc/ripening_deadlines_process', {}, sub=None, role='service_role'), range(2)))
 assert all(status == 200 and result['expired'] == 0 for status, result in timers), timers
 assert sql('select count(*) from public.change_history;') == count
-print('PASS: local API harvest snapshot, permission denial, injection/removal/ripeness, partial shipment/cancellation, expiry without disposal, concurrent replay and deadline rerun')
+history_csv = ok(rpc('csv_export', {'dataset': 'history', 'filters': {'entity_type': 'container'}}, ADMIN))
+assert history_csv['row_count'] == int(sql("select count(*) from public.change_history where entity_type='container';"))
+assert 'システム（自動更新）' in history_csv['csv']
+master_csv = ok(rpc('csv_export', {'dataset': 'masters', 'filters': {'master_type': 'ripening_rule', 'search': rule['variety_id']}}))
+assert master_csv['row_count'] == 1
+assert 'エチレン処理時間' in master_csv['csv']
+print('PASS: local API harvest snapshot, permission denial, injection/removal/ripeness, partial shipment/cancellation, expiry without disposal, concurrent replay, deadline rerun and CSV exports')
