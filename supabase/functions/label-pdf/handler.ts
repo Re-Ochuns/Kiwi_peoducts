@@ -56,7 +56,7 @@ export interface RipeningLabelRow {
   planned_removal_at: string | null;
   planned_completion_at: string | null;
   orchard_names: string | null;
-  allocations: Array<{ order_id: string; allocated_weight_kg: number }>;
+  allocations: Array<{ order_id: string | null; order_number: string | null; allocation_type: string; allocated_weight_kg: number }>;
 }
 
 export interface QueryResult<T> {
@@ -223,6 +223,11 @@ export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Resp
           plannedRemovalAt: ripRow.planned_removal_at ?? null,
           plannedCompletionAt: ripRow.planned_completion_at ?? null,
           locationName: ripRow.location_name ?? "",
+          allocations: ripRow.allocations.map((a) => ({
+            allocationType: a.allocation_type,
+            orderNumber: a.order_number,
+            weightKg: Number(a.allocated_weight_kg).toFixed(2),
+          })),
         };
         pdf = await buildRipeningLabelPdf(labelData, deps.fontBytes);
         displayId = ripRow.display_id;

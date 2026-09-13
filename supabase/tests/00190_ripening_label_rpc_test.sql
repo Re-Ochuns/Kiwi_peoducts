@@ -28,7 +28,7 @@ insert into public.ripening_lots (
 values (
   '19400000-0000-0000-0000-000000000001', 'RL-2026-001',
   'a1000000-0000-0000-0000-000000000001', 'a2000000-0000-0000-0000-000000000005',
-  8.00, '19300000-0000-0000-0000-000000000001',
+  16.00, '19300000-0000-0000-0000-000000000001',
   '2026-09-01 09:00:00+09', '2026-09-20 09:00:00+09',
   '{"ethylene_hours":72,"rest_days":7}',
   '19200000-0000-0000-0000-000000000001', 'in_progress'
@@ -145,6 +145,7 @@ select is(
   (select status from public.containers where id = '19500000-0000-0000-0000-000000000001'),
   'ethylene_processing',
   'label_mark_printed does not move ripening container to cold_storage');
+reset role;
 select ok(
   exists(select 1 from public.change_history
     where entity_type = 'label_job'
@@ -157,6 +158,8 @@ select ok(
       and entity_id = '19500000-0000-0000-0000-000000000001'
       and operation = 'transition'),
   'label_mark_printed does not write container transition history for ripening');
+
+set local role authenticated;
 
 -- label_reprint on ripening: container stays in ethylene_processing -----------
 

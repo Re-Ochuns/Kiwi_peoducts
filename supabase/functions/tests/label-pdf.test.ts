@@ -140,6 +140,10 @@ const ripeningBase: RipeningLabelData = {
   plannedRemovalAt: "2026-09-04T09:00:00Z",
   plannedCompletionAt: "2026-09-20T09:00:00Z",
   locationName: "追熟庫",
+  allocations: [
+    { allocationType: "order", orderNumber: "ORDER-001", weightKg: "6.00" },
+    { allocationType: "reserve", orderNumber: null, weightKg: "2.00" },
+  ],
 };
 
 Deno.test("ripening: generates a single A5 page", async () => {
@@ -185,7 +189,18 @@ Deno.test("ripening: rejects weight without two decimals", async () => {
 });
 
 Deno.test("formatJapaneseDateTime formats ISO 8601 datetime", () => {
-  assertEquals(formatJapaneseDateTime("2026-09-01T10:00:00Z"), "2026年9月1日 10:00");
+  assertEquals(formatJapaneseDateTime("2026-09-01T10:00:00Z"), "2026年9月1日 19:00");
   assertEquals(formatJapaneseDateTime("2026-09-04T09:00:00+09:00"), "2026年9月4日 09:00");
   assertThrows(() => formatJapaneseDateTime("2026-09-01"));
+});
+
+Deno.test("ripening: dates represent the same instant in JST and cross midnight", () => {
+  assertEquals(formatJapaneseDateTime("2026-09-01T01:00:00Z"), formatJapaneseDateTime("2026-09-01T10:00:00+09:00"));
+  assertEquals(formatJapaneseDateTime("2026-09-01T18:30:00Z"), "2026年9月2日 03:30");
+});
+Deno.test("ripening: many allocations continue on A5 pages", async () => {
+  const pdf = await buildRipeningLabelPdf({ ...ripeningBase, allocations: Array.from({length: 40}, (_, i) => ({allocationType: "order", orderNumber: `ORDER-${i}`, weightKg: "0.20"})) }, fontBytes);
+  const doc = await PDFDocument.load(pdf);
+  assert(doc.getPageCount() > 1);
+  for (const page of doc.getPages()) assert(Math.abs(page.getWidth() - A5_WIDTH_POINTS) < 0.2);
 });

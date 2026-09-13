@@ -168,14 +168,20 @@ export interface RipeningLabelData {
   plannedRemovalAt: string | null;
   plannedCompletionAt: string | null;
   locationName: string;
+  allocations: Array<{ allocationType: string; orderNumber: string | null; weightKg: string }>;
 }
 
 export function formatJapaneseDateTime(iso: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso);
-  if (!match) {
+  const date = new Date(iso);
+  if (!/(Z|[+-]\d{2}:\d{2})$/.test(iso) || !Number.isFinite(date.getTime())) {
     throw new Error(`invalid datetime: ${iso}`);
   }
-  return `${Number(match[1])}年${Number(match[2])}月${Number(match[3])}日 ${match[4]}:${match[5]}`;
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Tokyo", year: "numeric", month: "numeric", day: "numeric",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(date);
+  const value = (type: string) => parts.find((part) => part.type === type)!.value;
+  return `${value("year")}年${Number(value("month"))}月${Number(value("day"))}日 ${value("hour")}:${value("minute")}`;
 }
 
 export async function buildRipeningLabelPdf(
@@ -192,7 +198,7 @@ export async function buildRipeningLabelPdf(
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
   const font = await doc.embedFont(fontBytes, {
-    subset: true,
+    subset: false,
     customName: "NotoSansJP",
   });
   doc.setTitle("追熟コンテナラベル");
@@ -202,7 +208,7 @@ export async function buildRipeningLabelPdf(
   doc.setCreationDate(FIXED_DATE);
   doc.setModificationDate(FIXED_DATE);
 
-  const page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+  let page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
   const drawText = (text: string, x: number, y: number, size: number, color = INK) =>
     page.drawText(text, { x, y, size, font, color });
   const drawFittedText = (
@@ -243,7 +249,7 @@ export async function buildRipeningLabelPdf(
       thickness: 0.6,
       color: LINE,
     });
-    y -= 13 * MM;
+    y -= 10 * MM;
   };
 
   drawField("産地", data.orchardNames || "—");
@@ -254,6 +260,33 @@ export async function buildRipeningLabelPdf(
   drawField("出荷可能予定", data.plannedCompletionAt ? formatJapaneseDateTime(data.plannedCompletionAt) : "—");
   drawField("場所", data.locationName || "—");
 
+  drawText("内訳（ロット全体）", MARGIN, y, 10, MUTED);
+  y -= 7 * MM;
+  if (data.allocations.length === 0) {
+    drawText("内訳未設定", MARGIN, y, 11);
+  }
+  for (const allocation of data.allocations) {
+    const label = allocation.allocationType === "reserve" ? "予備" : `受注 ${allocation.orderNumber ?? "番号未設定"}`;
+    // Wrap long order numbers at a readable size; never silently omit rows.
+    const lines: string[] = [];
+    let current = "";
+    for (const char of `${label}  ${allocation.weightKg} kg`) {
+      if (font.widthOfTextAtSize(current + char, 11) > PAGE_WIDTH - 2 * MARGIN) {
+        lines.push(current); current = char;
+      } else current += char;
+    }
+    if (current) lines.push(current);
+    for (const line of lines) {
+      if (y < 22 * MM) {
+        drawText("おおくま農園", MARGIN, MARGIN, 8, MUTED);
+        page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+        drawFittedText(`${containerDisplayId} 内訳（続き）`, MARGIN, PAGE_HEIGHT - 17 * MM, 14, PAGE_WIDTH - 2 * MARGIN);
+        y = PAGE_HEIGHT - 29 * MM;
+      }
+      drawText(line, MARGIN, y, 11);
+      y -= 6 * MM;
+    }
+  }
   drawText("おおくま農園", MARGIN, MARGIN, 8, MUTED);
 
   return await doc.save({ useObjectStreams: false });

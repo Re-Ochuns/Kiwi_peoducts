@@ -564,9 +564,12 @@ returns jsonb language sql stable security invoker set search_path = '' as $$
     'allocations', coalesce((
       select jsonb_agg(jsonb_build_object(
         'order_id',            a.order_id,
+        'order_number',        o.order_number,
+        'allocation_type',     a.allocation_type,
         'allocated_weight_kg', a.allocated_weight_kg
       ) order by a.order_id)
       from public.ripening_allocations a
+      left join public.orders o on o.id = a.order_id
       where a.ripening_lot_id = l.id
     ), '[]'::jsonb)
   )

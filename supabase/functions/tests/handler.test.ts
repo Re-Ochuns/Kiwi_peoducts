@@ -46,7 +46,10 @@ const ripeningLabelRow: RipeningLabelRow = {
   planned_removal_at: "2026-09-04T09:00:00Z",
   planned_completion_at: "2026-09-20T09:00:00Z",
   orchard_names: "おおくま農園",
-  allocations: [],
+  allocations: [
+    { order_id: "47000000-0000-0000-0000-000000000001", order_number: "ORD-S2-001", allocation_type: "order", allocated_weight_kg: 6 },
+    { order_id: null, order_number: null, allocation_type: "reserve", allocated_weight_kg: 2 },
+  ],
 };
 
 interface FakeConfig {
