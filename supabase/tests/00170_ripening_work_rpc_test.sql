@@ -112,13 +112,13 @@ where id = '48500000-0000-0000-0000-000000000001';
 
 insert into public.ripening_lots (
   id, display_id, variety_id, grade_id, total_weight_kg, storage_location_id,
-  planned_ethylene_at, planned_completion_at, master_snapshot, assigned_worker_id
+  planned_ethylene_at, planned_completion_at, master_snapshot, harvest_year, harvest_month, assigned_worker_id
 )
 values (
   '49000000-0000-0000-0000-000000000001', '追熟-2027-001',
   '42000000-0000-0000-0000-000000000001', 'a2000000-0000-0000-0000-000000000005',
   10.00, '44000000-0000-0000-0000-000000000001', '2027-06-10 09:00+09',
-  '2027-06-20 09:00+09', '{"ethylene_hours":72,"rest_days":7}',
+  '2027-06-20 09:00+09', '{"ethylene_hours":72,"rest_days":7,"shippable_days":5,"best_before_days":7}', 2026, 11,
   '43000000-0000-0000-0000-000000000001'
 );
 
@@ -253,11 +253,11 @@ update work_responses set result=public.ripening_ethylene_injection_complete(req
 select is((select result->>'ok' from work_responses where name='inject'),'true','injection succeeds');
 select is((select count(*) from public.work_tasks where status='pending'
   and task_details->>'location'='実績追熟庫'),2::bigint,'both downstream tasks use actual injection location');
-select ok((select bool_and(t.version=i.version+1 and t.scheduled_at is not distinct from i.scheduled_at
-    and t.due_at is not distinct from i.due_at
+select ok((select bool_and(t.version>i.version and t.scheduled_at=t.due_at
+    and t.due_at is distinct from i.due_at
     and t.task_details-'location'=i.task_details-'location')
   from public.work_tasks t join initial_tasks i using(id) where t.status='pending'),
-  'location update preserves dates and other details with one revision bump');
+  'actual injection recalculates downstream dates while preserving other task details');
 select is((select storage_location_id from public.ripening_lots
   where id='49000000-0000-0000-0000-000000000001'),
   '44000000-0000-0000-0000-000000000001'::uuid,'planned location remains unchanged');
@@ -290,8 +290,9 @@ select ok((select actual_at between statement_timestamp()-interval '1 minute' an
 select is(public.ripening_ethylene_injection_complete((select req from work_responses where name='inject'))
   ->>'idempotent_replay','true','injection replay succeeds without duplicate writes');
 select is((select count(*) from public.inventory_events),2::bigint,'replay does not duplicate inventory events');
-select ok((select bool_and(t.version=i.version+1)
-  from public.work_tasks t join initial_tasks i using(id) where t.status='pending'),
+select ok((select bool_and(t.version=(i->>'version')::bigint)
+  from public.work_tasks t join jsonb_array_elements((select result->'data'->'tasks' from work_responses where name='inject')) i
+  on t.id=(i->>'id')::uuid where t.status='pending'),
   'injection replay does not bump downstream revisions');
 select is(public.ripening_ethylene_injection_complete(
   jsonb_set((select req from work_responses where name='inject'),'{input,actual_temperature}','21'))

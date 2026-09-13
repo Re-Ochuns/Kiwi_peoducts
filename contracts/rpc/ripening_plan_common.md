@@ -16,7 +16,8 @@ planned_ethylene_at、planned_completion_at、assigned_worker_id、notes（任�
 allocations、reservations。日時はタイムゾーン付きISO 8601、完了は注入以降。
 重量は正の0.01kg単位。品種・等級・場所・担当者は有効なマスター。
 用途区分、集計量、状態、表示ID、version、master_snapshotはクライアント指定不可。
-予定自動計算と追熟マスターのコピーはS3の #63 に属し、本APIでは明示した予定日時を保存する。
+明示した予定日時は保存し、収穫年度・月によるマスターのコピーと計算予定は
+[S3-04 追熟予定・期限](ripening_deadlines.md) の契約に従う。
 
 allocations: [{allocation_type: "order" | "reserve", order_id: UUID（orderのみ）,
 allocated_weight_kg: number, notes?: string}]。
