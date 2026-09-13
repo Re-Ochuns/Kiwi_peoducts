@@ -1334,7 +1334,7 @@ class ManagerOrderPage extends StatelessWidget {
   );
 }
 
-class ManagerProcessBoardPage extends StatelessWidget {
+class ManagerProcessBoardPage extends StatefulWidget {
   const ManagerProcessBoardPage({
     required this.repository,
     this.ripeningPlanRepository,
@@ -1353,33 +1353,44 @@ class ManagerProcessBoardPage extends StatelessWidget {
   final VoidCallback? onSignOut;
 
   @override
+  State<ManagerProcessBoardPage> createState() =>
+      _ManagerProcessBoardPageState();
+}
+
+class _ManagerProcessBoardPageState extends State<ManagerProcessBoardPage> {
+  bool _busy = false;
+
+  @override
   Widget build(BuildContext context) => Scaffold(
     body: Row(
       children: [
         ManagerNavigation(
           selectedItem: '工程ボード',
-          onSignOut: onSignOut == null
+          onSignOut: _busy || widget.onSignOut == null
               ? null
               : () {
                   Navigator.of(context).popUntil((route) => route.isFirst);
-                  onSignOut!.call();
+                  widget.onSignOut!.call();
                 },
-          onSelected: (item) {
-            if (item == 'ホーム') {
-              Navigator.of(context).pop();
-            } else if (item != '工程ボード') {
-              preparing(context, '$item画面へはホームから移動してください');
-            }
-          },
+          onSelected: _busy
+              ? null
+              : (item) {
+                  if (item == 'ホーム') {
+                    Navigator.of(context).pop();
+                  } else if (item != '工程ボード') {
+                    preparing(context, '$item画面へはホームから移動してください');
+                  }
+                },
         ),
         const VerticalDivider(width: 1),
         Expanded(
           child: ProcessBoardPage(
-            repository: repository,
-            ripeningPlanRepository: ripeningPlanRepository,
-            ripeningWorkRepository: ripeningWorkRepository,
-            shippingRepository: shippingRepository,
-            currentDate: currentDate,
+            onBusyChanged: (value) => setState(() => _busy = value),
+            repository: widget.repository,
+            ripeningPlanRepository: widget.ripeningPlanRepository,
+            ripeningWorkRepository: widget.ripeningWorkRepository,
+            shippingRepository: widget.shippingRepository,
+            currentDate: widget.currentDate,
           ),
         ),
       ],

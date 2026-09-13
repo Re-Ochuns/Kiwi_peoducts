@@ -17,6 +17,7 @@ class ProcessBoardPage extends StatefulWidget {
     this.ripeningWorkRepository,
     this.shippingRepository,
     this.currentDate,
+    this.onBusyChanged,
     super.key,
   });
 
@@ -25,6 +26,7 @@ class ProcessBoardPage extends StatefulWidget {
   final RipeningWorkRepository? ripeningWorkRepository;
   final ShippingRepository? shippingRepository;
   final DateTime? currentDate;
+  final ValueChanged<bool>? onBusyChanged;
 
   @override
   State<ProcessBoardPage> createState() => _ProcessBoardPageState();
@@ -41,6 +43,13 @@ class _ProcessBoardPageState extends State<ProcessBoardPage> {
   String? _selectedPlanId;
   _PanelMode _panelMode = _PanelMode.details;
   bool _loading = true;
+  bool _panelBusy = false;
+
+  void _setPanelBusy(bool value) {
+    if (!mounted) return;
+    setState(() => _panelBusy = value);
+    widget.onBusyChanged?.call(value);
+  }
 
   @override
   void initState() {
@@ -55,6 +64,7 @@ class _ProcessBoardPageState extends State<ProcessBoardPage> {
   }
 
   Future<void> _load() async {
+    if (_panelBusy) return;
     setState(() {
       _loading = true;
       _failure = null;
@@ -62,6 +72,10 @@ class _ProcessBoardPageState extends State<ProcessBoardPage> {
     try {
       final data = await widget.repository.load();
       if (!mounted) return;
+      if (_panelBusy) {
+        setState(() => _loading = false);
+        return;
+      }
       setState(() {
         final previous = _selected;
         _data = data;
@@ -116,72 +130,80 @@ class _ProcessBoardPageState extends State<ProcessBoardPage> {
   }
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final viewportWidth = MediaQuery.sizeOf(context).width;
-      if (viewportWidth < 900) {
-        return const CommonStateView.empty(
-          title: '工程ボードはPCで使用してください',
-          message: '画面幅900px以上で、4工程を横並びに表示します。',
-        );
-      }
-      if (_loading && _data == null) {
-        return CommonStateView.loading(title: '工程ボードを読み込んでいます');
-      }
-      if (_failure != null && _data == null) {
-        return CommonStateView.error(
-          title: '工程ボードを表示できません',
-          message: _failure!.message,
-          actionLabel: _failure!.retryable ? '再試行' : null,
-          onAction: _failure!.retryable ? _load : null,
-        );
-      }
-      final data = _data!;
-      return Material(
-        color: AppColors.background,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _BoardHeader(refreshing: _loading, onRefresh: _load),
-            const Divider(height: 1),
-            Expanded(
-              child: Stack(
-                children: [
-                  Positioned.fill(child: _buildBoard(data)),
-                  if (_selected != null)
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      bottom: 0,
-                      width: constraints.maxWidth < 1100 ? 420 : 460,
-                      child: _DetailPanel(
-                        item: _selected!,
-                        mode: _panelMode,
-                        shippingOrderId: _shippingOrderId,
-                        ripeningPlanRepository: widget.ripeningPlanRepository,
-                        ripeningWorkRepository: widget.ripeningWorkRepository,
-                        shippingRepository: widget.shippingRepository,
-                        currentDate: widget.currentDate,
-                        onClose: _closePanel,
-                        onBack: () =>
-                            setState(() => _panelMode = _PanelMode.details),
-                        onOpen: (mode) => setState(() => _panelMode = mode),
-                        onShippingOrderChanged: (value) =>
-                            setState(() => _shippingOrderId = value),
-                        onPlanChanged: (value) => setState(() {
-                          _selectedPlanId = value;
-                          _panelMode = _PanelMode.details;
-                        }),
-                        onCompleted: _completeAndReload,
-                      ),
-                    ),
-                ],
+  Widget build(BuildContext context) => PopScope(
+    canPop: !_panelBusy,
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final viewportWidth = MediaQuery.sizeOf(context).width;
+        if (viewportWidth < 900 && _panelMode == _PanelMode.details) {
+          return const CommonStateView.empty(
+            title: '工程ボードはPCで使用してください',
+            message: '画面幅900px以上で、4工程を横並びに表示します。',
+          );
+        }
+        if (_loading && _data == null) {
+          return CommonStateView.loading(title: '工程ボードを読み込んでいます');
+        }
+        if (_failure != null && _data == null) {
+          return CommonStateView.error(
+            title: '工程ボードを表示できません',
+            message: _failure!.message,
+            actionLabel: _failure!.retryable ? '再試行' : null,
+            onAction: _failure!.retryable ? _load : null,
+          );
+        }
+        final data = _data!;
+        return Material(
+          color: AppColors.background,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _BoardHeader(
+                refreshing: _loading,
+                onRefresh: _panelBusy ? null : _load,
               ),
-            ),
-          ],
-        ),
-      );
-    },
+              const Divider(height: 1),
+              Expanded(
+                child: Stack(
+                  children: [
+                    Positioned.fill(child: _buildBoard(data)),
+                    if (_selected != null)
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        bottom: 0,
+                        width: constraints.maxWidth < 1100 ? 420 : 460,
+                        child: _DetailPanel(
+                          item: _selected!,
+                          busy: _panelBusy,
+                          onBusyChanged: _setPanelBusy,
+                          mode: _panelMode,
+                          shippingOrderId: _shippingOrderId,
+                          ripeningPlanRepository: widget.ripeningPlanRepository,
+                          ripeningWorkRepository: widget.ripeningWorkRepository,
+                          shippingRepository: widget.shippingRepository,
+                          currentDate: widget.currentDate,
+                          onClose: _closePanel,
+                          onBack: () =>
+                              setState(() => _panelMode = _PanelMode.details),
+                          onOpen: (mode) => setState(() => _panelMode = mode),
+                          onShippingOrderChanged: (value) =>
+                              setState(() => _shippingOrderId = value),
+                          onPlanChanged: (value) => setState(() {
+                            _selectedPlanId = value;
+                            _panelMode = _PanelMode.details;
+                          }),
+                          onCompleted: _completeAndReload,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    ),
   );
 
   Widget _buildBoard(ProcessBoardData data) => Scrollbar(
@@ -213,6 +235,7 @@ class _ProcessBoardPageState extends State<ProcessBoardPage> {
   );
 
   void _select(ProcessBoardItem item) {
+    if (_panelBusy) return;
     setState(() {
       _selectedId = item.id;
       _selectedPlanId = item.plans.firstOrNull?.id;
@@ -239,7 +262,7 @@ class _BoardHeader extends StatelessWidget {
   const _BoardHeader({required this.refreshing, required this.onRefresh});
 
   final bool refreshing;
-  final VoidCallback onRefresh;
+  final VoidCallback? onRefresh;
 
   @override
   Widget build(BuildContext context) => ColoredBox(
@@ -501,8 +524,12 @@ class _DetailPanel extends StatelessWidget {
     required this.onShippingOrderChanged,
     required this.onPlanChanged,
     required this.onCompleted,
+    required this.busy,
+    required this.onBusyChanged,
   });
 
+  final bool busy;
+  final ValueChanged<bool> onBusyChanged;
   final ProcessBoardItem item;
   final _PanelMode mode;
   final String? shippingOrderId;
@@ -532,7 +559,10 @@ class _DetailPanel extends StatelessWidget {
             child: Row(
               children: [
                 if (mode != _PanelMode.details)
-                  TextButton(onPressed: onBack, child: const Text('← 詳細へ戻る'))
+                  TextButton(
+                    onPressed: busy ? null : onBack,
+                    child: const Text('← 詳細へ戻る'),
+                  )
                 else
                   const Expanded(
                     child: Text(
@@ -544,7 +574,10 @@ class _DetailPanel extends StatelessWidget {
                     ),
                   ),
                 if (mode != _PanelMode.details) const Spacer(),
-                TextButton(onPressed: onClose, child: const Text('閉じる')),
+                TextButton(
+                  onPressed: busy ? null : onClose,
+                  child: const Text('閉じる'),
+                ),
               ],
             ),
           ),
@@ -573,6 +606,7 @@ class _DetailPanel extends StatelessWidget {
       embedded: true,
       initialInventoryId: item.id,
       onCompleted: onCompleted,
+      onBusyChanged: onBusyChanged,
     ),
     _PanelMode.ripeningWork => RipeningWorkPage(
       key: ValueKey('board-work-${item.id}-${item.nextTask!.type.name}'),
@@ -581,6 +615,7 @@ class _DetailPanel extends StatelessWidget {
       currentDate: currentDate,
       embedded: true,
       onCompleted: onCompleted,
+      onBusyChanged: onBusyChanged,
     ),
     _PanelMode.shipping => ShippingPage(
       key: ValueKey('board-shipping-$shippingOrderId'),
@@ -589,6 +624,7 @@ class _DetailPanel extends StatelessWidget {
       currentDate: currentDate,
       embedded: true,
       onChanged: onCompleted,
+      onBusyChanged: onBusyChanged,
     ),
   };
 }
