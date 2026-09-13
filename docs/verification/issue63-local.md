@@ -2,9 +2,9 @@
 
 - 検証日: 2026-09-13
 - 検証者: Codex
-- 対象実装コミット: `8d3370e02686c50e39b74ebb6bb59aa6d944ddd0`
+- 初回検証の対象実装コミット: `8d3370e02686c50e39b74ebb6bb59aa6d944ddd0`
 - ブランチ: `codex/63-ripening-deadlines`
-- 最新develop `43175b2`（追熟ラベル #92）を取り込んで検証。
+- 初回検証ではdevelop `43175b2`（追熟ラベル #92）を取り込んで検証。
 - 作業場所: `/home/kugis/products/hackathon/kiwi-verification/issue63`
 - DB設定: `/home/kugis/products/hackathon/kiwi-verification/issue63-runtime/supabase/config.toml`
 - 専用プロジェクト: `kiwi_issue63`、DB: `supabase_db_kiwi_issue63`、DBポート56622。
@@ -54,3 +54,14 @@ PostgRESTは同じ専用Dockerネットワークで起動し、DB接続は専用
 - Backend・DB/CI・契約の担当者レビュー。ローカル成功を本番反映の承認とはしない。
 
 CI結果は関連PRのChecksに記録する。Issueはレビュー・CI完了までOpenを維持する。
+
+## レビュー指摘の修正検証
+
+- 修正コミット: `2f245e89a7421554b8c880223df34d5e7a1a61c8`
+- 修正migration: `20260913000600_fix_deadline_csv_exports.sql`
+- 自動更新履歴のCSV欠落をLEFT JOINで修正。変更者名は「システム（自動更新）」とし、手動実行者と区別。
+- 追熟マスターのCSVヘッダー・全計算条件・検索・収穫年度順の並びを追加。
+- 専用DBを全migrationから再構築し、SQL lintは指摘なし、pgTAPは24ファイル・996項目PASS。
+- 追加20項目で履歴の欠落、マスターの列と並び順、検索・有効状態フィルター、権限、出力監査件数を検証。
+- `scripts/verify_issue63_local_api.py` もPASS。実際の期限更新履歴の保存件数とCSV件数が一致し、追熟マスターCSVをAPI経由で取得できることを確認。
+- 今回の修正ではFlutterコードを変更していない。CI結果はPRの最新Checksを参照。
