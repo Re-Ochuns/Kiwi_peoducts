@@ -202,12 +202,12 @@ class SupabaseInventoryRepository implements InventoryRepository {
   }
 
   InventoryHistoryEntry _historyFromRow(Map<String, dynamic> row) {
-    final profile = Map<String, dynamic>.from(row['profile'] as Map);
+    final profile = row['profile'] as Map<String, dynamic>?;
     return InventoryHistoryEntry(
       operation: row['operation'] as String,
       reason: row['reason'] as String,
       changedAt: DateTime.parse(row['changed_at'] as String),
-      changedBy: profile['display_name'] as String,
+      changedBy: profile?['display_name'] as String? ?? 'システム（自動更新）',
     );
   }
 }
