@@ -112,7 +112,8 @@ flowchart TB
     PR[Pull Request] --> CI[GitHub Actions]
     CI --> Checks[Flutter build/test DB reset/pgTAP]
     Checks --> Preview[任意のPreview]
-    Develop[developへマージ] --> Staging[Staging Firebase + Supabase]
+    Develop[developへマージ] --> Gate[対象SHAのCI成功・手動実行]
+    Gate --> Staging[Staging Firebase + Supabase]
     Staging --> Review[業務フロー確認]
     Review --> Main[mainへの昇格PR]
     Main --> Production[Production Firebase + Supabase]
@@ -120,7 +121,7 @@ flowchart TB
 
 - Local、Staging、ProductionでFirebase、Supabase、OAuth設定、秘密情報を分離する。
 - LocalとStagingはダミーデータだけを使用し、実在する顧客・配送先情報を投入しない。
-- developへのマージ後にStagingへ反映し、Issueの受入条件を確認する。
+- developへのマージと対象SHAのCI成功後、Staging Deploymentを手動実行して反映する。自動配備は行わない（Issue #99）。[運用手順](../development/staging.md)に従って受入条件を確認する。
 - Productionはmainへの承認済み昇格を起点とし、手動承認を必須とする。
 - DB migrationをアプリより先に後方互換な形で適用し、破壊的変更は複数段階で移行する。
 - マージ済みmigrationは編集せず、修正migrationを追加する。

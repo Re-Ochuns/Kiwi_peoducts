@@ -19,7 +19,7 @@ Google CloudではLocal、Staging、ProductionごとにOAuthクライアント�
 | 環境 | アプリURL / JavaScript origin | GoogleのAuthorized redirect URI | 資格情報 |
 | --- | --- | --- | --- |
 | Local | `http://localhost:58080` | `http://127.0.0.1:55321/auth/v1/callback` | `.env` |
-| Staging | Issue #9で確定するHTTPS URL | `https://<staging-project-ref>.supabase.co/auth/v1/callback` | Staging Secret |
+| Staging | Issue #99で確定するStaging専用HTTPS URL | `https://<staging-project-ref>.supabase.co/auth/v1/callback` | Staging Secret |
 | Production | 本番HTTPS URL | `https://<production-project-ref>.supabase.co/auth/v1/callback` | Production Secret |
 
 Supabase Dashboardの **Authentication > URL Configuration** ではSite URLとRedirect URLsを環境ごとに登録します。ワイルドカードはローカルやプレビュー用途に限定し、Productionでは完全一致を使用します。
@@ -99,4 +99,4 @@ select private.set_user_access(
 - Stagingで許可対象のGoogleアカウントがログインし、プロフィールを取得できる。
 - Staging/ProductionのURLとSecretがリポジトリ外で管理されている。
 
-SQLによるRLS項目は `supabase/tests/00010_profiles_rls_test.sql` でCI実行できます。実際のGoogleリダイレクト確認は、Issue #7のFlutter認証実装とIssue #9のStaging環境構築後に行います。
+SQLによるRLS項目は `supabase/tests/00010_profiles_rls_test.sql` でCI実行できます。実際のGoogleリダイレクト確認は、Issue #7のFlutter認証実装とIssue #99のStaging環境構築後に行います。

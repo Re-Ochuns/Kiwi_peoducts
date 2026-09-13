@@ -1,0 +1,23 @@
+name: Staging Configuration CI
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - ".github/workflows/staging-*.yml"
+      - "scripts/staging_*.py"
+      - "scripts/test_staging_*.py"
+  push:
+    branches: [develop, main]
+    paths:
+      - ".github/workflows/staging-*.yml"
+      - "scripts/staging_*.py"
+      - "scripts/test_staging_*.py"
+permissions:
+  contents: read
+jobs:
+  staging-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Test staging preflight and probes
+        run: python3 -m unittest discover -s scripts -p 'test_staging_*.py'
