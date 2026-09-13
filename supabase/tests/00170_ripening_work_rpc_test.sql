@@ -251,6 +251,15 @@ select is(public.ripening_ethylene_injection_complete(
 insert into work_responses(name,req) values('inject',pg_temp.work_req('{"location_id":"44000000-0000-0000-0000-000000000002"}'));
 update work_responses set result=public.ripening_ethylene_injection_complete(req) where name='inject';
 select is((select result->>'ok' from work_responses where name='inject'),'true','injection succeeds');
+select is((select a->>'order_number' from public.containers c,
+ lateral jsonb_array_elements(public.ripening_label_get(c.id)->'allocations') a
+ where c.ripening_lot_id='49000000-0000-0000-0000-000000000001' and a->>'allocation_type'='order'),
+ 'ORD-S2-001','label exposes human-readable order number');
+select is((select (a->>'allocated_weight_kg')::numeric from public.containers c,
+ lateral jsonb_array_elements(public.ripening_label_get(c.id)->'allocations') a
+ where c.ripening_lot_id='49000000-0000-0000-0000-000000000001' and a->>'allocation_type'='reserve'),
+ 2::numeric,'label exposes reserve weight');
+
 select is((select count(*) from public.work_tasks where status='pending'
   and task_details->>'location'='実績追熟庫'),2::bigint,'both downstream tasks use actual injection location');
 select ok((select bool_and(t.version>i.version and t.scheduled_at=t.due_at
@@ -301,6 +310,35 @@ select is(public.ripening_ethylene_injection_complete(pg_temp.work_req())->'erro
   'INVALID_WORK_STATE','new operation cannot re-inject');
 select is(public.ripening_ripeness_complete(pg_temp.work_req())->'error'->>'code',
   'INVALID_WORK_STATE','cannot skip removal');
+
+-- S3-08: label guard -- removal is blocked until the ripening label is handled
+select is(
+  public.ripening_ethylene_removal_complete(pg_temp.work_req(jsonb_build_object(
+    'actual_at',to_char((statement_timestamp()+interval '1 hour') at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+    'rest_temperature',18,'location_id','44000000-0000-0000-0000-000000000003'
+  )))->'error'->>'code',
+  'LABEL_REQUIRED','removal blocked until ripening label is handled');
+select is(
+  (select j.status from public.label_jobs j
+     join public.containers c on c.id=j.container_id
+     where c.ripening_lot_id='49000000-0000-0000-0000-000000000001'),
+  'not_printed','label_job created as not_printed at injection');
+select is(
+  public.label_mark_handwritten(jsonb_build_object(
+    'meta',jsonb_build_object(
+      'idempotency_key','1a000000-0000-4000-8000-000000000001',
+      'correlation_id','1c000000-0000-4000-8000-000000000001'),
+    'input',jsonb_build_object(
+      'label_job_id',(select j.id from public.label_jobs j
+        join public.containers c on c.id=j.container_id
+        where c.ripening_lot_id='49000000-0000-0000-0000-000000000001'),
+      'worker_id','43000000-0000-0000-0000-000000000001')
+  ))->>'ok',
+  'true','ripening label marked as handwritten');
+select is(
+  (select c.status from public.containers c
+     where c.ripening_lot_id='49000000-0000-0000-0000-000000000001'),
+  'ethylene_processing','handwritten label does not move ripening container to cold_storage');
 
 insert into work_responses(name,req) values('remove',pg_temp.work_req(jsonb_build_object(
   'actual_at',to_char((statement_timestamp()+interval '1 hour') at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
