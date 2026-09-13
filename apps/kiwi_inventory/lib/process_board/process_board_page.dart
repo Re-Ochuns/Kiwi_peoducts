@@ -162,6 +162,30 @@ class _ProcessBoardPageState extends State<ProcessBoardPage> {
                 refreshing: _loading,
                 onRefresh: _panelBusy ? null : _load,
               ),
+              if (_failure != null)
+                Semantics(
+                  liveRegion: true,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _BoardNotice(
+                          message:
+                              '更新に失敗しました。表示中の情報は前回取得した内容です。\n${_failure!.message}',
+                        ),
+                        if (_failure!.retryable)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton(
+                              onPressed: _loading || _panelBusy ? null : _load,
+                              child: const Text('再試行'),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
               const Divider(height: 1),
               Expanded(
                 child: Stack(

@@ -224,6 +224,33 @@ void main() {
       );
     });
 
+    testWidgets('更新失敗時は前回の表示と通知を残し、再試行成功で解消する', (tester) async {
+      final repository = FakeProcessBoardRepository();
+      await _pumpBoard(
+        tester,
+        repository,
+        size: const Size(900, 900),
+        textScaler: const TextScaler.linear(2),
+      );
+      repository.loadFailures = 1;
+      await tester.tap(find.text('最新状態を読み込む'));
+      await tester.pumpAndSettle();
+      expect(repository.loadCalls, 2);
+      expect(find.text('CONT-2026-0101'), findsOneWidget);
+      expect(find.textContaining('表示中の情報は前回取得した内容です。'), findsOneWidget);
+      expect(find.textContaining('工程ボードを読み込めませんでした。'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      repository.data = const ProcessBoardData(items: []);
+      await tester.tap(find.text('再試行'));
+      await tester.pumpAndSettle();
+      expect(repository.loadCalls, 3);
+      expect(find.text('CONT-2026-0101'), findsNothing);
+      expect(find.textContaining('更新に失敗しました。'), findsNothing);
+      expect(find.text('再試行'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('管理者ホームの主要メニューから開ける', (tester) async {
       final repository = FakeProcessBoardRepository();
       await _setSurface(tester, const Size(1280, 900));
