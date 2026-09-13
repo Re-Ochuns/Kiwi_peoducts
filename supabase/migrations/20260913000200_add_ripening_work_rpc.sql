@@ -47,6 +47,8 @@ declare
   reservation public.inventory_reservations%rowtype;
   target public.containers%rowtype;
   task public.work_tasks%rowtype;
+  downstream_task public.work_tasks%rowtype;
+  location_name text;
   previous_result public.ripening_work_results%rowtype;
   order_ids uuid[];
   source_ids uuid[];
@@ -213,6 +215,26 @@ begin
     reason,changed_by,correlation_id)
   select 'work_task',task.id,'transition',task_before,to_jsonb(t),kind,actor,correlation
     from public.work_tasks t where id=task.id;
+  -- Actual placement is the next worker's destination, without replanning dates.
+  select name into location_name from public.storage_locations where id=location_value;
+  for downstream_task in
+    select * from public.work_tasks
+    where ripening_lot_id=lot_id and managed_by_planning and status='pending'
+      and ((kind='ethylene_injection' and task_type in ('ethylene_removal_check','ripeness_check'))
+        or (kind='ethylene_removal_check' and task_type='ripeness_check'))
+      and task_details->>'location' is distinct from location_name
+    order by id for update
+  loop
+    update public.work_tasks
+      set task_details=jsonb_set(task_details,'{location}',to_jsonb(location_name),true),
+        version=version+1,updated_by=actor
+      where id=downstream_task.id;
+    -- Updating task_details also queues the new calendar revision.
+    insert into public.change_history(entity_type,entity_id,operation,before_data,after_data,
+      reason,changed_by,correlation_id)
+    select 'work_task',t.id,'update',to_jsonb(downstream_task),to_jsonb(t),
+      kind,actor,correlation from public.work_tasks t where t.id=downstream_task.id;
+  end loop;
   after_value := private.ripening_audit_snapshot(lot_id,order_ids,array[]::uuid[]);
   for entry in select key from jsonb_object_keys(before_value||after_value) key loop
     old_row := before_value->entry.key; new_row := after_value->entry.key;

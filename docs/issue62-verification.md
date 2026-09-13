@@ -25,11 +25,14 @@
 
 - supabase db start / db reset: 全migration・seedから構築。
 - supabase db lint --local --fail-on warning: エラーなし。
-- supabase test db supabase/tests/00170_ripening_work_rpc_test.sql: 59件成功。
-- 全DB回帰検証: 19ファイル809テスト成功。
+- supabase test db supabase/tests/00170_ripening_work_rpc_test.sql: 68件成功（全DB回帰検証に含む）。
+- 全DB回帰検証: 19ファイル818テスト成功。
 - 正常系: 10kg元在庫から8kg部分消費し同じ元IDに2kgを維持。
   6kg受注＋2kg予備の内訳を保って3工程を完了。
 - 時間省略・手動入力、状態・タスク・カレンダー同期キュー更新を検証。
+- レビュー修正: 注入と抜き確認で実績場所を変更し、後続タスクの場所・同期リビジョン・
+  相関ID付き履歴を検証。予定日時、他の詳細、計画場所、完了済みタスクは保持。
+  注入再送で後続タスクのversionが再更新されないことも確認。
 - 非active権限拒否、確認欠落、不正日時・温度、stale、工程飛ばし、未対応項目を拒否。
 - 各工程の再送で二重書込みせず、キー使い回しを拒否。
 - 実績INSERTで故意に業務エラーを発生させ、先行した在庫移動・予約消費・出力生成・
@@ -43,7 +46,7 @@
 ローカルJWT秘密鍵をプロセス内だけで扱い、キーやトークンを出力しない。
 実行後は必ず専用DBをdb resetする（スクリプトは既存fixtureがある場合停止する）。
 
-実測PASS:
+初回実装時の実測PASS（今回の場所反映修正は上記DB回帰検証で確認）:
 - active JWTによる3工程のHTTP実行、pending拒否、必須確認拒否。
 - 同じ操作キーで2リクエストを並行送信し、両方成功・一方だけ再送応答。
 - 別キー・同じversionで抜き確認を並行送信し、1成功・1CONFLICT_STALE。

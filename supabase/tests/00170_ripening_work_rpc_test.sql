@@ -27,7 +27,9 @@ insert into public.varieties (id, code, name) values
 insert into public.workers (id, code, display_name) values
   ('43000000-0000-0000-0000-000000000001', 'S2-WORKER', 'S2作業者');
 insert into public.storage_locations (id, code, name, location_type) values
-  ('44000000-0000-0000-0000-000000000001', 'S2-COLD', 'S2冷蔵庫', 'cold_storage');
+  ('44000000-0000-0000-0000-000000000001', 'S2-COLD', 'S2冷蔵庫', 'cold_storage'),
+  ('44000000-0000-0000-0000-000000000002', 'S3-ACTUAL', '実績追熟庫', 'cold_storage'),
+  ('44000000-0000-0000-0000-000000000003', 'S3-REST', '実績寝かせ庫', 'cold_storage');
 
 insert into public.customers (
   id, customer_code, name, nickname, postal_code, address
@@ -185,6 +187,8 @@ returns jsonb language sql as $$
       'performed_by','43000000-0000-0000-0000-000000000001',
       'actual_temperature',20,'checked',true) || extra);
 $$;
+create temporary table initial_tasks as select * from public.work_tasks;
+grant select on initial_tasks to authenticated;
 create temporary table work_responses (name text primary key, req jsonb, result jsonb);
 grant all on work_responses to authenticated;
 
@@ -244,9 +248,29 @@ set local role authenticated;
 select is(public.ripening_ethylene_injection_complete(
   (select req from work_responses where name='late_failure'))->>'idempotent_replay',
   'true','stored business failure is replayed without writing after cause removed');
-insert into work_responses(name,req) values('inject',pg_temp.work_req());
+insert into work_responses(name,req) values('inject',pg_temp.work_req('{"location_id":"44000000-0000-0000-0000-000000000002"}'));
 update work_responses set result=public.ripening_ethylene_injection_complete(req) where name='inject';
 select is((select result->>'ok' from work_responses where name='inject'),'true','injection succeeds');
+select is((select count(*) from public.work_tasks where status='pending'
+  and task_details->>'location'='実績追熟庫'),2::bigint,'both downstream tasks use actual injection location');
+select ok((select bool_and(t.version=i.version+1 and t.scheduled_at is not distinct from i.scheduled_at
+    and t.due_at is not distinct from i.due_at
+    and t.task_details-'location'=i.task_details-'location')
+  from public.work_tasks t join initial_tasks i using(id) where t.status='pending'),
+  'location update preserves dates and other details with one revision bump');
+select is((select storage_location_id from public.ripening_lots
+  where id='49000000-0000-0000-0000-000000000001'),
+  '44000000-0000-0000-0000-000000000001'::uuid,'planned location remains unchanged');
+reset role;
+select is((select count(*) from private.calendar_sync_jobs j join public.work_tasks t on t.id=j.task_id
+  where t.status='pending' and j.revision=t.version),2::bigint,'location changes queue both calendar revisions');
+select is((select count(*) from public.change_history h join public.work_tasks t on t.id=h.entity_id
+  where h.entity_type='work_task' and t.status='pending'
+    and h.correlation_id=(select (req->'meta'->>'correlation_id')::uuid from work_responses where name='inject')
+    and h.before_data->'task_details'->>'location'='S2冷蔵庫'
+    and h.after_data->'task_details'->>'location'='実績追熟庫'),
+  2::bigint,'downstream location changes have correlated before and after history');
+set local role authenticated;
 select is((select current_weight_kg::numeric from public.containers
   where id='48500000-0000-0000-0000-000000000001'),2::numeric,'partial source remains under same ID');
 select is((select reserved_weight_kg::numeric from public.containers
@@ -266,6 +290,9 @@ select ok((select actual_at between statement_timestamp()-interval '1 minute' an
 select is(public.ripening_ethylene_injection_complete((select req from work_responses where name='inject'))
   ->>'idempotent_replay','true','injection replay succeeds without duplicate writes');
 select is((select count(*) from public.inventory_events),2::bigint,'replay does not duplicate inventory events');
+select ok((select bool_and(t.version=i.version+1)
+  from public.work_tasks t join initial_tasks i using(id) where t.status='pending'),
+  'injection replay does not bump downstream revisions');
 select is(public.ripening_ethylene_injection_complete(
   jsonb_set((select req from work_responses where name='inject'),'{input,actual_temperature}','21'))
   ->'error'->>'code','IDEMPOTENCY_KEY_REUSED','same operation with changed input rejected');
@@ -276,9 +303,19 @@ select is(public.ripening_ripeness_complete(pg_temp.work_req())->'error'->>'code
 
 insert into work_responses(name,req) values('remove',pg_temp.work_req(jsonb_build_object(
   'actual_at',to_char((statement_timestamp()+interval '1 hour') at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
-  'rest_temperature',18)));
+  'rest_temperature',18,'location_id','44000000-0000-0000-0000-000000000003')));
 update work_responses set result=public.ripening_ethylene_removal_complete(req) where name='remove';
 select is((select result->>'ok' from work_responses where name='remove'),'true','removal and resting succeed together');
+select is((select task_details->>'location' from public.work_tasks where task_type='ripeness_check'),
+  '実績寝かせ庫','ripeness task follows actual resting location');
+select ok((select t.version=i.version+1 and t.task_details=i.task_details
+  from public.work_tasks t join initial_tasks i using(id) where t.task_type='ethylene_injection'),
+  'later location change preserves completed injection task');
+reset role;
+select is((select count(*) from private.calendar_sync_jobs j join public.work_tasks t on t.id=j.task_id
+  where t.task_type='ripeness_check' and j.revision=t.version),1::bigint,
+  'resting location queues latest ripeness calendar revision');
+set local role authenticated;
 select is((select status from public.containers where ripening_lot_id='49000000-0000-0000-0000-000000000001'),
   'resting','physical stage resting');
 select ok((select rest_started_at=actual_at from public.ripening_work_results
