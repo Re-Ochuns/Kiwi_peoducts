@@ -8,8 +8,8 @@ class FakeRipeningWorkRepository implements RipeningWorkRepository {
     this.conflict = false,
   }) : details = details ?? testRipeningWorkDetails;
 
-  final RipeningWorkDetails details;
-  final bool conflict;
+  RipeningWorkDetails details;
+  bool conflict;
   int loadFailures;
   int completeFailures;
   int loadCalls = 0;
@@ -77,6 +77,15 @@ final testRipeningWorkDetails = RipeningWorkDetails(
   workerId: 'worker-1',
   plannedEthyleneAt: DateTime(2026, 9, 12, 9),
   plannedCompletionAt: DateTime(2026, 9, 19, 9),
+  tasks: [
+    for (final type in RipeningWorkType.values)
+      RipeningWorkTask(
+        type: type.value,
+        productLabel: 'ヘイワード・M',
+        scheduledAt: DateTime(2026, 9, 12, 9),
+        dueAt: DateTime(2026, 9, 12, 10),
+      ),
+  ],
   results: [
     RipeningWorkRecord(
       type: 'ethylene_injection',

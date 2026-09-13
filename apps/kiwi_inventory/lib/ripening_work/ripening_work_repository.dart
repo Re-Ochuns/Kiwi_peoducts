@@ -50,6 +50,7 @@ class RipeningWorkDetails {
     required this.plannedEthyleneAt,
     required this.plannedCompletionAt,
     required this.results,
+    required this.tasks,
     required this.locations,
     required this.workers,
   });
@@ -64,6 +65,7 @@ class RipeningWorkDetails {
   final DateTime plannedEthyleneAt;
   final DateTime plannedCompletionAt;
   final List<RipeningWorkRecord> results;
+  final List<RipeningWorkTask> tasks;
   final List<RipeningWorkOption> locations;
   final List<RipeningWorkOption> workers;
 }
@@ -179,3 +181,17 @@ String createRipeningWorkIdempotencyKey() {
 
 String formatRipeningWorkWeight(int hundredths) =>
     '${(hundredths / 100).toStringAsFixed(2)} kg';
+
+class RipeningWorkTask {
+  const RipeningWorkTask({
+    required this.type,
+    required this.productLabel,
+    required this.scheduledAt,
+    required this.dueAt,
+  });
+
+  final String type;
+  final String productLabel;
+  final DateTime scheduledAt;
+  final DateTime dueAt;
+}
