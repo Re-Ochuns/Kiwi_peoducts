@@ -18,11 +18,13 @@ import 'package:kiwi_inventory/main.dart';
 import 'package:kiwi_inventory/receiving/receiving_page.dart';
 import 'package:kiwi_inventory/receiving/receiving_repository.dart';
 import 'package:kiwi_inventory/ripening/ripening_plan_page.dart';
+import 'package:kiwi_inventory/shipping/shipping_page.dart';
 
 import 'support/golden_test_environment.dart';
 import 'support/fake_csv_export_repository.dart';
 import 'support/fake_master_repository.dart';
 import 'support/fake_ripening_plan_repository.dart';
+import 'support/fake_shipping_repository.dart';
 import 'support/fake_work_task_repository.dart';
 import 'support/fake_order_management_repository.dart';
 
@@ -153,6 +155,26 @@ void main() {
     await expectLater(
       find.byType(LabelTargetPage),
       matchesGoldenFile('goldens/label_targets_390.png'),
+    );
+  });
+
+  testWidgets('390pxの出荷内容画面', (tester) async {
+    configureGoldenView(tester, const Size(390, 844));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(fontFamily: goldenFontFamily),
+        home: ShippingPage(
+          repository: FakeShippingRepository(),
+          initialOrderId: 'order-1',
+          currentDate: DateTime(2026, 9, 13, 10),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(ShippingPage),
+      matchesGoldenFile('goldens/shipping_390.png'),
     );
   });
 

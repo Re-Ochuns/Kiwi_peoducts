@@ -7,6 +7,7 @@ import 'package:kiwi_inventory/main.dart';
 import 'package:kiwi_inventory/auth/auth_repository.dart';
 import 'package:kiwi_inventory/work_tasks/work_task_repository.dart';
 
+import 'support/fake_shipping_repository.dart';
 import 'support/fake_work_task_repository.dart';
 
 class SignedOutAuth implements AuthRepository {
@@ -126,5 +127,45 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('追熟-2026-001'), findsNothing);
     expect(tasks.reads, greaterThan(1));
+  });
+
+  testWidgets('出荷ToDoから対象受注の出荷内容へ進める', (tester) async {
+    final task = WorkTaskItem(
+      id: 'task-shipping',
+      type: WorkTaskType.shipping,
+      targetId: 'order-1',
+      targetDisplayId: '受注-2026-001',
+      scheduledAt: DateTime(2026, 9, 13, 9),
+      dueAt: DateTime(2026, 9, 13, 11),
+      status: 'pending',
+      targetUrl: '/work-tasks/task-shipping',
+      variety: 'ヘイワード',
+      grade: 'M',
+      weightHundredths: 1000,
+      location: '出荷場',
+    );
+    final tasks = FakeWorkTaskRepository(tasks: [task]);
+    final shipping = FakeShippingRepository();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WorkerHomePage(
+          currentDate: DateTime(2026, 9, 13, 10),
+          workTaskRepository: tasks,
+          shippingRepository: shipping,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('受注-2026-001'));
+    await tester.tap(find.text('受注-2026-001'));
+    await tester.pumpAndSettle();
+    expect(find.text('作業確認'), findsOneWidget);
+    await tester.ensureVisible(find.text('出荷確認へ進む'));
+    await tester.tap(find.text('出荷確認へ進む'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('出荷内容'), findsOneWidget);
+    expect(shipping.loadOrderCalls, 1);
   });
 }

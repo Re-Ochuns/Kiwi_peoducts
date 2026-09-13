@@ -31,6 +31,9 @@ import 'receiving/supabase_receiving_repository.dart';
 import 'ripening/ripening_plan_page.dart';
 import 'ripening/ripening_plan_repository.dart';
 import 'ripening/supabase_ripening_plan_repository.dart';
+import 'shipping/shipping_page.dart';
+import 'shipping/shipping_repository.dart';
+import 'shipping/supabase_shipping_repository.dart';
 import 'sorting/sorting_page.dart';
 import 'sorting/sorting_repository.dart';
 import 'sorting/supabase_sorting_repository.dart';
@@ -69,6 +72,7 @@ Future<void> main() async {
             SupabaseReceivingRepository.fromInitializedClient(),
         ripeningPlanRepository:
             SupabaseRipeningPlanRepository.fromInitializedClient(),
+        shippingRepository: SupabaseShippingRepository.fromInitializedClient(),
         workTaskRepository: SupabaseWorkTaskRepository.fromInitializedClient(),
       ),
     );
@@ -93,6 +97,7 @@ class KiwiInventoryApp extends StatelessWidget {
     this.receivingRepository,
     this.inventoryRepository,
     this.ripeningPlanRepository,
+    this.shippingRepository,
     this.workTaskRepository,
     this.orderManagementRepository,
     this.theme,
@@ -108,6 +113,7 @@ class KiwiInventoryApp extends StatelessWidget {
   final ReceivingRepository? receivingRepository;
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
+  final ShippingRepository? shippingRepository;
   final WorkTaskRepository? workTaskRepository;
   final OrderManagementRepository? orderManagementRepository;
   final SortingRepository? sortingRepository;
@@ -142,6 +148,7 @@ class KiwiInventoryApp extends StatelessWidget {
             currentDate: currentDate,
             labelRepository: labelRepository,
             sortingRepository: sortingRepository,
+            shippingRepository: shippingRepository,
           ),
         ),
       ),
@@ -183,6 +190,7 @@ class KiwiInventoryApp extends StatelessWidget {
           receivingRepository: receivingRepository,
           inventoryRepository: inventoryRepository,
           ripeningPlanRepository: ripeningPlanRepository,
+          shippingRepository: shippingRepository,
           workTaskRepository: workTaskRepository,
           orderManagementRepository: orderManagementRepository,
         ),
@@ -202,6 +210,7 @@ class ResponsiveHomePage extends StatelessWidget {
     this.receivingRepository,
     this.inventoryRepository,
     this.ripeningPlanRepository,
+    this.shippingRepository,
     this.workTaskRepository,
     this.orderManagementRepository,
     super.key,
@@ -213,6 +222,7 @@ class ResponsiveHomePage extends StatelessWidget {
   final ReceivingRepository? receivingRepository;
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
+  final ShippingRepository? shippingRepository;
   final WorkTaskRepository? workTaskRepository;
   final OrderManagementRepository? orderManagementRepository;
   final SortingRepository? sortingRepository;
@@ -231,6 +241,7 @@ class ResponsiveHomePage extends StatelessWidget {
               masterRepository: masterRepository,
               inventoryRepository: inventoryRepository,
               ripeningPlanRepository: ripeningPlanRepository,
+              shippingRepository: shippingRepository,
               workTaskRepository: workTaskRepository,
               orderManagementRepository: orderManagementRepository,
             )
@@ -243,6 +254,7 @@ class ResponsiveHomePage extends StatelessWidget {
               receivingRepository: receivingRepository,
               inventoryRepository: inventoryRepository,
               ripeningPlanRepository: ripeningPlanRepository,
+              shippingRepository: shippingRepository,
               workTaskRepository: workTaskRepository,
             ),
     );
@@ -317,6 +329,7 @@ class WorkerHomePage extends StatefulWidget {
     this.receivingRepository,
     this.inventoryRepository,
     this.ripeningPlanRepository,
+    this.shippingRepository,
     this.workTaskRepository,
     super.key,
   });
@@ -326,6 +339,7 @@ class WorkerHomePage extends StatefulWidget {
   final ReceivingRepository? receivingRepository;
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
+  final ShippingRepository? shippingRepository;
   final WorkTaskRepository? workTaskRepository;
   final SortingRepository? sortingRepository;
 
@@ -348,6 +362,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   InventoryRepository? get inventoryRepository => widget.inventoryRepository;
   RipeningPlanRepository? get ripeningPlanRepository =>
       widget.ripeningPlanRepository;
+  ShippingRepository? get shippingRepository => widget.shippingRepository;
   WorkTaskRepository? get workTaskRepository => widget.workTaskRepository;
   SortingRepository? get sortingRepository => widget.sortingRepository;
   VoidCallback? get onSignOut => widget.onSignOut;
@@ -564,6 +579,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       currentDate: currentDate,
       labelRepository: labelRepository,
       sortingRepository: sortingRepository,
+      shippingRepository: shippingRepository,
     );
     Navigator.of(context)
         .push(
@@ -573,13 +589,18 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
               currentDate: currentDate,
               onOpenTarget: targetPage == null
                   ? null
-                  : () => Navigator.of(context).push(
-                      PageRouteBuilder<void>(
-                        pageBuilder: (_, _, _) => targetPage,
-                        transitionDuration: Duration.zero,
-                        reverseTransitionDuration: Duration.zero,
-                      ),
-                    ),
+                  : () async {
+                      final completed = await Navigator.of(context).push<bool>(
+                        PageRouteBuilder<bool>(
+                          pageBuilder: (_, _, _) => targetPage,
+                          transitionDuration: Duration.zero,
+                          reverseTransitionDuration: Duration.zero,
+                        ),
+                      );
+                      if (completed == true && context.mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
             ),
             transitionDuration: Duration.zero,
             reverseTransitionDuration: Duration.zero,
@@ -596,6 +617,7 @@ Widget? _buildWorkTaskTargetPage(
   required DateTime? currentDate,
   required LabelRepository? labelRepository,
   required SortingRepository? sortingRepository,
+  required ShippingRepository? shippingRepository,
 }) => switch (task.type) {
   WorkTaskType.sorting when sortingRepository != null => SortingTargetPage(
     repository: sortingRepository,
@@ -603,6 +625,11 @@ Widget? _buildWorkTaskTargetPage(
   ),
   WorkTaskType.labelPrinting when labelRepository != null => LabelTargetPage(
     repository: labelRepository,
+  ),
+  WorkTaskType.shipping when shippingRepository != null => ShippingPage(
+    repository: shippingRepository,
+    initialOrderId: task.targetId,
+    currentDate: currentDate,
   ),
   _ => null,
 };
@@ -615,6 +642,7 @@ class ManagerHomePage extends StatefulWidget {
     this.masterRepository,
     this.inventoryRepository,
     this.ripeningPlanRepository,
+    this.shippingRepository,
     this.workTaskRepository,
     this.orderManagementRepository,
     super.key,
@@ -624,6 +652,7 @@ class ManagerHomePage extends StatefulWidget {
   final MasterRepository? masterRepository;
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
+  final ShippingRepository? shippingRepository;
   final WorkTaskRepository? workTaskRepository;
   final OrderManagementRepository? orderManagementRepository;
 
@@ -669,6 +698,7 @@ class _ManagerHomePageState extends State<ManagerHomePage> with RouteAware {
   InventoryRepository? get inventoryRepository => widget.inventoryRepository;
   RipeningPlanRepository? get ripeningPlanRepository =>
       widget.ripeningPlanRepository;
+  ShippingRepository? get shippingRepository => widget.shippingRepository;
   WorkTaskRepository? get workTaskRepository => widget.workTaskRepository;
   OrderManagementRepository? get orderManagementRepository =>
       widget.orderManagementRepository;
@@ -771,6 +801,11 @@ class _ManagerHomePageState extends State<ManagerHomePage> with RouteAware {
         csvExportRepository: csvExportRepository,
         onSignOut: onSignOut,
       ),
+      '出荷' when shippingRepository != null => ManagerShippingPage(
+        repository: shippingRepository!,
+        currentDate: currentDate,
+        onSignOut: onSignOut,
+      ),
       _ => null,
     };
     if (page == null) {
@@ -801,6 +836,51 @@ class _EmptyManagerDashboardRepository implements ManagerDashboardRepository {
       canManage: false,
     ),
     syncWarnings: WorkTaskSyncWarnings.empty(),
+  );
+}
+
+class ManagerShippingPage extends StatelessWidget {
+  const ManagerShippingPage({
+    required this.repository,
+    this.currentDate,
+    this.onSignOut,
+    super.key,
+  });
+
+  final ShippingRepository repository;
+  final DateTime? currentDate;
+  final VoidCallback? onSignOut;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: Row(
+      children: [
+        ManagerNavigation(
+          selectedItem: '出荷',
+          onSignOut: onSignOut == null
+              ? null
+              : () {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                  onSignOut!.call();
+                },
+          onSelected: (item) {
+            if (item == 'ホーム') {
+              Navigator.of(context).pop();
+            } else if (item != '出荷') {
+              preparing(context, '$item画面へはホームから移動してください');
+            }
+          },
+        ),
+        const VerticalDivider(width: 1),
+        Expanded(
+          child: ShippingPage(
+            repository: repository,
+            currentDate: currentDate,
+            embedded: true,
+          ),
+        ),
+      ],
+    ),
   );
 }
 
