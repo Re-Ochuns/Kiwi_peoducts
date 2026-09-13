@@ -116,6 +116,22 @@ select * from extensions.dblink_get_result('ship64') as t(result jsonb);
 select is((select result->>'idempotent_replay' from test64_results where label='cancel-replay'),'true','simultaneous cancellation replays');
 select is((select count(*) from public.inventory_events where event_type='shipment_cancel'),1::bigint,'one reverse event');
 select is((select current_weight_kg::numeric from public.containers where display_id='SHIP64-C1'),6::numeric,'one restoration');
+-- Hold the planning lock while the worker's statement crosses the deadline.
+insert into private.test64_inputs values('expiry',private.test64_input(1));
+begin;
+select pg_advisory_xact_lock(53,0);
+select extensions.dblink_send_query('ship64',$remote$ select private.test64_call('confirm',(select v from private.test64_inputs where label='expiry'),'64600000-0000-4000-8000-000000000005') $remote$);
+select private.test64_wait();
+-- Pick the deadline after the remote statement began, then wait past it.
+update public.containers set shippable_until=clock_timestamp()+interval '100 milliseconds',
+ best_before_at=clock_timestamp()+interval '100 milliseconds' where display_id='SHIP64-C1';
+select pg_sleep(0.2);
+commit;
+insert into test64_results select 'expiry',result from extensions.dblink_get_result('ship64') as t(result jsonb);
+select * from extensions.dblink_get_result('ship64') as t(result jsonb);
+select is((select result->'error'->>'code' from test64_results where label='expiry'),'CONTAINER_EXPIRED','deadline is rechecked after lock wait');
+select is((select current_weight_kg::numeric from public.containers where display_id='SHIP64-C1'),6::numeric,'expired request leaves stock unchanged');
+select is((select count(*) from public.shipments),2::bigint,'expired request creates no shipment');
 select * from finish();
 select extensions.dblink_disconnect('ship64');
 -- Fixture cleanup is restricted to this test's IDs, in a single transaction.

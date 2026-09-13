@@ -157,7 +157,7 @@ begin
      if c.best_before_at is null or c.shippable_until is null then
        perform private.rpc_fail('KW400','DEADLINE_UNSET','出荷期限が設定されていません。',null);
      end if;
-     if least(c.best_before_at,c.shippable_until)<=greatest(statement_timestamp(),at_value) or c.status='expired' then
+     if least(c.best_before_at,c.shippable_until)<=greatest(clock_timestamp(),at_value) or c.status='expired' then
        perform private.rpc_fail('KW400','CONTAINER_EXPIRED','出荷期限を過ぎています。',null);
      end if;
      if c.status<>'shippable' then
@@ -339,7 +339,7 @@ begin
   if new.event_type = 'shipment' then
     if shipment.status <> 'confirmed' or target_order.status in ('draft', 'cancelled')
         or c.status <> 'shippable' or c.best_before_at is null or c.shippable_until is null
-        or least(c.best_before_at, c.shippable_until) <= greatest(statement_timestamp(), shipment.shipped_at) then
+        or least(c.best_before_at, c.shippable_until) <= greatest(clock_timestamp(), shipment.shipped_at) then
       raise exception 'container is not available for shipment' using errcode = '23514';
     end if;
     if (select coalesce(sum(l.shipped_weight_kg), 0)
