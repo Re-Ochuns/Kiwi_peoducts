@@ -31,7 +31,7 @@ def sql(value):
         '-d', 'postgres', '-At', '-v', 'ON_ERROR_STOP=1'], input=value.encode()).decode().strip()
 
 assert sql(f"select count(*) from auth.users where id='{MEMBER}';") == '0', 'Fixture exists; reset isolated DB before rerun'
-fixture = (ROOT / 'supabase/tests/00190_ripening_deadlines_test.sql').read_text()
+fixture = (ROOT / 'supabase/tests/00200_ripening_deadlines_test.sql').read_text()
 fixture = fixture[:fixture.index('create function pg_temp.req')]
 fixture = fixture.replace('select no_plan();',
     'set local search_path=public,extensions; create extension if not exists pgtap with schema extensions; select no_plan();')
@@ -114,6 +114,8 @@ details = lot_details(lot)
 assert datetime.fromisoformat(details['calculated_rest_end_at']) == base + timedelta(days=5)
 assert details['containers'][0]['current_weight_kg'] == 8
 assert details['master_snapshot']['harvest_year'] == 2025
+label = request('label_jobs?container_id=eq.' + details['containers'][0]['id'])[1][0]
+ok(rpc('label_mark_handwritten', {'label_job_id': label['id'], 'worker_id': plan['assigned_worker_id']}))
 ok(rpc('ripening_ethylene_removal_complete', dict(work_input(lot, base + timedelta(days=2)), rest_temperature=15)))
 assert lot_details(lot)['containers'][0]['status'] == 'awaiting_ripeness_check'
 ok(rpc('ripening_ripeness_complete', work_input(lot, base + timedelta(days=5))))

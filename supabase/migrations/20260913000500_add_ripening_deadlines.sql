@@ -372,6 +372,7 @@ declare
   entry record;
   task_before jsonb;
   output_id uuid;
+  label_row public.label_jobs%rowtype;
 begin
   kind := case fn
     when 'ripening_ethylene_injection_complete' then 'ethylene_injection'
@@ -439,6 +440,17 @@ begin
   perform 1 from public.containers where id=any(source_ids) or ripening_lot_id=lot_id
     order by id for update;
   before_value := private.ripening_audit_snapshot(lot_id,order_ids,array[]::uuid[]);
+  -- Label guard: all ripening container labels must be handled before removal.
+  if kind='ethylene_removal_check' and exists(
+    select 1 from public.label_jobs j
+    join public.containers c on c.id=j.container_id
+    where c.ripening_lot_id=lot_id
+      and j.status not in ('printed','handwritten')
+  ) then
+    perform private.rpc_fail('KW400','LABEL_REQUIRED',
+      '追熟ラベルの印刷または手書き対応を先に完了してください。');
+  end if;
+
   if kind='ethylene_injection' then
     if not (lot.master_snapshot ? 'best_before_days') or lot.harvest_year is null then
       perform private.rpc_fail('KW400','RIPENING_MASTER_NOT_FOUND','収穫年度・月に対応する追熟マスターを計画に設定してください。');
@@ -485,6 +497,13 @@ begin
       ripening_lot_id,operation_id,occurred_at,reason,created_by
     ) values(output_id,'ripening_in',lot.total_weight_kg,0,lot.total_weight_kg,
       lot_id,operation,actual_value,'追熟コンテナ生成',actor);
+    -- Create the ripening label job so the field team can print before removal.
+    insert into public.label_jobs(container_id,created_by,updated_by)
+      values(output_id,actor,actor)
+      returning * into label_row;
+    insert into public.change_history(entity_type,entity_id,operation,before_data,after_data,
+      reason,changed_by,correlation_id)
+    values('label_job',label_row.id,'create',null,to_jsonb(label_row),'追熟注入完了',actor,correlation);
     update public.orders set status='in_progress',version=version+1,updated_by=actor
       where id=any(order_ids) and status='confirmed';
     update public.ripening_lots set status='in_progress',version=version+1,updated_by=actor

@@ -195,6 +195,9 @@ create temporary table history_checkpoint as select count(*) count from public.c
 select private.process_ripening_deadlines('2030-06-04 00:00Z');
 select is((select count(*) from public.change_history),(select count from history_checkpoint),'deadline replay creates no history');
 set local role authenticated;
+select is(public.label_mark_handwritten(pg_temp.req(jsonb_build_object(
+  'label_job_id',(select j.id from public.label_jobs j join public.containers c on c.id=j.container_id where c.ripening_lot_id=pg_temp.lot_id()),
+  'worker_id','43000000-0000-0000-0000-000000000001')))->>'ok','true','complete ripening label before removal');
 select is(public.ripening_ethylene_removal_complete(pg_temp.work_req('2030-06-04T09:00:00+09:00')||
   jsonb_build_object('input',(pg_temp.work_req('2030-06-04T09:00:00+09:00')->'input')||'{"rest_temperature":15}'))->>'ok',
   'true','overdue removal task is still completable');
