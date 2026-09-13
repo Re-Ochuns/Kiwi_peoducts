@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 
 import '../core/app_theme.dart';
@@ -102,6 +100,10 @@ class _ShippingPageState extends State<ShippingPage> {
       }
       setState(() {
         _detail = detail;
+        _orders = [
+          for (final order in _orders ?? <ShippingOrderSummary>[])
+            order.id == detail.order.id ? detail.order : order,
+        ];
         _workerId = detail.workers.any((worker) => worker.id == _workerId)
             ? _workerId
             : detail.workers.firstOrNull?.id;
@@ -182,7 +184,7 @@ class _ShippingPageState extends State<ShippingPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            '出荷予定',
+            '出荷予定・実績',
             style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
@@ -194,7 +196,7 @@ class _ShippingPageState extends State<ShippingPage> {
           if (orders.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 36),
-              child: Text('出荷可能な受注はありません'),
+              child: Text('出荷予定・実績はありません'),
             )
           else
             DecoratedBox(
@@ -460,7 +462,6 @@ class _ShippingPageState extends State<ShippingPage> {
     if (_reasonController.text.trim().isEmpty) return '確認理由を入力してください';
     var total = 0;
     final lotTotals = <String, int>{};
-    final lotLimits = <String, int>{};
     for (final container in detail.containers) {
       final raw = _weightControllers[container.id]?.text.trim() ?? '';
       if (raw.isEmpty) continue;
@@ -477,18 +478,14 @@ class _ShippingPageState extends State<ShippingPage> {
         (value) => value + weight,
         ifAbsent: () => weight,
       );
-      lotLimits.update(
-        container.ripeningLotId,
-        (value) => max(value, container.availableWeightHundredths),
-        ifAbsent: () => container.availableWeightHundredths,
-      );
     }
     if (total == 0) return '使用するコンテナの出荷重量を入力してください';
     if (total > detail.order.remainingWeightHundredths) {
       return '受注の出荷残量を超えています';
     }
     for (final entry in lotTotals.entries) {
-      if (entry.value > lotLimits[entry.key]!) {
+      if (entry.value >
+          (detail.remainingAllocationHundredths[entry.key] ?? 0)) {
         return '同じ追熟計画の割当残量を超えています';
       }
     }
@@ -775,6 +772,7 @@ class _OrderRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(order.customer),
+                  Text(_shippingOrderStatusLabel(order.status)),
                   Text(
                     '出荷日 ${_formatDate(order.scheduledShipOn)}',
                     style: const TextStyle(color: AppColors.mutedText),

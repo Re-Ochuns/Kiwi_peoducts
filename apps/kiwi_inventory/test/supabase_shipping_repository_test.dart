@@ -15,7 +15,7 @@ void main() {
         final body = jsonDecode(request.body) as Map<String, dynamic>;
         final status = body['status_value'];
         return _json(
-          status == 'confirmed'
+          status == 'confirmed' || status == 'shipped'
               ? [
                   {
                     'order_id': 'order-1',
@@ -30,7 +30,7 @@ void main() {
                     'ordered_weight_kg': 10,
                     'allocated_weight_kg': 10,
                     'shortage_weight_kg': 0,
-                    'status': 'confirmed',
+                    'status': status,
                     'version': 3,
                   },
                 ]
@@ -53,12 +53,13 @@ void main() {
 
     final orders = await SupabaseShippingRepository(client).loadOrders();
 
-    expect(orders, hasLength(1));
-    expect(orders.single.number, '受注-2026-001');
-    expect(orders.single.customer, 'A店');
-    expect(orders.single.variety, 'ヘイワード');
-    expect(orders.single.grade, 'M');
-    expect(orders.single.orderedWeightHundredths, 1000);
+    expect(orders, hasLength(2));
+    expect(orders.map((order) => order.status), contains('shipped'));
+    expect(orders.first.number, '受注-2026-001');
+    expect(orders.first.customer, 'A店');
+    expect(orders.first.variety, 'ヘイワード');
+    expect(orders.first.grade, 'M');
+    expect(orders.first.orderedWeightHundredths, 1000);
     await client.dispose();
   });
 
@@ -95,6 +96,11 @@ void main() {
       if (path.endsWith('/rpc/shipment_get')) {
         return _json(_shipment(), request);
       }
+      if (path.endsWith('/containers')) {
+        return _json([
+          {'id': 'container-1', 'ripening_lot_id': 'lot-1'},
+        ], request);
+      }
       if (path.endsWith('/workers')) {
         return _json([
           {'id': 'worker-1', 'code': 'W01', 'display_name': '岡本'},
@@ -117,6 +123,7 @@ void main() {
         .loadOrder('order-1');
 
     expect(detail.order.shippedWeightHundredths, 250);
+    expect(detail.remainingAllocationHundredths['lot-1'], 750);
     expect(detail.order.remainingWeightHundredths, 750);
     expect(detail.destination, contains('愛媛県松山市'));
     expect(detail.containers.single.availableWeightHundredths, 500);
@@ -276,6 +283,9 @@ Map<String, Object?> _orderDetail() => {
   'status': 'partially_shipped',
   'version': 3,
   'customer': {'name': '青果店A', 'nickname': 'A店'},
+  'ripening_allocations': [
+    {'ripening_lot_id': 'lot-1', 'allocated_weight_kg': 10},
+  ],
   'shipping_destination_snapshot': {
     'destination_name': '本店',
     'recipient_name': '青果店A 御中',

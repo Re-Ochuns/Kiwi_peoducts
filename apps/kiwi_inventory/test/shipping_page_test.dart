@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kiwi_inventory/core/app_theme.dart';
 import 'package:kiwi_inventory/shipping/shipping_page.dart';
+import 'package:kiwi_inventory/shipping/shipping_repository.dart';
 
 import 'support/fake_shipping_repository.dart';
 
@@ -123,13 +124,95 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('出荷予定'), findsOneWidget);
+    expect(find.text('出荷予定・実績'), findsOneWidget);
     await tester.tap(find.text('受注-2026-001'));
     await tester.pumpAndSettle();
 
     expect(find.text('出荷内容'), findsOneWidget);
     expect(repository.loadOrderCalls, 1);
   });
+
+  testWidgets('出荷済み受注を一覧から開いて取り消せる', (tester) async {
+    final repository = FakeShippingRepository()..shippedWeightHundredths = 1000;
+    repository.shipments
+      ..clear()
+      ..add(
+        ShipmentRecord(
+          id: 'shipment-1',
+          displayId: '出荷-2026-001',
+          version: 1,
+          status: 'confirmed',
+          shippedAt: DateTime(2026, 9, 13, 8),
+          totalWeightHundredths: 1000,
+          lines: const [
+            ShipmentLine(containerId: 'container-1', weightHundredths: 1000),
+          ],
+        ),
+      );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(),
+        home: ShippingPage(
+          repository: repository,
+          currentDate: DateTime(2026, 9, 13, 10),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('受注-2026-001'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('この出荷を取り消す'));
+    await tester.tap(find.text('この出荷を取り消す'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('shipping-cancel-complete')));
+    await tester.pumpAndSettle();
+    expect(repository.cancelCalls, 1);
+    expect(repository.order.status, 'confirmed');
+  });
+
+  for (final limit in [1000, 900]) {
+    testWidgets('同一計画の2コンテナ合計10kgを計画残量で検証する: $limit', (tester) async {
+      final repository = FakeShippingRepository()
+        ..shippedWeightHundredths = 0
+        ..allocations = {'lot-1': limit}
+        ..containers = [
+          for (var i = 1; i <= 2; i++)
+            ShippingContainer(
+              id: 'container-$i',
+              displayId: 'コンテナ$i',
+              ripeningLotId: 'lot-1',
+              version: 1,
+              currentWeightHundredths: 500,
+              availableWeightHundredths: 500,
+              remainingUseType: 'order',
+              shippableUntil: DateTime(2026, 9, 14),
+              bestBeforeAt: DateTime(2026, 9, 15),
+            ),
+        ];
+      await tester.pumpWidget(_app(repository));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('shipping-weight-container-1')),
+        '5',
+      );
+      await tester.enterText(
+        find.byKey(const Key('shipping-weight-container-2')),
+        '5',
+      );
+      await tester.pump();
+      final button = tester.widget<FilledButton>(
+        find.byKey(const Key('shipping-confirm-input')),
+      );
+      if (limit == 1000) {
+        expect(button.onPressed, isNotNull);
+        await _tapConfirm(tester);
+        expect(find.text('10.00 kg'), findsWidgets);
+      } else {
+        expect(button.onPressed, isNull);
+        expect(find.text('同じ追熟計画の割当残量を超えています'), findsOneWidget);
+      }
+    });
+  }
 
   testWidgets('出荷予定の読込失敗から再試行できる', (tester) async {
     final repository = FakeShippingRepository(loadFailures: 1);
@@ -149,7 +232,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.loadOrdersCalls, 2);
-    expect(find.text('出荷予定'), findsOneWidget);
+    expect(find.text('出荷予定・実績'), findsOneWidget);
   });
 
   testWidgets('900px・文字200%でも出荷対象と重量入力を確認できる', (tester) async {

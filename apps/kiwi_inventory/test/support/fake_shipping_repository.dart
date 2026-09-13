@@ -15,6 +15,8 @@ class FakeShippingRepository implements ShippingRepository {
   int confirmCalls = 0;
   int cancelCalls = 0;
   int shippedWeightHundredths = 250;
+  List<ShippingContainer> containers = testShippingContainers;
+  Map<String, int> allocations = {'lot-1': 600, 'lot-2': 500};
   final List<String> confirmKeys = [];
   final List<String> cancelKeys = [];
   ShippingConfirmInput? lastInput;
@@ -53,7 +55,8 @@ class FakeShippingRepository implements ShippingRepository {
     return ShippingOrderDetail(
       order: order,
       destination: '本店　青果店A 御中　〒790-0001　愛媛県松山市一番町1-1',
-      containers: testShippingContainers,
+      containers: containers,
+      remainingAllocationHundredths: allocations,
       shipments: List.of(shipments),
       workers: const [
         ShippingWorker(id: 'worker-1', label: 'W01　岡本'),

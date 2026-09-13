@@ -34,6 +34,7 @@ class ShippingOrderDetail {
     required this.order,
     required this.destination,
     required this.containers,
+    required this.remainingAllocationHundredths,
     required this.shipments,
     required this.workers,
   });
@@ -41,6 +42,7 @@ class ShippingOrderDetail {
   final ShippingOrderSummary order;
   final String destination;
   final List<ShippingContainer> containers;
+  final Map<String, int> remainingAllocationHundredths;
   final List<ShipmentRecord> shipments;
   final List<ShippingWorker> workers;
 }

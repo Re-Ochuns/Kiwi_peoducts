@@ -20,6 +20,7 @@ class SupabaseShippingRepository implements ShippingRepository {
           'confirmed',
           'in_progress',
           'partially_shipped',
+          'shipped',
         ])
           _client.rpc(
             'order_list',
@@ -31,11 +32,11 @@ class SupabaseShippingRepository implements ShippingRepository {
             .eq('is_active', true),
         _client.from('grades').select('id, code').eq('is_active', true),
       ]).timeout(const Duration(seconds: 10));
-      final varieties = _labels(values[3], nameKey: 'name');
-      final grades = _labels(values[4]);
+      final varieties = _labels(values[4], nameKey: 'name');
+      final grades = _labels(values[5]);
       final orders =
           <ShippingOrderSummary>[
-            for (final source in values.take(3))
+            for (final source in values.take(4))
               for (final raw in source as List)
                 _orderSummary(
                   Map<String, dynamic>.from(raw as Map),
@@ -103,6 +104,51 @@ class SupabaseShippingRepository implements ShippingRepository {
         for (final raw in shipmentRows)
           _shipment(Map<String, dynamic>.from(raw as Map)),
       ];
+      // Historical containers may no longer be shippable, so the candidate
+      // list alone cannot identify the lot of every active shipment line.
+      final activeLines = shipments
+          .where((s) => s.status == 'confirmed')
+          .expand((s) => s.lines)
+          .toList();
+      final containerIds = activeLines
+          .map((line) => line.containerId)
+          .toSet()
+          .toList();
+      final historicalContainers = containerIds.isEmpty
+          ? const <dynamic>[]
+          : await _client
+                .from('containers')
+                .select('id, ripening_lot_id')
+                .inFilter('id', containerIds)
+                .timeout(const Duration(seconds: 10));
+      final lotByContainer = {
+        for (final raw in historicalContainers)
+          raw['id'] as String: raw['ripening_lot_id'] as String,
+      };
+      final remainingAllocations = <String, int>{};
+      for (final raw
+          in (values[0] as Map)['ripening_allocations'] as List? ?? const []) {
+        final lotId = (raw as Map)['ripening_lot_id'] as String;
+        remainingAllocations.update(
+          lotId,
+          (weight) => weight + _toHundredths(raw['allocated_weight_kg']),
+          ifAbsent: () => _toHundredths(raw['allocated_weight_kg']),
+        );
+      }
+      for (final line in activeLines) {
+        final lotId = lotByContainer[line.containerId];
+        if (lotId == null) {
+          throw const ShippingFailure(
+            message: '出荷実績のコンテナ情報を確認できません。再読み込みしてください。',
+            retryable: true,
+          );
+        }
+        remainingAllocations.update(
+          lotId,
+          (weight) => weight - line.weightHundredths,
+          ifAbsent: () => -line.weightHundredths,
+        );
+      }
       final orderRow = Map<String, dynamic>.from(values[0] as Map);
       final confirmedWeight = shipments
           .where((shipment) => shipment.status == 'confirmed')
@@ -118,6 +164,7 @@ class SupabaseShippingRepository implements ShippingRepository {
           shippedWeightHundredths: confirmedWeight,
         ),
         destination: _destination(orderRow['shipping_destination_snapshot']),
+        remainingAllocationHundredths: remainingAllocations,
         containers: [
           for (final raw in values[1] as List)
             _container(Map<String, dynamic>.from(raw as Map)),
