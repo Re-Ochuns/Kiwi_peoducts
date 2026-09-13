@@ -403,6 +403,60 @@ from unnest(array['ripening_work_results','shipments','shipment_lines','inventor
 select ok(not has_table_privilege('authenticated', 'public.' || name, 'INSERT,UPDATE,DELETE'),
   'authenticated role cannot directly mutate ' || name)
 from unnest(array['ripening_work_results','shipments','shipment_lines','inventory_events']) names(name);
+-- Conflict-skipped inserts must have no stock or audit side effects.
+insert into public.inventory_events (
+  container_id, event_type, quantity_delta_kg, before_weight_kg, after_weight_kg,
+  operation_id, occurred_at, reason, created_by
+) values (
+  '61000000-0000-0000-0000-000000000001', 'adjustment', -1, 9, 8,
+  '62000000-0000-0000-0000-000000000001', now(), 'duplicate ignored',
+  '41000000-0000-0000-0000-000000000003'
+) on conflict (operation_id, container_id, event_type) do nothing;
+select is((select current_weight_kg::numeric from public.containers
+  where id = '61000000-0000-0000-0000-000000000001'), 9::numeric,
+  'conflict-skipped event does not change balance');
+select is((select count(*) from public.inventory_events
+  where container_id = '61000000-0000-0000-0000-000000000001'), 5::bigint,
+  'conflict-skipped event does not add a ledger row');
+select is((select count(*) from public.change_history where entity_type = 'container'
+  and entity_id = '61000000-0000-0000-0000-000000000001'), 5::bigint,
+  'conflict-skipped event does not add phantom container history');
+
+insert into public.ripening_work_results (
+  ripening_lot_id, work_type, actual_at, actual_temperature, location_id,
+  performed_by, checked, operation_id, created_by, rest_started_at, rest_temperature
+) values (
+  '49000000-0000-0000-0000-000000000001', 'ethylene_removal_check', now(), 20,
+  '44000000-0000-0000-0000-000000000001', '43000000-0000-0000-0000-000000000001',
+  true, gen_random_uuid(), '41000000-0000-0000-0000-000000000002', now(), 18
+);
+select throws_ok($$update public.ripening_work_results
+  set actual_temperature = 99, notes = 'late correction'
+  where work_type = 'ethylene_injection'$$, '23514',
+  'ripening result cannot be corrected after next stage started',
+  'injection correction rejected after removal started');
+select lives_ok($$update public.ripening_work_results
+  set rest_temperature = 19, notes = 'before next stage'
+  where work_type = 'ethylene_removal_check'$$,
+  'removal correction allowed before ripeness check');
+insert into public.ripening_work_results (
+  ripening_lot_id, work_type, actual_at, actual_temperature, location_id,
+  performed_by, checked, operation_id, created_by
+) values (
+  '49000000-0000-0000-0000-000000000001', 'ripeness_check', now(), 20,
+  '44000000-0000-0000-0000-000000000001', '43000000-0000-0000-0000-000000000001',
+  true, gen_random_uuid(), '41000000-0000-0000-0000-000000000002'
+);
+select throws_ok($$update public.ripening_work_results
+  set rest_temperature = 99, notes = 'late correction'
+  where work_type = 'ethylene_removal_check'$$, '23514',
+  'ripening result cannot be corrected after next stage started',
+  'removal correction rejected after ripeness check');
+select throws_ok($$update public.ripening_work_results
+  set actual_temperature = 99, notes = 'after shipment'
+  where work_type = 'ripeness_check'$$, '23514',
+  'ripening result cannot be corrected after next stage started',
+  'ripeness correction rejected when shipment history exists');
 set local role anon;
 select throws_ok('select * from public.shipments', '42501', null, 'anonymous read denied');
 reset role;
@@ -412,7 +466,7 @@ select is((select count(*) from public.shipments), 0::bigint, 'pending user sees
 select is((select count(*) from public.inventory_events), 0::bigint, 'pending user sees no stock events');
 select set_config('request.jwt.claim.sub', '41000000-0000-0000-0000-000000000002', true);
 select is((select count(*) from public.shipments), 2::bigint, 'active member reads shipments');
-select is((select count(*) from public.ripening_work_results), 1::bigint, 'active member reads actual results');
+select is((select count(*) from public.ripening_work_results), 3::bigint, 'active member reads actual results');
 select throws_ok('delete from public.inventory_events', '42501', null, 'member cannot mutate ledger');
 select throws_ok('update public.shipments set status = ''cancelled''', '42501', null, 'member must use RPC');
 select set_config('request.jwt.claim.sub', '41000000-0000-0000-0000-000000000003', true);
@@ -420,6 +474,3 @@ select throws_ok('delete from public.ripening_work_results', '42501', null, 'adm
 reset role;
 select * from finish();
 rollback;
-
-
-

@@ -271,7 +271,7 @@ begin
   return new;
 end;
 $$;
-create trigger inventory_events_apply before insert on public.inventory_events
+create trigger inventory_events_apply after insert on public.inventory_events
   for each row execute function private.apply_inventory_event();
 create trigger inventory_events_append_only before update or delete on public.inventory_events
   for each row execute function private.prevent_history_mutation();
@@ -372,6 +372,24 @@ begin
     end if;
     if nullif(btrim(new.notes), '') is null then
       raise exception 'ripening correction requires a reason in notes' using errcode = '23514';
+    end if;
+    -- Serialize correction with the validation trigger of the next stage.
+    perform 1 from public.ripening_lots
+      where id = old.ripening_lot_id for no key update;
+    if exists (
+      select 1 from public.ripening_work_results r
+      where r.ripening_lot_id = old.ripening_lot_id
+        and (
+          (old.work_type = 'ethylene_injection'
+            and r.work_type in ('ethylene_removal_check', 'ripeness_check'))
+          or (old.work_type = 'ethylene_removal_check' and r.work_type = 'ripeness_check')
+        )
+    ) or (old.work_type = 'ripeness_check' and exists (
+      select 1 from public.shipment_lines l
+      join public.containers c on c.id = l.container_id
+      where c.ripening_lot_id = old.ripening_lot_id
+    )) then
+      raise exception 'ripening result cannot be corrected after next stage started' using errcode = '23514';
     end if;
     new.version := old.version + 1;
   end if;
@@ -475,6 +493,3 @@ comment on table public.inventory_events is 'Append-only signed weight ledger. I
 comment on column public.containers.shippable_until is 'Exclusive shipping cutoff copied/calculated by the ripening RPC, separate from best-before.';
 comment on column public.containers.best_before_at is 'Exclusive best-before cutoff based on actual ethylene injection, not planned completion.';
 commit;
-
-
-
