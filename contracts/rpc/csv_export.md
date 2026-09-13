@@ -1,7 +1,7 @@
 # CSV出力契約: csv_export
 
 - 状態: 実装済み・レビュー待ち
-- 版: 2
+- 版: 3
 - 対象Issue: [#48 S1-10-IMP](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/48)
 - 元Issue: [#19 S1-10](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/19)
 - 関連: [画面要件 第7章](../../production-spec/06_SCREEN_REQUIREMENTS.md)、[セキュリティ要件](../../production-spec/07_NON_FUNCTIONAL_SECURITY.md)、[開発運用 第6・7章](../../production-spec/09_DEVELOPMENT_WORKFLOW.md)
@@ -13,7 +13,7 @@
 同コミットを本ブランチへ取り込み、確定実装の即時検索・関連語検索・有効状態・種類別順序と参照権限を再照合済み。
 依存PR取り込みの保留は解消し、CSV実装はPR #49で完了した。契約・権限・UI導線は引き続きレビュー待ちとする。
 マスターは段階1の9種類を対象とする。
-受注、出荷、追熟、顧客は今回の対象外。
+受注・追熟計画/実績・出荷は [S3-09拡張契約](business_csv_export.md) に従う。顧客単独のCSVは対象外。
 
 ## 1. 概要とAPI
 
@@ -31,7 +31,7 @@
 
 | 出力 | 許可条件 |
 |---|---|
-| 在庫 | 有効なプロフィールを持つ認証済み利用者 |
+| 在庫・受注・追熟計画/実績・出荷 | 有効なプロフィールを持つ認証済み利用者 |
 | マスター | 同上。既存マスターのSELECT権限と一致 |
 | 変更履歴 | 有効な管理者のみ |
 | 監査記録の参照 | 有効な管理者のみ |
@@ -61,7 +61,7 @@
 
 | 項目 | 定義 |
 |---|---|
-| dataset | inventory / masters / history |
+| dataset | inventory / masters / history / orders / ripening / shipments |
 | meta.correlation_id | 呼出試行ごとのUUID v4。出力記録とエラーの追跡用 |
 | filters | 対象別の許可フィールドのみ。未知フィールドは拒否 |
 | 文字列 | 検索は前後空白を除去、最大100文字 |

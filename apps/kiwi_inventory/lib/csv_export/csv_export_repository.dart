@@ -4,7 +4,10 @@ import 'dart:typed_data';
 enum CsvDataset {
   inventory('inventory', '在庫'),
   masters('masters', 'マスター'),
-  history('history', '変更履歴');
+  history('history', '変更履歴'),
+  orders('orders', '受注'),
+  ripening('ripening', '追熟計画・実績'),
+  shipments('shipments', '出荷明細');
 
   const CsvDataset(this.value, this.label);
 
@@ -55,6 +58,34 @@ class CsvExportRequest {
       if (toDate != null) 'to_date': _date(toDate),
     },
   );
+
+  factory CsvExportRequest.business({
+    required CsvDataset dataset,
+    String search = '',
+    String status = 'all',
+    String? orderId,
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) {
+    if (!{
+      CsvDataset.orders,
+      CsvDataset.ripening,
+      CsvDataset.shipments,
+    }.contains(dataset)) {
+      throw ArgumentError.value(dataset, 'dataset');
+    }
+    return CsvExportRequest._(
+      dataset: dataset,
+      filters: {
+        if (search.trim().isNotEmpty) 'search': search.trim(),
+        'status': status,
+        if (dataset == CsvDataset.shipments && orderId != null)
+          'order_id': orderId,
+        if (fromDate != null) 'from_date': _date(fromDate),
+        if (toDate != null) 'to_date': _date(toDate),
+      },
+    );
+  }
 
   final CsvDataset dataset;
   final Map<String, Object> filters;

@@ -829,6 +829,7 @@ class _ManagerHomePageState extends State<ManagerHomePage> with RouteAware {
       ),
       '出荷' when shippingRepository != null => ManagerShippingPage(
         repository: shippingRepository!,
+        csvExportRepository: csvExportRepository,
         currentDate: currentDate,
         onSignOut: onSignOut,
       ),
@@ -868,12 +869,14 @@ class _EmptyManagerDashboardRepository implements ManagerDashboardRepository {
 class ManagerShippingPage extends StatelessWidget {
   const ManagerShippingPage({
     required this.repository,
+    this.csvExportRepository,
     this.currentDate,
     this.onSignOut,
     super.key,
   });
 
   final ShippingRepository repository;
+  final CsvExportRepository? csvExportRepository;
   final DateTime? currentDate;
   final VoidCallback? onSignOut;
 
@@ -901,6 +904,7 @@ class ManagerShippingPage extends StatelessWidget {
         Expanded(
           child: ShippingPage(
             repository: repository,
+            csvExportRepository: csvExportRepository,
             currentDate: currentDate,
             embedded: true,
           ),
@@ -1191,6 +1195,7 @@ class ManagerRipeningPlanPage extends StatelessWidget {
         Expanded(
           child: RipeningPlanPage(
             repository: repository,
+            csvExportRepository: csvExportRepository,
             currentDate: currentDate,
             embedded: true,
           ),
@@ -1292,6 +1297,7 @@ class ManagerOrderPage extends StatelessWidget {
         Expanded(
           child: OrderManagementPage(
             repository: repository,
+            csvExportRepository: csvExportRepository,
             initialOrderId: initialOrderId,
           ),
         ),
