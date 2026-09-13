@@ -13,6 +13,8 @@ class ShippingPage extends StatefulWidget {
     this.initialOrderId,
     this.currentDate,
     this.embedded = false,
+    this.onBusyChanged,
+    this.onChanged,
     super.key,
   });
 
@@ -21,6 +23,8 @@ class ShippingPage extends StatefulWidget {
   final String? initialOrderId;
   final DateTime? currentDate;
   final bool embedded;
+  final ValueChanged<bool>? onBusyChanged;
+  final VoidCallback? onChanged;
 
   @override
   State<ShippingPage> createState() => _ShippingPageState();
@@ -41,6 +45,11 @@ class _ShippingPageState extends State<ShippingPage> {
   bool _loadingOrders = true;
   bool _loadingDetail = false;
   bool _submitting = false;
+  void _setBusy(bool value) {
+    _submitting = value;
+    widget.onBusyChanged?.call(value);
+  }
+
   int _detailRequest = 0;
 
   @override
@@ -583,7 +592,7 @@ class _ShippingPageState extends State<ShippingPage> {
     ShippingConfirmInput input,
   ) async {
     setState(() {
-      _submitting = true;
+      _setBusy(true);
       _failure = null;
       _pendingCancel = null;
       _confirmKey ??= createShippingIdempotencyKey();
@@ -598,7 +607,7 @@ class _ShippingPageState extends State<ShippingPage> {
       final refreshed = await _loadDetail(detail.order.id);
       final refreshedDetail = refreshed ? _detail : null;
       if (!mounted) return;
-      setState(() => _submitting = false);
+      setState(() => _setBusy(false));
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
@@ -639,6 +648,7 @@ class _ShippingPageState extends State<ShippingPage> {
           ],
         ),
       );
+      if (mounted) widget.onChanged?.call();
       if (mounted &&
           refreshedDetail?.order.status == 'shipped' &&
           !widget.embedded) {
@@ -647,7 +657,7 @@ class _ShippingPageState extends State<ShippingPage> {
     } on ShippingFailure catch (failure) {
       if (!mounted) return;
       setState(() {
-        _submitting = false;
+        _setBusy(false);
         _failure = failure;
         if (!failure.retryable) _confirmKey = null;
       });
@@ -677,7 +687,7 @@ class _ShippingPageState extends State<ShippingPage> {
   Future<void> _cancel(_PendingCancel pending) async {
     final orderId = _selectedOrderId!;
     setState(() {
-      _submitting = true;
+      _setBusy(true);
       _failure = null;
     });
     try {
@@ -691,13 +701,14 @@ class _ShippingPageState extends State<ShippingPage> {
       _pendingCancel = null;
       await _loadDetail(orderId);
       if (!mounted) return;
-      setState(() => _submitting = false);
+      setState(() => _setBusy(false));
+      widget.onChanged?.call();
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('出荷を取り消しました')));
     } on ShippingFailure catch (failure) {
       if (!mounted) return;
       setState(() {
-        _submitting = false;
+        _setBusy(false);
         _failure = failure;
         if (!failure.retryable) _pendingCancel = null;
       });

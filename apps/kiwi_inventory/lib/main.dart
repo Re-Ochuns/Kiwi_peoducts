@@ -25,6 +25,9 @@ import 'manager_dashboard/manager_dashboard_repository.dart';
 import 'orders/order_management_page.dart';
 import 'orders/order_management_repository.dart';
 import 'orders/supabase_order_management_repository.dart';
+import 'process_board/process_board_page.dart';
+import 'process_board/process_board_repository.dart';
+import 'process_board/supabase_process_board_repository.dart';
 import 'receiving/receiving_page.dart';
 import 'receiving/receiving_repository.dart';
 import 'receiving/supabase_receiving_repository.dart';
@@ -78,6 +81,8 @@ Future<void> main() async {
         shippingRepository: SupabaseShippingRepository.fromInitializedClient(),
         ripeningWorkRepository:
             SupabaseRipeningWorkRepository.fromInitializedClient(),
+        processBoardRepository:
+            SupabaseProcessBoardRepository.fromInitializedClient(),
         workTaskRepository: SupabaseWorkTaskRepository.fromInitializedClient(),
       ),
     );
@@ -104,6 +109,7 @@ class KiwiInventoryApp extends StatelessWidget {
     this.ripeningPlanRepository,
     this.shippingRepository,
     this.ripeningWorkRepository,
+    this.processBoardRepository,
     this.workTaskRepository,
     this.orderManagementRepository,
     this.theme,
@@ -121,6 +127,7 @@ class KiwiInventoryApp extends StatelessWidget {
   final RipeningPlanRepository? ripeningPlanRepository;
   final ShippingRepository? shippingRepository;
   final RipeningWorkRepository? ripeningWorkRepository;
+  final ProcessBoardRepository? processBoardRepository;
   final WorkTaskRepository? workTaskRepository;
   final OrderManagementRepository? orderManagementRepository;
   final SortingRepository? sortingRepository;
@@ -200,6 +207,7 @@ class KiwiInventoryApp extends StatelessWidget {
           ripeningPlanRepository: ripeningPlanRepository,
           shippingRepository: shippingRepository,
           ripeningWorkRepository: ripeningWorkRepository,
+          processBoardRepository: processBoardRepository,
           workTaskRepository: workTaskRepository,
           orderManagementRepository: orderManagementRepository,
         ),
@@ -221,6 +229,7 @@ class ResponsiveHomePage extends StatelessWidget {
     this.ripeningPlanRepository,
     this.shippingRepository,
     this.ripeningWorkRepository,
+    this.processBoardRepository,
     this.workTaskRepository,
     this.orderManagementRepository,
     super.key,
@@ -234,6 +243,7 @@ class ResponsiveHomePage extends StatelessWidget {
   final RipeningPlanRepository? ripeningPlanRepository;
   final ShippingRepository? shippingRepository;
   final RipeningWorkRepository? ripeningWorkRepository;
+  final ProcessBoardRepository? processBoardRepository;
   final WorkTaskRepository? workTaskRepository;
   final OrderManagementRepository? orderManagementRepository;
   final SortingRepository? sortingRepository;
@@ -253,6 +263,8 @@ class ResponsiveHomePage extends StatelessWidget {
               inventoryRepository: inventoryRepository,
               ripeningPlanRepository: ripeningPlanRepository,
               shippingRepository: shippingRepository,
+              ripeningWorkRepository: ripeningWorkRepository,
+              processBoardRepository: processBoardRepository,
               workTaskRepository: workTaskRepository,
               orderManagementRepository: orderManagementRepository,
             )
@@ -669,6 +681,8 @@ class ManagerHomePage extends StatefulWidget {
     this.inventoryRepository,
     this.ripeningPlanRepository,
     this.shippingRepository,
+    this.ripeningWorkRepository,
+    this.processBoardRepository,
     this.workTaskRepository,
     this.orderManagementRepository,
     super.key,
@@ -679,6 +693,8 @@ class ManagerHomePage extends StatefulWidget {
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
   final ShippingRepository? shippingRepository;
+  final RipeningWorkRepository? ripeningWorkRepository;
+  final ProcessBoardRepository? processBoardRepository;
   final WorkTaskRepository? workTaskRepository;
   final OrderManagementRepository? orderManagementRepository;
 
@@ -725,6 +741,10 @@ class _ManagerHomePageState extends State<ManagerHomePage> with RouteAware {
   RipeningPlanRepository? get ripeningPlanRepository =>
       widget.ripeningPlanRepository;
   ShippingRepository? get shippingRepository => widget.shippingRepository;
+  RipeningWorkRepository? get ripeningWorkRepository =>
+      widget.ripeningWorkRepository;
+  ProcessBoardRepository? get processBoardRepository =>
+      widget.processBoardRepository;
   WorkTaskRepository? get workTaskRepository => widget.workTaskRepository;
   OrderManagementRepository? get orderManagementRepository =>
       widget.orderManagementRepository;
@@ -830,6 +850,14 @@ class _ManagerHomePageState extends State<ManagerHomePage> with RouteAware {
       '出荷' when shippingRepository != null => ManagerShippingPage(
         repository: shippingRepository!,
         csvExportRepository: csvExportRepository,
+        currentDate: currentDate,
+        onSignOut: onSignOut,
+      ),
+      '工程ボード' when processBoardRepository != null => ManagerProcessBoardPage(
+        repository: processBoardRepository!,
+        ripeningPlanRepository: ripeningPlanRepository,
+        ripeningWorkRepository: ripeningWorkRepository,
+        shippingRepository: shippingRepository,
         currentDate: currentDate,
         onSignOut: onSignOut,
       ),
@@ -1306,6 +1334,70 @@ class ManagerOrderPage extends StatelessWidget {
   );
 }
 
+class ManagerProcessBoardPage extends StatefulWidget {
+  const ManagerProcessBoardPage({
+    required this.repository,
+    this.ripeningPlanRepository,
+    this.ripeningWorkRepository,
+    this.shippingRepository,
+    this.currentDate,
+    this.onSignOut,
+    super.key,
+  });
+
+  final ProcessBoardRepository repository;
+  final RipeningPlanRepository? ripeningPlanRepository;
+  final RipeningWorkRepository? ripeningWorkRepository;
+  final ShippingRepository? shippingRepository;
+  final DateTime? currentDate;
+  final VoidCallback? onSignOut;
+
+  @override
+  State<ManagerProcessBoardPage> createState() =>
+      _ManagerProcessBoardPageState();
+}
+
+class _ManagerProcessBoardPageState extends State<ManagerProcessBoardPage> {
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: Row(
+      children: [
+        ManagerNavigation(
+          selectedItem: '工程ボード',
+          onSignOut: _busy || widget.onSignOut == null
+              ? null
+              : () {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                  widget.onSignOut!.call();
+                },
+          onSelected: _busy
+              ? null
+              : (item) {
+                  if (item == 'ホーム') {
+                    Navigator.of(context).pop();
+                  } else if (item != '工程ボード') {
+                    preparing(context, '$item画面へはホームから移動してください');
+                  }
+                },
+        ),
+        const VerticalDivider(width: 1),
+        Expanded(
+          child: ProcessBoardPage(
+            onBusyChanged: (value) => setState(() => _busy = value),
+            repository: widget.repository,
+            ripeningPlanRepository: widget.ripeningPlanRepository,
+            ripeningWorkRepository: widget.ripeningWorkRepository,
+            shippingRepository: widget.shippingRepository,
+            currentDate: widget.currentDate,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 class ManagerNavigation extends StatelessWidget {
   const ManagerNavigation({
     this.onSignOut,
@@ -1317,7 +1409,7 @@ class ManagerNavigation extends StatelessWidget {
   final VoidCallback? onSignOut;
   final ValueChanged<String>? onSelected;
   final String selectedItem;
-  static const items = ['ホーム', '受注', '追熟計画', '在庫管理', '出荷', 'マスター'];
+  static const items = ['ホーム', '受注', '追熟計画', '工程ボード', '在庫管理', '出荷', 'マスター'];
 
   @override
   Widget build(BuildContext context) {

@@ -13,6 +13,9 @@ class RipeningPlanPage extends StatefulWidget {
     this.csvExportRepository,
     this.currentDate,
     this.embedded = false,
+    this.onBusyChanged,
+    this.initialInventoryId,
+    this.onCompleted,
     super.key,
   });
 
@@ -20,6 +23,9 @@ class RipeningPlanPage extends StatefulWidget {
   final CsvExportRepository? csvExportRepository;
   final DateTime? currentDate;
   final bool embedded;
+  final ValueChanged<bool>? onBusyChanged;
+  final String? initialInventoryId;
+  final VoidCallback? onCompleted;
 
   @override
   State<RipeningPlanPage> createState() => _RipeningPlanPageState();
@@ -38,6 +44,11 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
   String? _workerId;
   bool _loading = true;
   bool _busy = false;
+  void _setBusy(bool value) {
+    _busy = value;
+    widget.onBusyChanged?.call(value);
+  }
+
   RipeningPlanResult? _draft;
   String? _draftSignature;
   String? _registerKey;
@@ -87,6 +98,12 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
       if (!mounted) return;
       setState(() {
         _options = options;
+        final initialInventoryId = widget.initialInventoryId;
+        if (initialInventoryId != null) {
+          _inventory = options.inventories
+              .where((inventory) => inventory.id == initialInventoryId)
+              .firstOrNull;
+        }
         _loading = false;
       });
     } on RipeningPlanFailure catch (failure) {
@@ -500,7 +517,7 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
 
   Future<void> _submit(RipeningPlanInput input) async {
     setState(() {
-      _busy = true;
+      _setBusy(true);
       _submitFailure = null;
     });
     try {
@@ -548,13 +565,18 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
         idempotencyKey: _confirmKey!,
       );
       if (!mounted) return;
-      setState(() => _busy = false);
+      setState(() => _setBusy(false));
       await _showCompletion(result);
-      if (mounted) await Navigator.of(context).maybePop();
+      if (!mounted) return;
+      if (widget.onCompleted != null) {
+        widget.onCompleted!.call();
+      } else {
+        await Navigator.of(context).maybePop();
+      }
     } on RipeningPlanFailure catch (failure) {
       if (!mounted) return;
       setState(() {
-        _busy = false;
+        _setBusy(false);
         _submitFailure = failure;
       });
     }

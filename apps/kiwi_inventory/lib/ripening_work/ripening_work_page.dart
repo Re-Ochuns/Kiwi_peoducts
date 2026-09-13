@@ -10,12 +10,18 @@ class RipeningWorkPage extends StatefulWidget {
     required this.repository,
     required this.task,
     this.currentDate,
+    this.embedded = false,
+    this.onBusyChanged,
+    this.onCompleted,
     super.key,
   });
 
   final RipeningWorkRepository repository;
   final WorkTaskItem task;
   final DateTime? currentDate;
+  final bool embedded;
+  final ValueChanged<bool>? onBusyChanged;
+  final VoidCallback? onCompleted;
 
   @override
   State<RipeningWorkPage> createState() => _RipeningWorkPageState();
@@ -36,6 +42,10 @@ class _RipeningWorkPageState extends State<RipeningWorkPage> {
   String? _operationKey;
   bool _loading = true;
   bool _submitting = false;
+  void _setBusy(bool value) {
+    _submitting = value;
+    widget.onBusyChanged?.call(value);
+  }
 
   RipeningWorkType get _type => switch (widget.task.type) {
     WorkTaskType.ethyleneInjection => RipeningWorkType.ethyleneInjection,
@@ -104,6 +114,19 @@ class _RipeningWorkPageState extends State<RipeningWorkPage> {
   @override
   Widget build(BuildContext context) {
     final details = _details;
+    final body = SafeArea(
+      child: _loading
+          ? CommonStateView.loading(title: '${_type.label}を読み込んでいます')
+          : _loadFailure != null
+          ? CommonStateView.error(
+              title: '${_type.label}を表示できません',
+              message: _loadFailure!.message,
+              actionLabel: _loadFailure!.retryable ? '再試行' : null,
+              onAction: _loadFailure!.retryable ? _load : null,
+            )
+          : _buildForm(details!),
+    );
+    if (widget.embedded) return body;
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -124,18 +147,7 @@ class _RipeningWorkPageState extends State<RipeningWorkPage> {
           child: Divider(height: 1),
         ),
       ),
-      body: SafeArea(
-        child: _loading
-            ? CommonStateView.loading(title: '${_type.label}を読み込んでいます')
-            : _loadFailure != null
-            ? CommonStateView.error(
-                title: '${_type.label}を表示できません',
-                message: _loadFailure!.message,
-                actionLabel: _loadFailure!.retryable ? '再試行' : null,
-                onAction: _loadFailure!.retryable ? _load : null,
-              )
-            : _buildForm(details!),
-      ),
+      body: body,
     );
   }
 
@@ -435,7 +447,7 @@ class _RipeningWorkPageState extends State<RipeningWorkPage> {
 
   Future<void> _complete(RipeningWorkInput input) async {
     setState(() {
-      _submitting = true;
+      _setBusy(true);
       _submitFailure = null;
       _operationKey ??= createRipeningWorkIdempotencyKey();
     });
@@ -446,7 +458,7 @@ class _RipeningWorkPageState extends State<RipeningWorkPage> {
         idempotencyKey: _operationKey!,
       );
       if (!mounted) return;
-      setState(() => _submitting = false);
+      setState(() => _setBusy(false));
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
@@ -471,11 +483,16 @@ class _RipeningWorkPageState extends State<RipeningWorkPage> {
           ],
         ),
       );
-      if (mounted) Navigator.of(context).pop(true);
+      if (!mounted) return;
+      if (widget.embedded) {
+        widget.onCompleted?.call();
+      } else {
+        Navigator.of(context).pop(true);
+      }
     } on RipeningWorkFailure catch (failure) {
       if (!mounted) return;
       setState(() {
-        _submitting = false;
+        _setBusy(false);
         _submitFailure = failure;
         if (!failure.retryable) _operationKey = null;
       });
