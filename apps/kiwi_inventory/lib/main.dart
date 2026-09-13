@@ -34,6 +34,9 @@ import 'ripening/supabase_ripening_plan_repository.dart';
 import 'shipping/shipping_page.dart';
 import 'shipping/shipping_repository.dart';
 import 'shipping/supabase_shipping_repository.dart';
+import 'ripening_work/ripening_work_page.dart';
+import 'ripening_work/ripening_work_repository.dart';
+import 'ripening_work/supabase_ripening_work_repository.dart';
 import 'sorting/sorting_page.dart';
 import 'sorting/sorting_repository.dart';
 import 'sorting/supabase_sorting_repository.dart';
@@ -73,6 +76,8 @@ Future<void> main() async {
         ripeningPlanRepository:
             SupabaseRipeningPlanRepository.fromInitializedClient(),
         shippingRepository: SupabaseShippingRepository.fromInitializedClient(),
+        ripeningWorkRepository:
+            SupabaseRipeningWorkRepository.fromInitializedClient(),
         workTaskRepository: SupabaseWorkTaskRepository.fromInitializedClient(),
       ),
     );
@@ -98,6 +103,7 @@ class KiwiInventoryApp extends StatelessWidget {
     this.inventoryRepository,
     this.ripeningPlanRepository,
     this.shippingRepository,
+    this.ripeningWorkRepository,
     this.workTaskRepository,
     this.orderManagementRepository,
     this.theme,
@@ -114,6 +120,7 @@ class KiwiInventoryApp extends StatelessWidget {
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
   final ShippingRepository? shippingRepository;
+  final RipeningWorkRepository? ripeningWorkRepository;
   final WorkTaskRepository? workTaskRepository;
   final OrderManagementRepository? orderManagementRepository;
   final SortingRepository? sortingRepository;
@@ -149,6 +156,7 @@ class KiwiInventoryApp extends StatelessWidget {
             labelRepository: labelRepository,
             sortingRepository: sortingRepository,
             shippingRepository: shippingRepository,
+            ripeningWorkRepository: ripeningWorkRepository,
           ),
         ),
       ),
@@ -191,6 +199,7 @@ class KiwiInventoryApp extends StatelessWidget {
           inventoryRepository: inventoryRepository,
           ripeningPlanRepository: ripeningPlanRepository,
           shippingRepository: shippingRepository,
+          ripeningWorkRepository: ripeningWorkRepository,
           workTaskRepository: workTaskRepository,
           orderManagementRepository: orderManagementRepository,
         ),
@@ -211,6 +220,7 @@ class ResponsiveHomePage extends StatelessWidget {
     this.inventoryRepository,
     this.ripeningPlanRepository,
     this.shippingRepository,
+    this.ripeningWorkRepository,
     this.workTaskRepository,
     this.orderManagementRepository,
     super.key,
@@ -223,6 +233,7 @@ class ResponsiveHomePage extends StatelessWidget {
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
   final ShippingRepository? shippingRepository;
+  final RipeningWorkRepository? ripeningWorkRepository;
   final WorkTaskRepository? workTaskRepository;
   final OrderManagementRepository? orderManagementRepository;
   final SortingRepository? sortingRepository;
@@ -255,6 +266,7 @@ class ResponsiveHomePage extends StatelessWidget {
               inventoryRepository: inventoryRepository,
               ripeningPlanRepository: ripeningPlanRepository,
               shippingRepository: shippingRepository,
+              ripeningWorkRepository: ripeningWorkRepository,
               workTaskRepository: workTaskRepository,
             ),
     );
@@ -330,6 +342,7 @@ class WorkerHomePage extends StatefulWidget {
     this.inventoryRepository,
     this.ripeningPlanRepository,
     this.shippingRepository,
+    this.ripeningWorkRepository,
     this.workTaskRepository,
     super.key,
   });
@@ -340,6 +353,7 @@ class WorkerHomePage extends StatefulWidget {
   final InventoryRepository? inventoryRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
   final ShippingRepository? shippingRepository;
+  final RipeningWorkRepository? ripeningWorkRepository;
   final WorkTaskRepository? workTaskRepository;
   final SortingRepository? sortingRepository;
 
@@ -363,6 +377,8 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   RipeningPlanRepository? get ripeningPlanRepository =>
       widget.ripeningPlanRepository;
   ShippingRepository? get shippingRepository => widget.shippingRepository;
+  RipeningWorkRepository? get ripeningWorkRepository =>
+      widget.ripeningWorkRepository;
   WorkTaskRepository? get workTaskRepository => widget.workTaskRepository;
   SortingRepository? get sortingRepository => widget.sortingRepository;
   VoidCallback? get onSignOut => widget.onSignOut;
@@ -580,6 +596,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
       labelRepository: labelRepository,
       sortingRepository: sortingRepository,
       shippingRepository: shippingRepository,
+      ripeningWorkRepository: ripeningWorkRepository,
     );
     Navigator.of(context)
         .push(
@@ -618,6 +635,7 @@ Widget? _buildWorkTaskTargetPage(
   required LabelRepository? labelRepository,
   required SortingRepository? sortingRepository,
   required ShippingRepository? shippingRepository,
+  required RipeningWorkRepository? ripeningWorkRepository,
 }) => switch (task.type) {
   WorkTaskType.sorting when sortingRepository != null => SortingTargetPage(
     repository: sortingRepository,
@@ -631,6 +649,14 @@ Widget? _buildWorkTaskTargetPage(
     initialOrderId: task.targetId,
     currentDate: currentDate,
   ),
+  WorkTaskType.ethyleneInjection ||
+  WorkTaskType.ethyleneRemovalCheck ||
+  WorkTaskType.ripenessCheck when ripeningWorkRepository != null =>
+    RipeningWorkPage(
+      repository: ripeningWorkRepository,
+      task: task,
+      currentDate: currentDate,
+    ),
   _ => null,
 };
 
