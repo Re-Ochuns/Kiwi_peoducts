@@ -13,6 +13,7 @@ class ShippingPage extends StatefulWidget {
     this.initialOrderId,
     this.currentDate,
     this.embedded = false,
+    this.onChanged,
     super.key,
   });
 
@@ -21,6 +22,7 @@ class ShippingPage extends StatefulWidget {
   final String? initialOrderId;
   final DateTime? currentDate;
   final bool embedded;
+  final VoidCallback? onChanged;
 
   @override
   State<ShippingPage> createState() => _ShippingPageState();
@@ -639,6 +641,7 @@ class _ShippingPageState extends State<ShippingPage> {
           ],
         ),
       );
+      if (mounted) widget.onChanged?.call();
       if (mounted &&
           refreshedDetail?.order.status == 'shipped' &&
           !widget.embedded) {
@@ -692,6 +695,7 @@ class _ShippingPageState extends State<ShippingPage> {
       await _loadDetail(orderId);
       if (!mounted) return;
       setState(() => _submitting = false);
+      widget.onChanged?.call();
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('出荷を取り消しました')));
     } on ShippingFailure catch (failure) {

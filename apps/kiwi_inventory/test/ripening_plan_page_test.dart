@@ -72,6 +72,31 @@ void main() {
     expect(repository.loadCalls, 2);
   });
 
+  testWidgets('工程ボードから指定された冷蔵在庫を初期選択する', (tester) async {
+    await _setSurface(tester, const Size(430, 900));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(),
+        home: Scaffold(
+          body: RipeningPlanPage(
+            repository: FakeRipeningPlanRepository(),
+            currentDate: DateTime(2026, 9, 12, 9),
+            initialInventoryId: 'container-1',
+            embedded: true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final dropdown = tester
+        .widget<DropdownButtonFormField<RipeningInventoryOption>>(
+          find.byKey(const Key('ripening-inventory')),
+        );
+    expect(dropdown.initialValue?.id, 'container-1');
+    expect(find.text('使用可能量　10.00 kg'), findsOneWidget);
+  });
+
   testWidgets('内訳合計が追熟重量と一致するまで確認できない', (tester) async {
     await _pumpPage(tester);
     await _selectValue(

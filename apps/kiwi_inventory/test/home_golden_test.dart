@@ -15,6 +15,7 @@ import 'package:kiwi_inventory/inventory/inventory_repository.dart';
 import 'package:kiwi_inventory/label/label_page.dart';
 import 'package:kiwi_inventory/label/label_repository.dart';
 import 'package:kiwi_inventory/main.dart';
+import 'package:kiwi_inventory/process_board/process_board_page.dart';
 import 'package:kiwi_inventory/receiving/receiving_page.dart';
 import 'package:kiwi_inventory/receiving/receiving_repository.dart';
 import 'package:kiwi_inventory/ripening/ripening_plan_page.dart';
@@ -30,6 +31,7 @@ import 'support/fake_shipping_repository.dart';
 import 'support/fake_ripening_work_repository.dart';
 import 'support/fake_work_task_repository.dart';
 import 'support/fake_order_management_repository.dart';
+import 'support/fake_process_board_repository.dart';
 
 void main() {
   final goldenDate = DateTime(2026, 9, 8);
@@ -85,6 +87,22 @@ void main() {
     await expectLater(
       find.byType(KiwiInventoryApp),
       matchesGoldenFile('goldens/manager_home_1280.png'),
+    );
+  });
+
+  testWidgets('1280pxの工程ボード', (tester) async {
+    configureGoldenView(tester, const Size(1280, 900));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(fontFamily: goldenFontFamily),
+        home: ProcessBoardPage(repository: FakeProcessBoardRepository()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(ProcessBoardPage),
+      matchesGoldenFile('goldens/process_board_1280.png'),
     );
   });
 

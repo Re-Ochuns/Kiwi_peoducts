@@ -13,6 +13,8 @@ class RipeningPlanPage extends StatefulWidget {
     this.csvExportRepository,
     this.currentDate,
     this.embedded = false,
+    this.initialInventoryId,
+    this.onCompleted,
     super.key,
   });
 
@@ -20,6 +22,8 @@ class RipeningPlanPage extends StatefulWidget {
   final CsvExportRepository? csvExportRepository;
   final DateTime? currentDate;
   final bool embedded;
+  final String? initialInventoryId;
+  final VoidCallback? onCompleted;
 
   @override
   State<RipeningPlanPage> createState() => _RipeningPlanPageState();
@@ -87,6 +91,12 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
       if (!mounted) return;
       setState(() {
         _options = options;
+        final initialInventoryId = widget.initialInventoryId;
+        if (initialInventoryId != null) {
+          _inventory = options.inventories
+              .where((inventory) => inventory.id == initialInventoryId)
+              .firstOrNull;
+        }
         _loading = false;
       });
     } on RipeningPlanFailure catch (failure) {
@@ -550,7 +560,12 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
       if (!mounted) return;
       setState(() => _busy = false);
       await _showCompletion(result);
-      if (mounted) await Navigator.of(context).maybePop();
+      if (!mounted) return;
+      if (widget.embedded) {
+        widget.onCompleted?.call();
+      } else {
+        await Navigator.of(context).maybePop();
+      }
     } on RipeningPlanFailure catch (failure) {
       if (!mounted) return;
       setState(() {
