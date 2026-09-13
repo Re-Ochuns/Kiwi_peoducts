@@ -231,6 +231,53 @@ void main() {
     expect(field.controller!.text, '18');
   });
 
+  testWidgets('競合後は対象情報と送信versionを同じ最新詳細へ更新する', (tester) async {
+    final repository = FakeRipeningWorkRepository(conflict: true);
+    await tester.pumpWidget(_app(repository: repository));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('ripening-work-temperature')),
+      '18',
+    );
+    await tester.pump();
+    await _confirm(tester);
+    final old = repository.details;
+    repository.details = RipeningWorkDetails(
+      id: old.id,
+      displayId: old.displayId,
+      version: 9,
+      status: old.status,
+      weightHundredths: 3000,
+      locationId: old.locationId,
+      workerId: old.workerId,
+      plannedEthyleneAt: DateTime(2026, 9, 15, 12),
+      plannedCompletionAt: old.plannedCompletionAt,
+      results: old.results,
+      locations: old.locations,
+      workers: old.workers,
+      tasks: [
+        RipeningWorkTask(
+          type: 'ethylene_injection',
+          productLabel: '新しい品種・L',
+          scheduledAt: DateTime(2026, 9, 15, 12),
+          dueAt: DateTime(2026, 9, 15, 13),
+        ),
+      ],
+    );
+    await tester.ensureVisible(find.text('最新状態を読み込む'));
+    await tester.tap(find.text('最新状態を読み込む'));
+    await tester.pumpAndSettle();
+    expect(find.text('新しい品種・L'), findsOneWidget);
+    expect(find.text('ヘイワード・M'), findsNothing);
+    expect(find.text('30.00 kg'), findsOneWidget);
+    expect(find.text('2026年9月15日 12:00'), findsOneWidget);
+    expect(find.text('2026年9月15日 13:00'), findsOneWidget);
+    repository.conflict = false;
+    await _confirm(tester);
+    expect(repository.lastInput!.expectedVersion, 9);
+    expect(repository.lastInput!.actualTemperature, 18);
+  });
+
   testWidgets('読込失敗から再試行できる', (tester) async {
     final repository = FakeRipeningWorkRepository(loadFailures: 1);
     await tester.pumpWidget(_app(repository: repository));

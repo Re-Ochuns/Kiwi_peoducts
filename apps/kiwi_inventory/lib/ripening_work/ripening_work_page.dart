@@ -70,6 +70,12 @@ class _RipeningWorkPageState extends State<RipeningWorkPage> {
     try {
       final details = await widget.repository.load(widget.task.targetId);
       if (!mounted) return;
+      if (details.tasks.where((task) => task.type == _type.value).length != 1) {
+        throw const RipeningWorkFailure(
+          message: '対象作業が見つかりません。ToDoを更新してください。',
+          code: 'NOT_FOUND',
+        );
+      }
       setState(() {
         _details = details;
         _submitFailure = null;
@@ -174,7 +180,12 @@ class _RipeningWorkPageState extends State<RipeningWorkPage> {
                 ),
               ),
               const SizedBox(height: 22),
-              _TargetSummary(task: widget.task, details: details),
+              _TargetSummary(
+                task: details.tasks.singleWhere(
+                  (task) => task.type == _type.value,
+                ),
+                details: details,
+              ),
               const SizedBox(height: 28),
               const Text(
                 '実績を入力',
@@ -475,7 +486,7 @@ class _RipeningWorkPageState extends State<RipeningWorkPage> {
 class _TargetSummary extends StatelessWidget {
   const _TargetSummary({required this.task, required this.details});
 
-  final WorkTaskItem task;
+  final RipeningWorkTask task;
   final RipeningWorkDetails details;
 
   @override

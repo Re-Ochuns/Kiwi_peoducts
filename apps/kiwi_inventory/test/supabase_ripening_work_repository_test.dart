@@ -24,6 +24,15 @@ void main() {
           'assigned_worker_id': 'worker-1',
           'planned_ethylene_at': '2026-09-12T00:00:00Z',
           'planned_completion_at': '2026-09-19T00:00:00Z',
+          'tasks': [
+            {
+              'managed_by_planning': true,
+              'task_type': 'ethylene_removal_check',
+              'scheduled_at': '2026-09-15T03:00:00Z',
+              'due_at': '2026-09-15T04:00:00Z',
+              'task_details': {'variety': '新しい品種', 'grade': 'L'},
+            },
+          ],
           'results': [
             {
               'work_type': 'ethylene_injection',
@@ -53,6 +62,13 @@ void main() {
     expect(details.displayId, '追熟-2026-001');
     expect(details.weightHundredths, 2050);
     expect(details.version, 3);
+    expect(details.tasks.single.productLabel, '新しい品種・L');
+    expect(details.tasks.single.type, 'ethylene_removal_check');
+    expect(
+      details.tasks.single.scheduledAt,
+      DateTime.utc(2026, 9, 15, 3).toLocal(),
+    );
+    expect(details.tasks.single.dueAt, DateTime.utc(2026, 9, 15, 4).toLocal());
     expect(details.results.single.type, 'ethylene_injection');
     expect(details.locations.single.label, 'R01　第1追熟庫');
     expect(details.workers.single.label, 'W01　岡本');

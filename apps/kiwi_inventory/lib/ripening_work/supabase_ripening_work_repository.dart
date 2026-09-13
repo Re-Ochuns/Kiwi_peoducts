@@ -61,6 +61,10 @@ class SupabaseRipeningWorkRepository implements RipeningWorkRepository {
                   : DateTime.parse(raw['rest_started_at'] as String).toLocal(),
             ),
         ],
+        tasks: [
+          for (final raw in row['tasks'] as List? ?? const [])
+            if ((raw as Map)['managed_by_planning'] == true) _task(raw),
+        ],
         locations: _options(values[1], nameKey: 'name'),
         workers: _options(values[2], nameKey: 'display_name'),
       );
@@ -224,4 +228,18 @@ String? _currentLocationId(Map<String, dynamic> row) {
       .map((raw) => (raw as Map)['location_id'])
       .toSet();
   return locations.length == 1 ? locations.single as String? : null;
+}
+
+RipeningWorkTask _task(Map raw) {
+  final details = raw['task_details'] as Map? ?? const {};
+  final labels = [
+    details['variety'],
+    details['grade'],
+  ].whereType<String>().where((value) => value.trim().isNotEmpty).toList();
+  return RipeningWorkTask(
+    type: raw['task_type'] as String,
+    productLabel: labels.isEmpty ? '品種・等級未設定' : labels.join('・'),
+    scheduledAt: DateTime.parse(raw['scheduled_at'] as String).toLocal(),
+    dueAt: DateTime.parse(raw['due_at'] as String).toLocal(),
+  );
 }
