@@ -52,6 +52,95 @@ void main() {
     expect(find.text('出荷-2026-001'), findsOneWidget);
   });
 
+  testWidgets('出荷成功後の再取得失敗では古い残量を表示せず読取だけ再試行する', (tester) async {
+    final repository = FakeShippingRepository();
+    await tester.pumpWidget(_app(repository));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('shipping-weight-container-1')),
+      '3',
+    );
+    await tester.pump();
+    repository.detailFailures = 1;
+    await _tapConfirm(tester);
+    await tester.tap(find.byKey(const Key('shipping-complete')));
+    await tester.pumpAndSettle();
+    expect(find.text('出荷を記録しました'), findsOneWidget);
+    expect(find.textContaining('最新の残量を取得できなかった'), findsOneWidget);
+    expect(find.text('7.50 kg'), findsNothing);
+    await tester.tap(find.text('詳細の再読み込みへ'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('shipping-confirm-input')), findsNothing);
+    await tester.tap(find.text('再試行'));
+    await tester.pumpAndSettle();
+    expect(find.text('出荷残量 4.50 kg'), findsOneWidget);
+    expect(repository.confirmCalls, 1);
+  });
+
+  testWidgets('取消後の再取得失敗でも古い詳細を操作できず読取だけ再試行する', (tester) async {
+    final repository = FakeShippingRepository();
+    await tester.pumpWidget(_app(repository));
+    await tester.pumpAndSettle();
+    repository.detailFailures = 1;
+    await tester.ensureVisible(find.text('この出荷を取り消す'));
+    await tester.tap(find.text('この出荷を取り消す'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('shipping-cancel-complete')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('shipping-confirm-input')), findsNothing);
+    expect(find.text('この出荷を取り消す'), findsNothing);
+    await tester.tap(find.text('再試行'));
+    await tester.pumpAndSettle();
+    expect(repository.cancelCalls, 1);
+    expect(find.text('出荷残量 10.00 kg'), findsOneWidget);
+  });
+
+  testWidgets('別受注の読込失敗で直前の受注フォームへ戻らない', (tester) async {
+    tester.view.physicalSize = const Size(1000, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repository = FakeShippingRepository();
+    final old = repository.order;
+    repository.orderList = [
+      old,
+      ShippingOrderSummary(
+        id: 'order-2',
+        number: '受注-2026-002',
+        customer: old.customer,
+        scheduledShipOn: old.scheduledShipOn,
+        variety: old.variety,
+        grade: old.grade,
+        orderedWeightHundredths: 1000,
+        shippedWeightHundredths: 0,
+        status: 'confirmed',
+        version: 1,
+      ),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(),
+        home: ShippingPage(
+          repository: repository,
+          currentDate: DateTime(2026, 9, 13, 10),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('受注-2026-001'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('shipping-weight-container-1')),
+      '3',
+    );
+    repository.detailFailures = 1;
+    await tester.tap(find.text('受注-2026-002'));
+    await tester.pumpAndSettle();
+    expect(find.text('詳細を取得できませんでした。'), findsOneWidget);
+    expect(find.byKey(const Key('shipping-confirm-input')), findsNothing);
+    expect(find.byKey(const Key('shipping-weight-container-1')), findsNothing);
+    expect(repository.confirmCalls, 0);
+  });
+
   testWidgets('使用可能残量を超える確定操作を無効にする', (tester) async {
     await tester.pumpWidget(_app(FakeShippingRepository()));
     await tester.pumpAndSettle();

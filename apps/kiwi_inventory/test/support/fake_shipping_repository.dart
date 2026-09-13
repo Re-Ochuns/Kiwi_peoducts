@@ -7,6 +7,8 @@ class FakeShippingRepository implements ShippingRepository {
     this.cancelFailures = 0,
   });
 
+  int detailFailures = 0;
+  List<ShippingOrderSummary>? orderList;
   int loadFailures;
   int confirmFailures;
   int cancelFailures;
@@ -46,12 +48,16 @@ class FakeShippingRepository implements ShippingRepository {
       loadFailures--;
       throw const ShippingFailure(message: '出荷予定を読み込めませんでした。', retryable: true);
     }
-    return [order];
+    return orderList ?? [order];
   }
 
   @override
   Future<ShippingOrderDetail> loadOrder(String orderId) async {
     loadOrderCalls++;
+    if (detailFailures > 0) {
+      detailFailures--;
+      throw const ShippingFailure(message: '詳細を取得できませんでした。', retryable: true);
+    }
     return ShippingOrderDetail(
       order: order,
       destination: '本店　青果店A 御中　〒790-0001　愛媛県松山市一番町1-1',

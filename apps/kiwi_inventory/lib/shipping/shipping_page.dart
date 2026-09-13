@@ -37,6 +37,7 @@ class _ShippingPageState extends State<ShippingPage> {
   bool _loadingOrders = true;
   bool _loadingDetail = false;
   bool _submitting = false;
+  int _detailRequest = 0;
 
   @override
   void initState() {
@@ -82,15 +83,17 @@ class _ShippingPageState extends State<ShippingPage> {
     }
   }
 
-  Future<void> _loadDetail(String orderId, {bool showLoading = true}) async {
+  Future<bool> _loadDetail(String orderId) async {
+    final request = ++_detailRequest;
     setState(() {
       _selectedOrderId = orderId;
-      _loadingDetail = showLoading;
+      _loadingDetail = true;
+      _detail = null;
       _failure = null;
     });
     try {
       final detail = await widget.repository.loadOrder(orderId);
-      if (!mounted || _selectedOrderId != orderId) return;
+      if (!mounted || request != _detailRequest) return false;
       for (final controller in _weightControllers.values) {
         controller.dispose();
       }
@@ -111,12 +114,14 @@ class _ShippingPageState extends State<ShippingPage> {
         _confirmKey = null;
         _pendingCancel = null;
       });
+      return true;
     } on ShippingFailure catch (failure) {
-      if (!mounted) return;
+      if (!mounted || request != _detailRequest) return false;
       setState(() {
         _failure = failure;
         _loadingDetail = false;
       });
+      return false;
     }
   }
 
@@ -209,7 +214,7 @@ class _ShippingPageState extends State<ShippingPage> {
                     _OrderRow(
                       order: order,
                       selected: order.id == _selectedOrderId,
-                      onTap: () => _loadDetail(order.id),
+                      onTap: _submitting ? null : () => _loadDetail(order.id),
                     ),
                 ],
               ),
@@ -566,7 +571,9 @@ class _ShippingPageState extends State<ShippingPage> {
         idempotencyKey: _confirmKey!,
       );
       if (!mounted) return;
-      await _loadDetail(detail.order.id, showLoading: false);
+      _confirmKey = null;
+      final refreshed = await _loadDetail(detail.order.id);
+      final refreshedDetail = refreshed ? _detail : null;
       if (!mounted) return;
       setState(() => _submitting = false);
       await showDialog<void>(
@@ -584,27 +591,34 @@ class _ShippingPageState extends State<ShippingPage> {
                   completion.shipment.totalWeightHundredths,
                 ),
               ),
-              _SummaryRow(
-                label: '受注残量',
-                value: formatShippingWeight(
-                  _detail!.order.remainingWeightHundredths,
-                ),
-              ),
+              if (refreshedDetail != null)
+                _SummaryRow(
+                  label: '受注残量',
+                  value: formatShippingWeight(
+                    refreshedDetail.order.remainingWeightHundredths,
+                  ),
+                )
+              else
+                const Text('出荷は記録済みです。最新の残量を取得できなかったため、詳細を再読み込みしてください。'),
             ],
           ),
           actions: [
             FilledButton(
               onPressed: () => Navigator.of(context).pop(),
               child: Text(
-                _detail!.order.status == 'shipped' && !widget.embedded
+                refreshedDetail?.order.status == 'shipped' && !widget.embedded
                     ? 'ToDoへ戻る'
+                    : refreshedDetail == null
+                    ? '詳細の再読み込みへ'
                     : '出荷内容へ戻る',
               ),
             ),
           ],
         ),
       );
-      if (mounted && _detail!.order.status == 'shipped' && !widget.embedded) {
+      if (mounted &&
+          refreshedDetail?.order.status == 'shipped' &&
+          !widget.embedded) {
         Navigator.of(context).pop(true);
       }
     } on ShippingFailure catch (failure) {
@@ -638,6 +652,7 @@ class _ShippingPageState extends State<ShippingPage> {
   }
 
   Future<void> _cancel(_PendingCancel pending) async {
+    final orderId = _selectedOrderId!;
     setState(() {
       _submitting = true;
       _failure = null;
@@ -650,7 +665,8 @@ class _ShippingPageState extends State<ShippingPage> {
         idempotencyKey: pending.idempotencyKey,
       );
       if (!mounted) return;
-      await _loadDetail(_selectedOrderId!, showLoading: false);
+      _pendingCancel = null;
+      await _loadDetail(orderId);
       if (!mounted) return;
       setState(() => _submitting = false);
       ScaffoldMessenger.of(context)
@@ -744,7 +760,7 @@ class _OrderRow extends StatelessWidget {
 
   final ShippingOrderSummary order;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) => Semantics(
