@@ -38,6 +38,7 @@ class _ProcessBoardPageState extends State<ProcessBoardPage> {
   ProcessBoardFailure? _failure;
   String? _selectedId;
   String? _shippingOrderId;
+  String? _selectedPlanId;
   _PanelMode _panelMode = _PanelMode.details;
   bool _loading = true;
 
@@ -62,12 +63,38 @@ class _ProcessBoardPageState extends State<ProcessBoardPage> {
       final data = await widget.repository.load();
       if (!mounted) return;
       setState(() {
+        final previous = _selected;
         _data = data;
         _loading = false;
-        if (!data.items.any((item) => item.id == _selectedId)) {
+        final selected = _selected;
+        final previousOrderId = _shippingOrderId;
+        if (selected == null) {
           _selectedId = null;
+          _selectedPlanId = null;
           _shippingOrderId = null;
           _panelMode = _PanelMode.details;
+        } else {
+          _selectedPlanId = selected.ripeningLotId;
+          if (!selected.orderIds.contains(_shippingOrderId)) {
+            _shippingOrderId = selected.orderIds.firstOrNull;
+          }
+          final invalidPanel = switch (_panelMode) {
+            _PanelMode.details => false,
+            _PanelMode.ripeningPlan =>
+              selected.stage != ProcessStage.sorted ||
+                  selected.ripeningLotId != null,
+            _PanelMode.ripeningWork =>
+              selected.nextTask == null ||
+                  selected.nextTask?.id != previous?.nextTask?.id ||
+                  selected.nextTask?.targetId != previous?.nextTask?.targetId ||
+                  selected.stage != previous?.stage,
+            _PanelMode.shipping =>
+              selected.stage != ProcessStage.shippable ||
+                  !selected.orderIds.contains(previousOrderId),
+          };
+          if (selected.needsReview || invalidPanel) {
+            _panelMode = _PanelMode.details;
+          }
         }
       });
     } on ProcessBoardFailure catch (failure) {
@@ -82,7 +109,10 @@ class _ProcessBoardPageState extends State<ProcessBoardPage> {
   ProcessBoardItem? get _selected {
     final data = _data;
     if (data == null || _selectedId == null) return null;
-    return data.items.where((item) => item.id == _selectedId).firstOrNull;
+    return data.items
+        .where((item) => item.id == _selectedId)
+        .firstOrNull
+        ?.forPlan(_selectedPlanId);
   }
 
   @override
@@ -138,6 +168,10 @@ class _ProcessBoardPageState extends State<ProcessBoardPage> {
                         onOpen: (mode) => setState(() => _panelMode = mode),
                         onShippingOrderChanged: (value) =>
                             setState(() => _shippingOrderId = value),
+                        onPlanChanged: (value) => setState(() {
+                          _selectedPlanId = value;
+                          _panelMode = _PanelMode.details;
+                        }),
                         onCompleted: _completeAndReload,
                       ),
                     ),
@@ -181,6 +215,7 @@ class _ProcessBoardPageState extends State<ProcessBoardPage> {
   void _select(ProcessBoardItem item) {
     setState(() {
       _selectedId = item.id;
+      _selectedPlanId = item.plans.firstOrNull?.id;
       _shippingOrderId = item.orderIds.firstOrNull;
       _panelMode = _PanelMode.details;
     });
@@ -188,6 +223,7 @@ class _ProcessBoardPageState extends State<ProcessBoardPage> {
 
   void _closePanel() => setState(() {
     _selectedId = null;
+    _selectedPlanId = null;
     _shippingOrderId = null;
     _panelMode = _PanelMode.details;
   });
@@ -463,6 +499,7 @@ class _DetailPanel extends StatelessWidget {
     required this.onBack,
     required this.onOpen,
     required this.onShippingOrderChanged,
+    required this.onPlanChanged,
     required this.onCompleted,
   });
 
@@ -477,6 +514,7 @@ class _DetailPanel extends StatelessWidget {
   final VoidCallback onBack;
   final ValueChanged<_PanelMode> onOpen;
   final ValueChanged<String?> onShippingOrderChanged;
+  final ValueChanged<String?> onPlanChanged;
   final VoidCallback onCompleted;
 
   @override
@@ -526,6 +564,7 @@ class _DetailPanel extends StatelessWidget {
       canShip: shippingRepository != null,
       onOpen: onOpen,
       onShippingOrderChanged: onShippingOrderChanged,
+      onPlanChanged: onPlanChanged,
     ),
     _PanelMode.ripeningPlan => RipeningPlanPage(
       key: ValueKey('board-plan-${item.id}'),
@@ -563,6 +602,7 @@ class _Details extends StatelessWidget {
     required this.canShip,
     required this.onOpen,
     required this.onShippingOrderChanged,
+    required this.onPlanChanged,
   });
 
   final ProcessBoardItem item;
@@ -572,6 +612,7 @@ class _Details extends StatelessWidget {
   final bool canShip;
   final ValueChanged<_PanelMode> onOpen;
   final ValueChanged<String?> onShippingOrderChanged;
+  final ValueChanged<String?> onPlanChanged;
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
@@ -580,6 +621,25 @@ class _Details extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _DetailRow(label: 'コンテナID', value: item.displayId, prominent: true),
+        if (item.plans.length > 1) ...[
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            key: ValueKey(
+              'process-board-plan-${item.id}-${item.ripeningLotId}',
+            ),
+            initialValue: item.ripeningLotId,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: '操作する追熟計画'),
+            items: [
+              for (final plan in item.plans)
+                DropdownMenuItem(
+                  value: plan.id,
+                  child: Text('${plan.displayId}・${plan.useType.label}'),
+                ),
+            ],
+            onChanged: onPlanChanged,
+          ),
+        ],
         _DetailRow(label: '工程', value: item.stage.label),
         _DetailRow(label: '用途', value: item.useType.label),
         _DetailRow(label: '品種・等級', value: item.productLabel),
@@ -645,7 +705,7 @@ class _Details extends StatelessWidget {
       return [
         if (item.orderIds.length > 1) ...[
           DropdownButtonFormField<String>(
-            key: const Key('process-board-order'),
+            key: ValueKey('process-board-order-${item.id}-$shippingOrderId'),
             initialValue: shippingOrderId,
             isExpanded: true,
             icon: const ExcludeSemantics(child: Text('▼')),

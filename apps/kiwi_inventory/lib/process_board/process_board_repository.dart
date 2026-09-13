@@ -49,6 +49,7 @@ class ProcessBoardItem {
     this.ripeningLotId,
     this.ripeningDisplayId,
     this.nextTask,
+    this.plans = const [],
   });
 
   final String id;
@@ -68,7 +69,52 @@ class ProcessBoardItem {
   final List<String> orderNumbers;
   final WorkTaskItem? nextTask;
 
+  final List<ProcessBoardPlan> plans;
+
+  ProcessBoardItem forPlan(String? planId) {
+    if (plans.isEmpty) return this;
+    final plan =
+        plans.where((plan) => plan.id == planId).firstOrNull ?? plans.first;
+    return ProcessBoardItem(
+      id: id,
+      displayId: displayId,
+      stage: stage,
+      useType: plan.useType,
+      variety: variety,
+      grade: grade,
+      weightHundredths: weightHundredths,
+      status: status,
+      location: location,
+      needsReview: needsReview,
+      date: date,
+      ripeningLotId: plan.id,
+      ripeningDisplayId: plan.displayId,
+      orderIds: plan.orderIds,
+      orderNumbers: plan.orderNumbers,
+      nextTask: plan.nextTask,
+      plans: plans,
+    );
+  }
+
   String get productLabel => '$variety・$grade';
+}
+
+class ProcessBoardPlan {
+  const ProcessBoardPlan({
+    required this.id,
+    required this.displayId,
+    required this.useType,
+    required this.orderIds,
+    required this.orderNumbers,
+    this.nextTask,
+  });
+
+  final String id;
+  final String displayId;
+  final ProcessUseType useType;
+  final List<String> orderIds;
+  final List<String> orderNumbers;
+  final WorkTaskItem? nextTask;
 }
 
 class ProcessBoardData {

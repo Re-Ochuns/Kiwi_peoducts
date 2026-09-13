@@ -59,14 +59,15 @@ class SupabaseProcessBoardRepository implements ProcessBoardRepository {
                 .inFilter('container_id', coldIds)
                 .eq('status', 'active')
                 .timeout(const Duration(seconds: 10));
-      final reservedLotByContainer = {
-        for (final raw in reservations)
-          (raw as Map)['container_id'] as String:
-              raw['ripening_lot_id'] as String,
-      };
+      final reservedLotsByContainer = <String, Set<String>>{};
+      for (final raw in reservations) {
+        reservedLotsByContainer
+            .putIfAbsent(raw['container_id'] as String, () => {})
+            .add(raw['ripening_lot_id'] as String);
+      }
       final lotIds = {
         ...directLotIds,
-        ...reservedLotByContainer.values,
+        ...reservedLotsByContainer.values.expand((ids) => ids),
       }.toList();
       final supplemental = await Future.wait<dynamic>([
         if (lotIds.isEmpty)
@@ -124,6 +125,41 @@ class SupabaseProcessBoardRepository implements ProcessBoardRepository {
         for (final raw in orderRows)
           (raw as Map)['id'] as String: Map<String, dynamic>.from(raw),
       };
+      // Use the same remaining-allocation and deadline rules as shipping.
+      final shippableLots = containers
+          .where((row) => row['status'] == 'shippable')
+          .map((row) => row['ripening_lot_id'])
+          .whereType<String>()
+          .toSet();
+      final shippingOrderIds = allocations
+          .where((row) => shippableLots.contains(row['ripening_lot_id']))
+          .map((row) => row['order_id'])
+          .whereType<String>()
+          .where(
+            (id) => const {
+              'confirmed',
+              'in_progress',
+              'partially_shipped',
+            }.contains(orders[id]?['status']),
+          )
+          .toSet()
+          .toList();
+      final shippingCandidates = await Future.wait<dynamic>([
+        for (final id in shippingOrderIds)
+          _client.rpc(
+            'shipment_container_list',
+            params: {'order_id_value': id},
+          ),
+      ]).timeout(const Duration(seconds: 10));
+      final eligibleOrdersByContainer = <String, Set<String>>{};
+      for (var index = 0; index < shippingOrderIds.length; index++) {
+        for (final raw in shippingCandidates[index] as List) {
+          if (_toHundredths(raw['available_weight_kg']) <= 0) continue;
+          eligibleOrdersByContainer
+              .putIfAbsent(raw['id'] as String, () => {})
+              .add(shippingOrderIds[index]);
+        }
+      }
       final tasksByLot = <String, List<Map<String, dynamic>>>{};
       for (final raw in supplemental[2] as List) {
         final row = Map<String, dynamic>.from(raw as Map);
@@ -139,11 +175,13 @@ class SupabaseProcessBoardRepository implements ProcessBoardRepository {
       return ProcessBoardData(
         items: [
           for (final container in containers)
-            _item(
+            _containerItem(
               container,
-              lotId:
-                  container['ripening_lot_id'] as String? ??
-                  reservedLotByContainer[container['id']],
+              lotIds: container['ripening_lot_id'] is String
+                  ? [container['ripening_lot_id'] as String]
+                  : (reservedLotsByContainer[container['id']] ?? {}).toList(),
+              eligibleOrderIds:
+                  eligibleOrdersByContainer[container['id']] ?? {},
               lots: lots,
               allocations: allocations,
               orders: orders,
@@ -172,6 +210,78 @@ class SupabaseProcessBoardRepository implements ProcessBoardRepository {
   }
 }
 
+ProcessBoardItem _containerItem(
+  Map<String, dynamic> row, {
+  required List<String> lotIds,
+  required Set<String> eligibleOrderIds,
+  required Map<String, Map<String, dynamic>> lots,
+  required List<Map<String, dynamic>> allocations,
+  required Map<String, Map<String, dynamic>> orders,
+  required Map<String, List<Map<String, dynamic>>> tasksByLot,
+  required Map<String, String?> remainingUse,
+}) {
+  final filteredOrders = row['status'] == 'shippable'
+      ? Map<String, Map<String, dynamic>>.fromEntries(
+          orders.entries.where((entry) => eligibleOrderIds.contains(entry.key)),
+        )
+      : orders;
+  ProcessBoardItem itemFor(String? lotId) => _item(
+    row,
+    lotId: lotId,
+    lots: lots,
+    allocations: allocations,
+    orders: filteredOrders,
+    tasksByLot: tasksByLot,
+    remainingUse: remainingUse,
+  );
+  if (row['status'] != 'cold_storage' || lotIds.isEmpty) {
+    return itemFor(lotIds.firstOrNull);
+  }
+  lotIds.sort(
+    (a, b) => (lots[a]?['display_id'] as String? ?? a).compareTo(
+      lots[b]?['display_id'] as String? ?? b,
+    ),
+  );
+  final items = lotIds.map(itemFor).toList();
+  final first = items.first;
+  final types = items.map((item) => item.useType).toSet();
+  final orderNumbers = <String, String>{};
+  for (final item in items) {
+    for (var i = 0; i < item.orderIds.length; i++) {
+      orderNumbers[item.orderIds[i]] = item.orderNumbers[i];
+    }
+  }
+  return ProcessBoardItem(
+    id: first.id,
+    displayId: first.displayId,
+    stage: first.stage,
+    useType: types.length == 1 ? types.single : ProcessUseType.mixed,
+    variety: first.variety,
+    grade: first.grade,
+    weightHundredths: first.weightHundredths,
+    status: first.status,
+    location: first.location,
+    needsReview: first.needsReview,
+    date: first.date,
+    ripeningLotId: first.ripeningLotId,
+    ripeningDisplayId: first.ripeningDisplayId,
+    nextTask: first.nextTask,
+    orderIds: orderNumbers.keys.toList(),
+    orderNumbers: orderNumbers.values.toList(),
+    plans: [
+      for (final item in items)
+        ProcessBoardPlan(
+          id: item.ripeningLotId!,
+          displayId: item.ripeningDisplayId ?? item.ripeningLotId!,
+          useType: item.useType,
+          orderIds: item.orderIds,
+          orderNumbers: item.orderNumbers,
+          nextTask: item.nextTask,
+        ),
+    ],
+  );
+}
+
 ProcessBoardItem _item(
   Map<String, dynamic> row, {
   required String? lotId,
@@ -191,7 +301,10 @@ ProcessBoardItem _item(
             orders.containsKey(allocation['order_id']),
       )
       .map((allocation) => orders[allocation['order_id']]!)
-      .where((order) => order['status'] != 'cancelled')
+      .where(
+        (order) =>
+            order['status'] != 'cancelled' && order['status'] != 'shipped',
+      )
       .toList();
   orderRows.sort(
     (left, right) => '${left['scheduled_ship_on']}'.compareTo(
