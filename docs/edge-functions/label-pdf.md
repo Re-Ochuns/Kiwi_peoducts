@@ -1,6 +1,6 @@
 # label-pdf Edge Function
 
-Issue #17（S1-08）の選果後A5ラベルPDFを生成するEdge Functionを定義する。設計方針はADR-0002に従い、PDF生成をサーバーへ集約して再現性と監査性を確保する。印刷状態の確定は[ラベル状態管理RPC](../database/label-rpc.md)が担い、本Functionは状態を変更しない。
+Issue #17（S1-08）の選果後A5ラベルと、Issue #65（S3-08）の追熟コンテナA5ラベルPDFを生成するEdge Functionを定義する。設計方針はADR-0002に従い、PDF生成をサーバーへ集約して再現性と監査性を確保する。印刷状態の確定は[ラベル状態管理RPC](../database/label-rpc.md)が担い、本Functionは状態を変更しない。
 
 ## エンドポイント
 
@@ -20,11 +20,21 @@ Issue #17（S1-08）の選果後A5ラベルPDFを生成するEdge Functionを定
 | コンテナが存在しない／選果未確定 | 404 | CONTAINER_NOT_FOUND |
 | profile取得やPDF生成の予期しない失敗 | 500 | UNEXPECTED |
 
+## コンテナ種別の判定
+
+`containers.ripening_lot_id` が非NULLであれば追熟コンテナとみなし、追熟ラベルを生成する。NULLであれば選果後コンテナとして従来の選果ラベルを生成する。追熟コンテナのラベルデータは `public.ripening_label_get(container_id_value)` RPC（SECURITY INVOKER）で一括取得する。
+
+| 種別 | 判定条件 | データ取得 | レイアウト |
+|---|---|---|---|
+| 選果後 | `ripening_lot_id IS NULL` | `containers` → `sorting_results` | `buildSortingLabelPdf` |
+| 追熟 | `ripening_lot_id IS NOT NULL` | `ripening_label_get` RPC | `buildRipeningLabelPdf` |
+
 ## レイアウトと再現性
 
 - `layout.ts`がFND-07試作（`experiments/fnd-07`）のレイアウトを移植する。ページはA5（148×210mm）、安全余白10mm、コンテナIDと正味重量を最優先で大きく表示する。試作のみの100mm確認線は含めない。
 - 同一入力・同一レイアウト版から同一バイト列を再生成できるよう、PDFメタデータの日時を固定し、埋め込みフォントのサブセット名を固定する。レイアウト版は`LABEL_LAYOUT_VERSION`（応答ヘッダー`X-Label-Layout-Version`）で管理する。
-- 表示項目は選果後ラベルの必須項目（コンテナ表示ID、産地・区画、品種、等級、正味重量、選果日、担当者）を`containers`→`sorting_results`→`workers`/`receiving_lots`から取得する。
+- 選果後ラベルの表示項目（コンテナ表示ID、産地・区画、品種、等級、正味重量、選果日、担当者）を`containers`→`sorting_results`→`workers`/`receiving_lots`から取得する。
+- 追熟ラベルの表示項目（コンテナ表示ID、産地、品種、等級、正味重量、注入日時、抜き予定、出荷可能予定、場所）を`ripening_label_get` RPCから取得する。
 
 ## フォント
 
@@ -43,9 +53,8 @@ cd supabase/functions
 deno test --allow-read tests/
 ```
 
-リクエスト処理は`handler.ts`へ分離し、`createHandler({ fontBytes, createClient })`でSupabaseクライアントを注入できるようにしている（`index.ts`は実クライアントとフォントを配線するだけ）。`tests/label-pdf.test.ts`がA5寸法、単一ページ、Noto Sans JPサブセット埋め込み、同一入力の再現性、入力検証、日本語日付整形を検証し、`tests/handler.test.ts`が偽クライアントで成功時のExpose-Headers、profile取得失敗→500、profileなし→403、コンテナ取得失敗→500、未存在→404、未認証401、不正ID 400を検証する。`.github/workflows/edge-functions-ci.yml`が`deno check`と合わせてCIで実行する。ローカルでは`supabase functions serve label-pdf`に対し、activeなJWTでの200・PDF生成・Expose-Headers、未認証401、不正ID 400、CORSプリフライト200をe2e確認した。
+リクエスト処理は`handler.ts`へ分離し、`createHandler({ fontBytes, createClient })`でSupabaseクライアントを注入できるようにしている（`index.ts`は実クライアントとフォントを配線するだけ）。`tests/label-pdf.test.ts`がA5寸法、Noto Sans JPサブセット埋め込み、再現性、入力検証、日本語日付整形（選果・追熟の両方）を検証し、`tests/handler.test.ts`が偽クライアントで選果後コンテナの成功パス・追熟コンテナのRPC呼び出しパスとエラー系を検証する。SQLのテストは`supabase/tests/00190_ripening_label_rpc_test.sql`が`ripening_label_get`・ラベル印刷RPC（追熟）の動作を確認する。`.github/workflows/edge-functions-ci.yml`が`deno check`と合わせてCIで実行する。
 
 ## 未決事項
 
 - 対象プリンター・ブラウザでの実機印刷確認はADR-0002および[A5ラベル印刷検証記録](../printing/a5-label-verification.md)に従い実施する。印字可能領域・許容ずれ・一部再印刷単位は実機確認後に確定する。
-- 追熟ラベルのレイアウトはS1-09（#18）で追加する。

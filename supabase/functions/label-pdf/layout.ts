@@ -1,7 +1,6 @@
-// A5 sorting-label layout. Ports the FND-07 prototype (experiments/fnd-07)
-// without the prototype-only 100 mm calibration line. The same input and
-// layout version must reproduce the same PDF bytes, so all metadata dates are
-// fixed and the embedded font subset uses a fixed name.
+// A5 label layouts for sorted containers (S1-08) and ripening containers (S3-08).
+// The same input and layout version must reproduce the same PDF bytes, so all
+// metadata dates are fixed and the embedded font subset uses a fixed name.
 import { PDFDocument, type PDFFont, rgb } from "npm:pdf-lib@1.17.1";
 import fontkit from "npm:@pdf-lib/fontkit@1.1.1";
 
@@ -151,6 +150,109 @@ export async function buildSortingLabelPdf(
   drawField("等級", gradeCode);
   drawField("選果日", sortedOnLabel);
   drawField("担当者", workerName);
+
+  drawText("おおくま農園", MARGIN, MARGIN, 8, MUTED);
+
+  return await doc.save({ useObjectStreams: false });
+}
+
+// ── Ripening label (S3-08) ────────────────────────────────────────────────────
+
+export interface RipeningLabelData {
+  containerDisplayId: string;
+  orchardNames: string;
+  varietyName: string;
+  gradeCode: string;
+  netWeightKg: string;
+  injectionAt: string;    // ISO 8601 datetime
+  plannedRemovalAt: string | null;
+  plannedCompletionAt: string | null;
+  locationName: string;
+}
+
+export function formatJapaneseDateTime(iso: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso);
+  if (!match) {
+    throw new Error(`invalid datetime: ${iso}`);
+  }
+  return `${Number(match[1])}年${Number(match[2])}月${Number(match[3])}日 ${match[4]}:${match[5]}`;
+}
+
+export async function buildRipeningLabelPdf(
+  data: RipeningLabelData,
+  fontBytes: Uint8Array,
+): Promise<Uint8Array> {
+  const containerDisplayId = data.containerDisplayId?.trim();
+  if (!containerDisplayId) throw new Error("missing label field: containerDisplayId");
+  const netWeightKg = data.netWeightKg?.trim();
+  if (!netWeightKg || !/^\d+\.\d{2}$/.test(netWeightKg)) {
+    throw new Error(`netWeightKg must have two decimals: ${netWeightKg}`);
+  }
+
+  const doc = await PDFDocument.create();
+  doc.registerFontkit(fontkit);
+  const font = await doc.embedFont(fontBytes, {
+    subset: true,
+    customName: "NotoSansJP",
+  });
+  doc.setTitle("追熟コンテナラベル");
+  doc.setAuthor("おおくま農園 在庫管理システム");
+  doc.setCreator("kiwi-inventory label-pdf");
+  doc.setProducer(`kiwi-inventory label-pdf layout-v${LABEL_LAYOUT_VERSION}`);
+  doc.setCreationDate(FIXED_DATE);
+  doc.setModificationDate(FIXED_DATE);
+
+  const page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+  const drawText = (text: string, x: number, y: number, size: number, color = INK) =>
+    page.drawText(text, { x, y, size, font, color });
+  const drawFittedText = (
+    text: string,
+    x: number,
+    y: number,
+    preferredSize: number,
+    maxWidth: number,
+  ) => drawText(text, x, y, fitTextSize(font, text, preferredSize, maxWidth));
+
+  const top = PAGE_HEIGHT - MARGIN;
+  drawText("追熟コンテナラベル", MARGIN, top - 7 * MM, 12);
+
+  const idY = top - 24 * MM;
+  drawText("コンテナID", MARGIN, idY, 9, MUTED);
+  drawFittedText(containerDisplayId, MARGIN, idY - 10 * MM, 25, PAGE_WIDTH - 2 * MARGIN);
+
+  const weightY = idY - 34 * MM;
+  drawText("正味重量", MARGIN, weightY, 9, MUTED);
+  drawFittedText(`${netWeightKg} kg`, MARGIN, weightY - 17 * MM, 40, PAGE_WIDTH - 2 * MARGIN);
+
+  const dividerY = weightY - 25 * MM;
+  page.drawLine({
+    start: { x: MARGIN, y: dividerY },
+    end: { x: PAGE_WIDTH - MARGIN, y: dividerY },
+    thickness: 1.2,
+    color: INK,
+  });
+
+  let y = dividerY - 11 * MM;
+  const drawField = (label: string, value: string) => {
+    drawText(label, MARGIN, y, 9, MUTED);
+    const valueX = MARGIN + 34 * MM;
+    drawFittedText(value, valueX, y - 1, 13, PAGE_WIDTH - MARGIN - valueX);
+    page.drawLine({
+      start: { x: MARGIN, y: y - 5 * MM },
+      end: { x: PAGE_WIDTH - MARGIN, y: y - 5 * MM },
+      thickness: 0.6,
+      color: LINE,
+    });
+    y -= 13 * MM;
+  };
+
+  drawField("産地", data.orchardNames || "—");
+  drawField("品種", data.varietyName || "—");
+  drawField("等級", data.gradeCode || "—");
+  drawField("注入日時", data.injectionAt ? formatJapaneseDateTime(data.injectionAt) : "—");
+  drawField("抜き予定", data.plannedRemovalAt ? formatJapaneseDateTime(data.plannedRemovalAt) : "—");
+  drawField("出荷可能予定", data.plannedCompletionAt ? formatJapaneseDateTime(data.plannedCompletionAt) : "—");
+  drawField("場所", data.locationName || "—");
 
   drawText("おおくま農園", MARGIN, MARGIN, 8, MUTED);
 

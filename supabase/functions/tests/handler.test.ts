@@ -3,6 +3,7 @@ import {
   createHandler,
   LabelClient,
   QueryResult,
+  RipeningLabelRow,
 } from "../label-pdf/handler.ts";
 
 const fontBytes = await Deno.readFile(
@@ -15,6 +16,7 @@ const USER_ID = "e9000000-0000-4000-8000-000000000001";
 const containerRow = {
   display_id: "選果-2027-001-1",
   original_weight_kg: 18.4,
+  ripening_lot_id: null,
   grade: { code: "M" },
   variety: { name: "ヘイワード" },
   sorting_result: {
@@ -24,11 +26,35 @@ const containerRow = {
   },
 };
 
+const ripeningContainerRow = {
+  display_id: "追熟-2026-001-1",
+  original_weight_kg: 8.0,
+  ripening_lot_id: "d1000000-0000-4000-8000-000000000001",
+  grade: null,
+  variety: null,
+  sorting_result: null,
+};
+
+const ripeningLabelRow: RipeningLabelRow = {
+  container_id: CONTAINER_ID,
+  display_id: "追熟-2026-001-1",
+  weight_kg: 8.0,
+  location_name: "追熟庫",
+  variety_name: "ヘイワード",
+  grade_code: "L",
+  injection_at: "2026-09-01T10:00:00Z",
+  planned_removal_at: "2026-09-04T09:00:00Z",
+  planned_completion_at: "2026-09-20T09:00:00Z",
+  orchard_names: "おおくま農園",
+  allocations: [],
+};
+
 interface FakeConfig {
   user?: { id: string } | null;
   userError?: unknown;
   profile?: QueryResult<{ id: string }>;
   container?: QueryResult<unknown>;
+  ripening?: QueryResult<unknown>;
 }
 
 // Minimal Supabase client fake: table results are pre-seeded and the chainable
@@ -53,6 +79,12 @@ function fakeClient(config: FakeConfig): LabelClient {
         maybeSingle: <T>() => Promise.resolve(results[table] as QueryResult<T>),
       };
       return query;
+    },
+    rpc(_fn: string, _params: Record<string, unknown>) {
+      const result = config.ripening ?? { data: ripeningLabelRow, error: null };
+      return {
+        maybeSingle: <T>() => Promise.resolve(result as QueryResult<T>),
+      };
     },
   };
 }
@@ -148,4 +180,44 @@ Deno.test("a malformed container id is 400", async () => {
   assertEquals(res.status, 400);
   const body = await res.json();
   assertEquals(body.error.code, "VALIDATION_FAILED");
+});
+
+// Ripening container tests (S3-08) -------------------------------------------
+
+function ripeningHandlerWith(config: FakeConfig) {
+  return createHandler({
+    fontBytes,
+    createClient: () =>
+      fakeClient({
+        ...config,
+        container: config.container ?? { data: ripeningContainerRow, error: null },
+      }),
+  });
+}
+
+Deno.test("ripening container returns a PDF via ripening_label_get", async () => {
+  const res = await ripeningHandlerWith({})(getRequest());
+  assertEquals(res.status, 200);
+  assertEquals(res.headers.get("Content-Type"), "application/pdf");
+  const body = new Uint8Array(await res.arrayBuffer());
+  assert(body.length > 0, "non-empty PDF returned for ripening container");
+  assertEquals(String.fromCharCode(...body.subarray(0, 5)), "%PDF-");
+});
+
+Deno.test("ripening RPC not found returns 404", async () => {
+  const res = await ripeningHandlerWith({
+    ripening: { data: null, error: null },
+  })(getRequest());
+  assertEquals(res.status, 404);
+  const body = await res.json();
+  assertEquals(body.error.code, "CONTAINER_NOT_FOUND");
+});
+
+Deno.test("ripening RPC error returns 500", async () => {
+  const res = await ripeningHandlerWith({
+    ripening: { data: null, error: { message: "connection reset" } },
+  })(getRequest());
+  assertEquals(res.status, 500);
+  const body = await res.json();
+  assertEquals(body.error.code, "UNEXPECTED");
 });

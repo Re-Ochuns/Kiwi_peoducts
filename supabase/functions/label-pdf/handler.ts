@@ -3,9 +3,15 @@
 // injected fakes. The handler never writes to the database; print-state
 // changes are the label_* PostgreSQL RPCs, so a failed or retried generation
 // cannot leave inventory data inconsistent.
+//
+// S3-08: ripening containers are detected by the presence of ripening_lot_id.
+// Their label data comes from the ripening_label_get RPC instead of the
+// containers join, so the same entry point serves both label types.
 import {
+  buildRipeningLabelPdf,
   buildSortingLabelPdf,
   LABEL_LAYOUT_VERSION,
+  RipeningLabelData,
   SortingLabelData,
 } from "./layout.ts";
 
@@ -28,6 +34,7 @@ const UUID_PATTERN =
 export interface ContainerLabelRow {
   display_id: string;
   original_weight_kg: number | string;
+  ripening_lot_id: string | null;
   grade: { code: string } | null;
   variety: { name: string } | null;
   sorting_result: {
@@ -35,6 +42,21 @@ export interface ContainerLabelRow {
     worker: { display_name: string } | null;
     receiving_lot: { origin_name: string } | null;
   } | null;
+}
+
+// Shape returned by public.ripening_label_get(container_id_value).
+export interface RipeningLabelRow {
+  container_id: string;
+  display_id: string;
+  weight_kg: number | string;
+  location_name: string | null;
+  variety_name: string;
+  grade_code: string;
+  injection_at: string | null;
+  planned_removal_at: string | null;
+  planned_completion_at: string | null;
+  orchard_names: string | null;
+  allocations: Array<{ order_id: string; allocated_weight_kg: number }>;
 }
 
 export interface QueryResult<T> {
@@ -50,6 +72,10 @@ export interface LabelQuery {
   maybeSingle<T = unknown>(): Promise<QueryResult<T>>;
 }
 
+export interface RpcQuery {
+  maybeSingle<T = unknown>(): Promise<QueryResult<T>>;
+}
+
 export interface LabelClient {
   auth: {
     getUser(token: string): Promise<
@@ -57,6 +83,7 @@ export interface LabelClient {
     >;
   };
   from(table: string): LabelQuery;
+  rpc(fn: string, params: Record<string, unknown>): RpcQuery;
 }
 
 export interface HandlerDeps {
@@ -148,10 +175,11 @@ export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Resp
         return errorResponse(403, "AUTH_FORBIDDEN", "この操作を行う権限がありません。", correlationId);
       }
 
+      // Fetch container to detect its origin type (sorting vs. ripening).
       const { data: row, error: rowError } = await client
         .from("containers")
         .select(
-          `display_id, original_weight_kg,
+          `display_id, original_weight_kg, ripening_lot_id,
            grade:grades(code),
            variety:varieties(name),
            sorting_result:sorting_results(
@@ -165,21 +193,57 @@ export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Resp
       if (rowError) {
         throw new Error(`container query failed: ${rowError.message}`);
       }
-      if (!row || !row.sorting_result) {
+      if (!row) {
         logEvent({ outcome: "not_found", container_id: containerId, correlation_id: correlationId });
         return errorResponse(404, "CONTAINER_NOT_FOUND", "対象のコンテナが見つかりません。", correlationId);
       }
 
-      const labelData: SortingLabelData = {
-        containerDisplayId: row.display_id,
-        originName: row.sorting_result.receiving_lot?.origin_name ?? "",
-        varietyName: row.variety?.name ?? "",
-        gradeCode: row.grade?.code ?? "",
-        netWeightKg: Number(row.original_weight_kg).toFixed(2),
-        sortedOn: row.sorting_result.sorted_on,
-        workerName: row.sorting_result.worker?.display_name ?? "",
-      };
-      const pdf = await buildSortingLabelPdf(labelData, deps.fontBytes);
+      let pdf: Uint8Array;
+      let displayId: string;
+
+      if (row.ripening_lot_id) {
+        // ── Ripening container (S3-08) ──────────────────────────────────────
+        const { data: ripRow, error: ripError } = await client
+          .rpc("ripening_label_get", { container_id_value: containerId })
+          .maybeSingle<RipeningLabelRow>();
+        if (ripError) {
+          throw new Error(`ripening_label_get failed: ${ripError.message}`);
+        }
+        if (!ripRow) {
+          logEvent({ outcome: "not_found", container_id: containerId, correlation_id: correlationId });
+          return errorResponse(404, "CONTAINER_NOT_FOUND", "対象の追熟コンテナが見つかりません。", correlationId);
+        }
+        const labelData: RipeningLabelData = {
+          containerDisplayId: ripRow.display_id,
+          orchardNames: ripRow.orchard_names ?? "",
+          varietyName: ripRow.variety_name,
+          gradeCode: ripRow.grade_code,
+          netWeightKg: Number(ripRow.weight_kg).toFixed(2),
+          injectionAt: ripRow.injection_at ?? "",
+          plannedRemovalAt: ripRow.planned_removal_at ?? null,
+          plannedCompletionAt: ripRow.planned_completion_at ?? null,
+          locationName: ripRow.location_name ?? "",
+        };
+        pdf = await buildRipeningLabelPdf(labelData, deps.fontBytes);
+        displayId = ripRow.display_id;
+      } else {
+        // ── Sorting container (S1-08) ───────────────────────────────────────
+        if (!row.sorting_result) {
+          logEvent({ outcome: "not_found", container_id: containerId, correlation_id: correlationId });
+          return errorResponse(404, "CONTAINER_NOT_FOUND", "対象のコンテナが見つかりません。", correlationId);
+        }
+        const labelData: SortingLabelData = {
+          containerDisplayId: row.display_id,
+          originName: row.sorting_result.receiving_lot?.origin_name ?? "",
+          varietyName: row.variety?.name ?? "",
+          gradeCode: row.grade?.code ?? "",
+          netWeightKg: Number(row.original_weight_kg).toFixed(2),
+          sortedOn: row.sorting_result.sorted_on,
+          workerName: row.sorting_result.worker?.display_name ?? "",
+        };
+        pdf = await buildSortingLabelPdf(labelData, deps.fontBytes);
+        displayId = row.display_id;
+      }
 
       logEvent({
         outcome: "ok",
@@ -194,7 +258,7 @@ export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Resp
           ...CORS_HEADERS,
           "Content-Type": "application/pdf",
           "Content-Disposition":
-            `inline; filename="label.pdf"; filename*=UTF-8''${encodeURIComponent(row.display_id)}.pdf`,
+            `inline; filename="label.pdf"; filename*=UTF-8''${encodeURIComponent(displayId)}.pdf`,
           "Cache-Control": "no-store",
           "X-Label-Layout-Version": String(LABEL_LAYOUT_VERSION),
         },
