@@ -20,22 +20,24 @@ void main() {
       for (final stage in ['選果済み', '追熟', '寝かせ', '出荷可能']) {
         expect(find.text(stage), findsOneWidget);
       }
-      for (final summary in [
-        '1件　18.25 kg',
-        '1件　20.50 kg',
-        '1件　12.40 kg',
-        '1件　15.75 kg',
-      ]) {
-        expect(find.text(summary), findsOneWidget);
+      for (final summary in ['1コンテナ']) {
+        expect(find.text(summary), findsNWidgets(4));
+      }
+      for (final weight in ['18.25 kg', '20.50 kg', '12.40 kg', '15.75 kg']) {
+        expect(find.text(weight), findsWidgets);
       }
       expect(find.text('CONT-2026-0101'), findsOneWidget);
       expect(find.text('ヘイワード'), findsWidgets);
       expect(find.text('M'), findsWidgets);
-      expect(find.text('保管期限 未設定'), findsOneWidget);
-      expect(find.text('用途未確定'), findsOneWidget);
-      expect(find.text('○ 予備'), findsOneWidget);
-      expect(find.text('● 受注'), findsOneWidget);
-      expect(find.text('⊙ 複合'), findsOneWidget);
+      expect(find.text('保管期限'), findsOneWidget);
+      expect(find.text('未設定'), findsOneWidget);
+      expect(find.text('9/18 10:00'), findsOneWidget);
+      expect(find.text('9/19 14:00'), findsOneWidget);
+      expect(find.text('用途未確定'), findsNothing);
+      expect(find.text('予備'), findsOneWidget);
+      expect(find.text('受注'), findsOneWidget);
+      expect(find.text('複合'), findsOneWidget);
+      expect(find.text('詳細を見る →'), findsNothing);
     });
 
     testWidgets('選択した位置を保ったまま右側に詳細と次工程操作を開く', (tester) async {
@@ -80,7 +82,7 @@ void main() {
 
       expect(find.text('工程ボード'), findsOneWidget);
       expect(find.text('最新状態を読み込む'), findsOneWidget);
-      expect(find.text('18.25 kg'), findsOneWidget);
+      expect(find.text('18.25 kg'), findsWidgets);
       expect(tester.takeException(), isNull);
     });
 

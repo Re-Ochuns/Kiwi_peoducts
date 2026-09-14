@@ -138,6 +138,10 @@ void main() {
     final data = await SupabaseProcessBoardRepository(client).load();
 
     expect(data.itemsFor(ProcessStage.sorted).single.displayId, 'CONT-1');
+    expect(
+      data.itemsFor(ProcessStage.sorted).single.date,
+      DateTime(2026, 10, 14),
+    );
     expect(data.weightFor(ProcessStage.ripening), 650);
     expect(
       data.itemsFor(ProcessStage.ripening).single.nextTask?.type,
@@ -324,6 +328,7 @@ Map<String, Object?> _container({
   'ripening_lot_id': ripeningLotId,
   'shippable_from': '2026-09-20',
   'shippable_until': '2026-09-25',
+  'sorting_result': {'sorted_on': '2026-09-14'},
   'variety': {'name': 'ヘイワード'},
   'grade': {'code': 'M'},
   'location': {'code': 'cold-01', 'name': '第一冷蔵庫'},
