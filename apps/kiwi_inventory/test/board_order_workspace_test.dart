@@ -100,6 +100,7 @@ Future<void> pump(
                 repository: repo,
                 boardRepository: FakeProcessBoardRepository(),
                 inventoryOnly: true,
+                currentDate: DateTime(2027, 6, 1),
                 onBusyChanged: busy ?? (_) {},
               ),
             ),
@@ -112,10 +113,10 @@ Future<void> pump(
 }
 
 Future<void> search(WidgetTester tester) async {
-  await tester.enterText(
-    find.byKey(const Key('board-order-date')),
-    '2027-06-01',
-  );
+  await tester.tap(find.byKey(const Key('board-order-date')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('選択'));
+  await tester.pumpAndSettle();
   await select(tester, '品種', 'Hayward');
   await select(tester, '等級', 'M');
   await tester.enterText(find.byKey(const Key('board-order-weight')), '2.50');
@@ -300,6 +301,26 @@ void main() {
       expect(repo.searches, 1);
       expect(find.text('正の重量を入力'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'calendar cancellation preserves candidates and changing date clears them',
+    (tester) async {
+      await pump(tester, FakeBoardOrders());
+      await search(tester);
+      await tester.tap(find.byKey(const Key('board-order-date')));
+      await tester.pumpAndSettle();
+      expect(find.byType(CalendarDatePicker), findsOneWidget);
+      await tester.tap(find.text('キャンセル'));
+      await tester.pumpAndSettle();
+      expect(find.text('CANDIDATE-1'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('board-order-date')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('2').last);
+      await tester.tap(find.text('選択'));
+      await tester.pumpAndSettle();
+      expect(find.text('2027-06-02'), findsOneWidget);
+      expect(find.text('CANDIDATE-1'), findsNothing);
     },
   );
 }
