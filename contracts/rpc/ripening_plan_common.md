@@ -9,14 +9,14 @@
 | ripening_plan_confirm | ripening_lot_id、expected_version、reason | 内訳・予約合計、参照先を再検証しconfirmed |
 | ripening_plan_cancel | ripening_lot_id、expected_version、reason | 作業前の予約・受注割当を解除してcancelled |
 | ripening_plan_get | ripening_lot_id_value uuid | 内訳・予約付き詳細（参照は共通封筒なし） |
-| ripening_inventory_available | 引数なし | 冷蔵コンテナの現在量、予約量、使用可能量 |
+| ripening_inventory_available | 引数なし | 冷蔵コンテナの収穫月、現在量、予約量、使用可能量 |
 
 全計画項目: variety_id、grade_id、total_weight_kg、storage_location_id、
 planned_ethylene_at、planned_completion_at、assigned_worker_id、notes（任意）、
 allocations、reservations。日時はタイムゾーン付きISO 8601、完了は注入以降。
 重量は正の0.01kg単位。品種・等級・場所・担当者は有効なマスター。
 用途区分、集計量、状態、表示ID、version、master_snapshotはクライアント指定不可。
-明示した予定日時は保存し、収穫年度・月によるマスターのコピーと計算予定は
+明示した注入予定日時は保存する。完了予定日時は品種・収穫月によるマスターからサーバーで計算し、マスターのコピーと計算予定は
 [S3-04 追熟予定・期限](ripening_deadlines.md) の契約に従う。
 
 allocations: [{allocation_type: "order" | "reserve", order_id: UUID（orderのみ）,

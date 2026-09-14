@@ -29,7 +29,6 @@ class RipeningWorkPage extends StatefulWidget {
 
 class _RipeningWorkPageState extends State<RipeningWorkPage> {
   final _actualAtController = TextEditingController();
-  final _temperatureController = TextEditingController();
   final _restStartedAtController = TextEditingController();
   final _restTemperatureController = TextEditingController();
   final _notesController = TextEditingController();
@@ -65,7 +64,6 @@ class _RipeningWorkPageState extends State<RipeningWorkPage> {
   @override
   void dispose() {
     _actualAtController.dispose();
-    _temperatureController.dispose();
     _restStartedAtController.dispose();
     _restTemperatureController.dispose();
     _notesController.dispose();
@@ -167,7 +165,6 @@ class _RipeningWorkPageState extends State<RipeningWorkPage> {
     final canSubmit =
         !_submitting &&
         actualAt != null &&
-        _finiteNumber(_temperatureController.text) != null &&
         _locationId != null &&
         _workerId != null &&
         chronologyError == null &&
@@ -211,23 +208,6 @@ class _RipeningWorkPageState extends State<RipeningWorkPage> {
                 enabled: !_submitting,
                 onChanged: _inputChanged,
                 errorText: actualAt == null ? '日時を確認してください' : null,
-              ),
-              const SizedBox(height: 14),
-              _InputField(
-                key: const Key('ripening-work-temperature'),
-                controller: _temperatureController,
-                label: '実績温度（℃）',
-                enabled: !_submitting,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                  signed: true,
-                ),
-                onChanged: _inputChanged,
-                errorText:
-                    _temperatureController.text.isNotEmpty &&
-                        _finiteNumber(_temperatureController.text) == null
-                    ? '有限の数値を入力してください'
-                    : null,
               ),
               if (_type == RipeningWorkType.ethyleneRemoval) ...[
                 const SizedBox(height: 14),
@@ -358,20 +338,15 @@ class _RipeningWorkPageState extends State<RipeningWorkPage> {
 
   RipeningWorkInput? _input(RipeningWorkDetails details) {
     final actualAt = _parseInputDate(_actualAtController.text);
-    final temperature = _finiteNumber(_temperatureController.text);
     final locationId = _locationId;
     final workerId = _workerId;
-    if (actualAt == null ||
-        temperature == null ||
-        locationId == null ||
-        workerId == null) {
+    if (actualAt == null || locationId == null || workerId == null) {
       return null;
     }
     return RipeningWorkInput(
       ripeningLotId: details.id,
       expectedVersion: details.version,
       actualAt: actualAt,
-      actualTemperature: temperature,
       locationId: locationId,
       workerId: workerId,
       restStartedAt: _type == RipeningWorkType.ethyleneRemoval
@@ -409,10 +384,6 @@ class _RipeningWorkPageState extends State<RipeningWorkPage> {
               _SummaryRow(
                 label: '実績日時',
                 value: _formatDisplayDate(input.actualAt),
-              ),
-              _SummaryRow(
-                label: '実績温度',
-                value: '${_formatNumber(input.actualTemperature)} ℃',
               ),
               if (_type == RipeningWorkType.ethyleneRemoval) ...[
                 _SummaryRow(

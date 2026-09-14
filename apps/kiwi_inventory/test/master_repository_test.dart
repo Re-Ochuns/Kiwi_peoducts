@@ -3,12 +3,14 @@ import 'package:kiwi_inventory/master/master_repository.dart';
 import 'package:kiwi_inventory/master/supabase_master_repository.dart';
 
 void main() {
-  test('段階1の9マスターをRPC値とテーブルに対応付ける', () {
-    expect(MasterType.values, hasLength(9));
+  test('10種類のマスターをRPC値とテーブルに対応付ける', () {
+    expect(MasterType.values, hasLength(10));
     expect(MasterType.variety.rpcValue, 'variety');
     expect(MasterType.orchardPlot.rpcValue, 'orchard_plot');
     expect(MasterType.storageLocation.tableName, 'storage_locations');
     expect(MasterType.sortingDeadlineRule.tableName, 'sorting_deadline_rules');
+    expect(MasterType.ripeningRule.rpcValue, 'ripening_rule');
+    expect(MasterType.ripeningRule.tableName, 'ripening_rules');
     expect(MasterType.grade.canRegister, isFalse);
   });
 

@@ -136,7 +136,7 @@ void main() {
       expect(find.text('変更履歴'), findsNothing);
     });
 
-    testWidgets('段階1の9種類を一覧できる', (tester) async {
+    testWidgets('10種類を一覧できる', (tester) async {
       await _pumpMaster(tester, FakeMasterRepository());
       const cases = <MasterType, String>{
         MasterType.variety: 'hayward',
@@ -148,6 +148,7 @@ void main() {
         MasterType.worker: 'worker-01',
         MasterType.storageLocation: 'cold-01',
         MasterType.sortingDeadlineRule: '2026年9月',
+        MasterType.ripeningRule: 'エチレン 72時間・寝かせ 7日',
       };
 
       for (final entry in cases.entries) {
@@ -223,6 +224,45 @@ void main() {
       expect(repository.lastType, MasterType.variety);
       expect(repository.lastValues?['code'], 'rainbow-red');
       expect(repository.lastIdempotencyKey, isNotEmpty);
+    });
+
+    testWidgets('追熟マスターを新規登録する', (tester) async {
+      final repository = FakeMasterRepository();
+      await _pumpMaster(tester, repository);
+      await tester.tap(find.byKey(const Key('master-type')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('追熟マスター').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('新規登録'));
+      await tester.pumpAndSettle();
+
+      for (final entry in {
+        'harvest_month': '10',
+        'ethylene_temperature': '20',
+        'ethylene_hours': '72',
+        'rest_temperature': '15',
+        'rest_days': '7',
+        'shippable_days': '5',
+        'best_before_days': '7',
+      }.entries) {
+        await tester.enterText(
+          find.byKey(Key('master-field-${entry.key}')),
+          entry.value,
+        );
+      }
+      final varietyField = tester.widget<DropdownButtonFormField<String>>(
+        find.byKey(const Key('master-field-variety_id')),
+      );
+      varietyField.onChanged!('variety-1');
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('master-submit')));
+      await tester.pumpAndSettle();
+
+      expect(repository.registerCalls, 1);
+      expect(repository.lastType, MasterType.ripeningRule);
+      expect(repository.lastValues, isNot(contains('harvest_year')));
+      expect(repository.lastValues?['ethylene_hours'], 72.0);
+      expect(repository.lastValues?['variety_id'], 'variety-1');
     });
 
     testWidgets('変更理由を付けて品種を編集する', (tester) async {

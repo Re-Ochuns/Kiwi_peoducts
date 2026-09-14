@@ -87,7 +87,6 @@ class RipeningWorkInput {
     required this.ripeningLotId,
     required this.expectedVersion,
     required this.actualAt,
-    required this.actualTemperature,
     required this.locationId,
     required this.workerId,
     this.restStartedAt,
@@ -98,7 +97,6 @@ class RipeningWorkInput {
   final String ripeningLotId;
   final int expectedVersion;
   final DateTime actualAt;
-  final double actualTemperature;
   final String locationId;
   final String workerId;
   final DateTime? restStartedAt;
@@ -110,7 +108,6 @@ class RipeningWorkInput {
     'expected_version': expectedVersion,
     'checked': true,
     'actual_at': actualAt.toUtc().toIso8601String(),
-    'actual_temperature': actualTemperature,
     'location_id': locationId,
     'performed_by': workerId,
     'notes': notes?.trim().isEmpty == true ? null : notes?.trim(),

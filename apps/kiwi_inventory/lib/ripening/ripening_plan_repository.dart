@@ -15,6 +15,7 @@ class RipeningInventoryOption {
     required this.varietyLabel,
     required this.gradeId,
     required this.gradeLabel,
+    required this.harvestMonth,
     required this.availableWeightHundredths,
   });
 
@@ -24,6 +25,7 @@ class RipeningInventoryOption {
   final String varietyLabel;
   final String gradeId;
   final String gradeLabel;
+  final int harvestMonth;
   final int availableWeightHundredths;
 }
 
@@ -47,18 +49,34 @@ class RipeningOrderOption {
   final DateTime scheduledShipDate;
 }
 
+class RipeningRuleOption {
+  const RipeningRuleOption({
+    required this.harvestMonth,
+    required this.varietyId,
+    required this.ethyleneHours,
+    required this.restDays,
+  });
+
+  final int harvestMonth;
+  final String varietyId;
+  final double ethyleneHours;
+  final double restDays;
+}
+
 class RipeningPlanOptions {
   const RipeningPlanOptions({
     required this.inventories,
     required this.orders,
     required this.locations,
     required this.workers,
+    required this.rules,
   });
 
   final List<RipeningInventoryOption> inventories;
   final List<RipeningOrderOption> orders;
   final List<RipeningReferenceOption> locations;
   final List<RipeningReferenceOption> workers;
+  final List<RipeningRuleOption> rules;
 }
 
 enum RipeningAllocationType { order, reserve }

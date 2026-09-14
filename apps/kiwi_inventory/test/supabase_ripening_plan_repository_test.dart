@@ -18,6 +18,7 @@ void main() {
             'display_id': '在庫-1',
             'variety_id': 'variety-1',
             'grade_id': 'grade-m',
+            'harvest_month': 9,
             'available_weight_kg': 8.25,
           },
           {
@@ -25,6 +26,7 @@ void main() {
             'display_id': '在庫-2',
             'variety_id': 'variety-1',
             'grade_id': 'grade-m',
+            'harvest_month': 9,
             'available_weight_kg': 0,
           },
         ], request);
@@ -75,6 +77,16 @@ void main() {
           {'id': 'worker-1', 'code': 'W01', 'display_name': '岡本'},
         ], request);
       }
+      if (path.endsWith('/ripening_rules')) {
+        return _json([
+          {
+            'harvest_month': 9,
+            'variety_id': 'variety-1',
+            'ethylene_hours': 72,
+            'rest_days': 7,
+          },
+        ], request);
+      }
       throw StateError('unexpected request: $path');
     });
 
@@ -87,6 +99,10 @@ void main() {
     expect(options.orders.single.availableWeightHundredths, 650);
     expect(options.locations.single.label, 'ripening-01　第1追熟庫');
     expect(options.workers.single.label, 'W01　岡本');
+    expect(options.inventories.single.harvestMonth, 9);
+    expect(options.rules.single.harvestMonth, 9);
+    expect(options.rules.single.ethyleneHours, 72);
+    expect(options.rules.single.restDays, 7);
     await client.dispose();
   });
 
@@ -120,6 +136,14 @@ void main() {
     expect(meta['idempotency_key'], '00000000-0000-4000-8000-000000000001');
     expect(meta['correlation_id'], matches(RegExp(r'^[0-9a-f-]{36}$')));
     expect((request['input'] as Map<String, dynamic>)['total_weight_kg'], 10);
+    expect(
+      (request['input'] as Map<String, dynamic>),
+      isNot(contains('harvest_year')),
+    );
+    expect(
+      (request['input'] as Map<String, dynamic>),
+      isNot(contains('harvest_month')),
+    );
     expect(result.displayId, '追熟-2026-001');
     expect(result.version, 1);
     await client.dispose();
@@ -184,6 +208,7 @@ RipeningPlanInput _input() => RipeningPlanInput(
     varietyLabel: 'ヘイワード',
     gradeId: 'grade-m',
     gradeLabel: 'M',
+    harvestMonth: 9,
     availableWeightHundredths: 1000,
   ),
   totalWeightHundredths: 1000,

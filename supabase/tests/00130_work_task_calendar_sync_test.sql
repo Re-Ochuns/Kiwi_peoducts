@@ -7,6 +7,10 @@ insert into auth.users(id,email,raw_user_meta_data) values
  ('53000000-0000-0000-0000-000000000003','plan-admin@example.com','{}');
 select private.set_user_access('53000000-0000-0000-0000-000000000001','active',array['member']);
 select private.set_user_access('53000000-0000-0000-0000-000000000003','active',array['administrator']);
+insert into public.ripening_rules(harvest_year,harvest_month,variety_id,ethylene_temperature,
+ ethylene_hours,rest_temperature,rest_days,shippable_days,best_before_days)
+values(2000,5,'a1000000-0000-0000-0000-000000000001',20,168,15,3,5,7)
+on conflict do nothing;
 insert into public.customers(id,customer_code,name,postal_code,address)
 values('53100000-0000-0000-0000-000000000001','PLAN53','Dummy','000','Dummy');
 insert into public.shipping_destinations(id,customer_id,destination_name,recipient_name,postal_code,address)
@@ -55,7 +59,7 @@ select is(current_setting('test.plan')::jsonb->>'ok','true','plan confirms with 
 select is((select count(*) from public.work_tasks),3::bigint,'confirmation creates all three ripening tasks');
 select is((select scheduled_at from public.work_tasks where task_type='ethylene_removal_check'),
  '2027-05-17 00:00+00'::timestamptz,'removal uses configured duration');
-select is(current_setting('test.plan')::jsonb->'data'->'master_snapshot'->>'task_ethylene_processing_hours','168','processing hours are snapshotted');
+select is(current_setting('test.plan')::jsonb->'data'->'master_snapshot'->>'ethylene_hours','168','processing hours are snapshotted');
 select ok(not exists(select 1 from public.work_tasks where calendar_event_id is null),'stable event IDs assigned before external I/O');
 select ok(not exists(select 1 from public.work_tasks where task_details ? 'customer_name' or task_details ? 'address'),'task payload excludes customer PII');
 select ok(not exists(select 1 from public.work_tasks where target_url not like '/work-tasks/%'),'tasks carry target links');

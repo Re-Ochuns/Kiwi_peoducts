@@ -68,11 +68,7 @@ void main() {
     await tester.tap(find.text('作業を開く'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.byKey(const Key('ripening-work-temperature')),
-      '18.5',
-    );
-    await tester.pump();
+    expect(find.byKey(const Key('ripening-work-temperature')), findsNothing);
     await tester.ensureVisible(
       find.byKey(const Key('ripening-work-confirm-input')),
     );
@@ -87,18 +83,6 @@ void main() {
           .controller
           ?.text,
       '2026/09/12 10:00',
-    );
-    expect(
-      tester
-          .widget<TextField>(
-            find.descendant(
-              of: find.byKey(const Key('ripening-work-temperature')),
-              matching: find.byType(TextField),
-            ),
-          )
-          .controller
-          ?.text,
-      '18.5',
     );
     expect(
       tester
@@ -140,7 +124,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.lastType, RipeningWorkType.ethyleneInjection);
-    expect(repository.lastInput?.actualTemperature, 18.5);
     expect(repository.lastInput?.expectedVersion, 2);
     expect(find.text('完了を記録しました'), findsOneWidget);
     await tester.tap(find.text('ToDoへ戻る'));
@@ -161,10 +144,6 @@ void main() {
 
     expect(find.text('寝かせ開始日時（YYYY/MM/DD HH:mm）'), findsOneWidget);
     expect(find.text('寝かせ温度（℃）'), findsOneWidget);
-    await tester.enterText(
-      find.byKey(const Key('ripening-work-temperature')),
-      '19',
-    );
     await tester.enterText(
       find.byKey(const Key('ripening-work-rest-temperature')),
       '17',
@@ -187,11 +166,6 @@ void main() {
     final repository = FakeRipeningWorkRepository(completeFailures: 1);
     await tester.pumpWidget(_app(repository: repository));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('ripening-work-temperature')),
-      '18',
-    );
-    await tester.pump();
     await _confirm(tester);
 
     expect(find.text('完了結果を確認できませんでした。'), findsOneWidget);
@@ -206,11 +180,6 @@ void main() {
     final repository = FakeRipeningWorkRepository(conflict: true);
     await tester.pumpWidget(_app(repository: repository));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('ripening-work-temperature')),
-      '18',
-    );
-    await tester.pump();
     await _confirm(tester);
     repository.loadFailures = 1;
     await tester.ensureVisible(find.text('最新状態を読み込む'));
@@ -222,24 +191,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('最新情報を読み直してください。'), findsNothing);
     expect(repository.loadCalls, 3);
-    final field = tester.widget<TextField>(
-      find.descendant(
-        of: find.byKey(const Key('ripening-work-temperature')),
-        matching: find.byType(TextField),
-      ),
-    );
-    expect(field.controller!.text, '18');
+    expect(find.byKey(const Key('ripening-work-temperature')), findsNothing);
   });
 
   testWidgets('競合後は対象情報と送信versionを同じ最新詳細へ更新する', (tester) async {
     final repository = FakeRipeningWorkRepository(conflict: true);
     await tester.pumpWidget(_app(repository: repository));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('ripening-work-temperature')),
-      '18',
-    );
-    await tester.pump();
     await _confirm(tester);
     final old = repository.details;
     repository.details = RipeningWorkDetails(
@@ -275,7 +233,6 @@ void main() {
     repository.conflict = false;
     await _confirm(tester);
     expect(repository.lastInput!.expectedVersion, 9);
-    expect(repository.lastInput!.actualTemperature, 18);
   });
 
   testWidgets('読込失敗から再試行できる', (tester) async {

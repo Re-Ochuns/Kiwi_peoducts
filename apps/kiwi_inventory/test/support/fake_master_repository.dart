@@ -196,6 +196,18 @@ MasterCatalog sampleMasterCatalog({required bool canManage}) {
           'deadline_days': 30,
         }),
       ],
+      MasterType.ripeningRule: [
+        record(MasterType.ripeningRule, 'ripening-rule-1', {
+          'harvest_month': 9,
+          'variety_id': 'variety-1',
+          'ethylene_temperature': 20.0,
+          'ethylene_hours': 72.0,
+          'rest_temperature': 15.0,
+          'rest_days': 7.0,
+          'shippable_days': 5.0,
+          'best_before_days': 7.0,
+        }),
+      ],
     },
   );
 }
