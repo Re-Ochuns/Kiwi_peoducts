@@ -5,6 +5,7 @@ import {
   assertThrows,
 } from "jsr:@std/assert@1";
 import {
+  buildReceivingLabelsPdf,
   buildRipeningLabelPdf,
   buildSortingLabelPdf,
   buildSortingLabelsPdf,
@@ -164,6 +165,80 @@ Deno.test("formats sorted dates in Japanese", () => {
   assertEquals(formatJapaneseDate("2027-10-15"), "2027年10月15日");
   assertEquals(formatJapaneseDate("2028-05-01"), "2028年5月1日");
   assertThrows(() => formatJapaneseDate("2028/05/01"));
+});
+
+// Receiving temporary labels (Issue #112) -----------------------------------
+
+const receivingBase = {
+  receivingLotDisplayId: "受入-2027-001",
+  receivedOn: "2027-10-14",
+  originName: "おおくま農園 第一圃場・A区画",
+  varietyName: "ヘイワード",
+  totalWeightKg: "34.60",
+  containerCount: 3,
+  sortingUrl:
+    "https://kiwi.example.test/sorting/e6000000-0000-4000-8000-000000000001",
+};
+
+Deno.test("receiving: generates one monochrome A5 page per container", async () => {
+  const pdf = await buildReceivingLabelsPdf(receivingBase, sortingFontBytes);
+  const doc = await PDFDocument.load(pdf);
+  assertEquals(doc.getPageCount(), 3);
+  for (const page of doc.getPages()) {
+    assert(Math.abs(page.getWidth() - A5_WIDTH_POINTS) < 0.2);
+    assert(Math.abs(page.getHeight() - A5_HEIGHT_POINTS) < 0.2);
+  }
+});
+
+Deno.test("receiving: same input reproduces identical bytes", async () => {
+  const first = await buildReceivingLabelsPdf(receivingBase, sortingFontBytes);
+  const second = await buildReceivingLabelsPdf(receivingBase, sortingFontBytes);
+  assertEquals(first, second);
+});
+
+Deno.test("receiving: rejects unsafe or revealing sorting URLs", async () => {
+  await assertRejects(
+    () =>
+      buildReceivingLabelsPdf(
+        { ...receivingBase, sortingUrl: "http://kiwi.example.test/sorting/x" },
+        sortingFontBytes,
+      ),
+    Error,
+    "HTTPS sorting link",
+  );
+  await assertRejects(
+    () =>
+      buildReceivingLabelsPdf(
+        {
+          ...receivingBase,
+          sortingUrl: `${receivingBase.sortingUrl}?品種=ヘイワード`,
+        },
+        sortingFontBytes,
+      ),
+    Error,
+    "HTTPS sorting link",
+  );
+});
+
+Deno.test("receiving: rejects invalid count and weight", async () => {
+  await assertRejects(
+    () =>
+      buildReceivingLabelsPdf(
+        { ...receivingBase, containerCount: 0 },
+        sortingFontBytes,
+      ),
+    Error,
+    "positive integer",
+  );
+  await assertRejects(
+    () =>
+      buildReceivingLabelsPdf(
+        { ...receivingBase, totalWeightKg: "34.6" },
+        sortingFontBytes,
+      ),
+    Error,
+    "two decimals",
+  );
 });
 
 // Ripening label (S3-08) -----------------------------------------------------

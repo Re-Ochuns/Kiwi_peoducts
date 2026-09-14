@@ -183,6 +183,12 @@ class _BatchLabelRepository implements LabelRepository {
   }
 
   @override
+  Future<LabelPdf> fetchReceivingBatchPdf({
+    required String receivingLotId,
+    required int expectedPageCount,
+  }) => throw UnimplementedError();
+
+  @override
   Future<LabelBatchActionResult> markSortingBatchPrinted({
     required String sortingResultId,
     required String workerId,

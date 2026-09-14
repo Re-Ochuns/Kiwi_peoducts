@@ -86,6 +86,14 @@ void main() {
       authRedirectTo(Uri.parse('https://example.test/?code=secret')),
       'https://example.test',
     );
+    expect(
+      authRedirectTo(
+        Uri.parse(
+          'https://example.test/sorting/e6000000-0000-4000-8000-000000000001',
+        ),
+      ),
+      'https://example.test/#/sorting/e6000000-0000-4000-8000-000000000001',
+    );
   });
   testWidgets('signed-out deep link should expose login', (tester) async {
     tester.binding.platformDispatcher.defaultRouteNameTestValue =

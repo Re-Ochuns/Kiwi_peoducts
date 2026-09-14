@@ -12,12 +12,14 @@ class SortingTargetPage extends StatefulWidget {
   const SortingTargetPage({
     required this.repository,
     this.labelRepository,
+    this.initialLotId,
     this.currentDate,
     super.key,
   });
 
   final SortingRepository repository;
   final LabelRepository? labelRepository;
+  final String? initialLotId;
   final DateTime? currentDate;
 
   @override
@@ -28,6 +30,8 @@ class _SortingTargetPageState extends State<SortingTargetPage> {
   final _searchController = TextEditingController();
   SortingLoadData? _data;
   SortingFailure? _error;
+  String? _initialRouteMessage;
+  bool _initialRouteHandled = false;
 
   @override
   void initState() {
@@ -55,6 +59,7 @@ class _SortingTargetPageState extends State<SortingTargetPage> {
       final data = await widget.repository.load();
       if (!mounted) return;
       setState(() => _data = data);
+      await _openInitialLot(data);
     } on SortingFailure catch (failure) {
       if (!mounted) return;
       setState(() => _error = failure);
@@ -68,6 +73,26 @@ class _SortingTargetPageState extends State<SortingTargetPage> {
         ),
       );
     }
+  }
+
+  Future<void> _openInitialLot(SortingLoadData data) async {
+    final initialLotId = widget.initialLotId;
+    if (_initialRouteHandled || initialLotId == null) return;
+    _initialRouteHandled = true;
+    SortingLot? target;
+    for (final lot in data.lots) {
+      if (lot.id == initialLotId) {
+        target = lot;
+        break;
+      }
+    }
+    if (target == null) {
+      setState(() {
+        _initialRouteMessage = '対象が見つからないか、すでに選果が完了しています。';
+      });
+      return;
+    }
+    await _openInput(data, target);
   }
 
   @override
@@ -123,6 +148,18 @@ class _SortingTargetPageState extends State<SortingTargetPage> {
                     style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 20),
+                  if (_initialRouteMessage != null) ...[
+                    Text(
+                      _initialRouteMessage!,
+                      key: const Key('sorting-deep-link-message'),
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   const Text('検索', style: _fieldLabelStyle),
                   const SizedBox(height: 8),
                   TextField(

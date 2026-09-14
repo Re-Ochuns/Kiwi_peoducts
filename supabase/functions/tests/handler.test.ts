@@ -4,6 +4,8 @@ import {
   createHandler,
   LabelClient,
   QueryResult,
+  ReceivingLabelRow,
+  receivingSortingUrl,
   RipeningLabelRow,
   SortingLabelBatchRow,
 } from "../label-pdf/handler.ts";
@@ -23,6 +25,7 @@ const ripeningFontBytes = await Deno.readFile(
 
 const CONTAINER_ID = "e8000000-0000-4000-8000-000000000001";
 const USER_ID = "e9000000-0000-4000-8000-000000000001";
+const RECEIVING_LOT_ID = "e6000000-0000-4000-8000-000000000001";
 
 const containerRow = {
   display_id: "選果-2027-001-1",
@@ -100,6 +103,17 @@ const sortingLabelBatchRow: SortingLabelBatchRow = {
   ],
 };
 
+const receivingLabelRow: ReceivingLabelRow = {
+  id: RECEIVING_LOT_ID,
+  display_id: "受入-2027-001",
+  received_on: "2027-10-14",
+  origin_name: "おおくま農園 第一圃場・A区画",
+  total_weight_kg: 34.6,
+  container_count: 3,
+  status: "awaiting_sorting",
+  variety: { name: "ヘイワード" },
+};
+
 interface FakeConfig {
   user?: { id: string } | null;
   userError?: unknown;
@@ -107,6 +121,7 @@ interface FakeConfig {
   container?: QueryResult<unknown>;
   ripening?: QueryResult<unknown>;
   sortingBatch?: QueryResult<unknown>;
+  receivingLot?: QueryResult<unknown>;
 }
 
 // Minimal Supabase client fake: table results are pre-seeded and the chainable
@@ -115,6 +130,10 @@ function fakeClient(config: FakeConfig): LabelClient {
   const results: Record<string, QueryResult<unknown>> = {
     profiles: config.profile ?? { data: { id: USER_ID }, error: null },
     containers: config.container ?? { data: containerRow, error: null },
+    receiving_lots: config.receivingLot ?? {
+      data: receivingLabelRow,
+      error: null,
+    },
   };
   return {
     auth: {
@@ -149,6 +168,7 @@ function handlerWith(config: FakeConfig) {
   return createHandler({
     sortingFontBytes,
     ripeningFontBytes,
+    appBaseUrl: "https://kiwi.example.test",
     createClient: () => fakeClient(config),
   });
 }
@@ -324,12 +344,74 @@ Deno.test("request rejects both container and sorting result ids", async () => {
   assertEquals(res.status, 400);
 });
 
+// Receiving temporary label tests (Issue #112) -------------------------------
+
+function receivingRequest(expectedPageCount = 3) {
+  return new Request("http://localhost/label-pdf", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer token",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      receiving_lot_id: RECEIVING_LOT_ID,
+      expected_page_count: expectedPageCount,
+    }),
+  });
+}
+
+Deno.test("receiving lot returns one monochrome A5 page per container", async () => {
+  const res = await handlerWith({})(receivingRequest());
+  assertEquals(res.status, 200);
+  const pdf = await PDFDocument.load(await res.arrayBuffer());
+  assertEquals(pdf.getPageCount(), 3);
+  assertEquals(res.headers.get("X-Label-Page-Count"), "3");
+  assert(
+    (res.headers.get("Content-Disposition") ?? "").includes(
+      "-receiving-labels.pdf",
+    ),
+  );
+});
+
+Deno.test("receiving lot rejects a page-count mismatch", async () => {
+  const res = await handlerWith({})(receivingRequest(2));
+  assertEquals(res.status, 409);
+  assertEquals((await res.json()).error.code, "LABEL_COUNT_MISMATCH");
+});
+
+Deno.test("receiving lot that is no longer awaiting sorting is rejected", async () => {
+  const res = await handlerWith({
+    receivingLot: {
+      data: { ...receivingLabelRow, status: "sorted" },
+      error: null,
+    },
+  })(receivingRequest());
+  assertEquals(res.status, 409);
+  assertEquals((await res.json()).error.code, "RECEIVING_LOT_NOT_AVAILABLE");
+});
+
+Deno.test("unknown receiving lot returns 404", async () => {
+  const res = await handlerWith({
+    receivingLot: { data: null, error: null },
+  })(receivingRequest());
+  assertEquals(res.status, 404);
+  assertEquals((await res.json()).error.code, "RECEIVING_LOT_NOT_FOUND");
+});
+
+Deno.test("sorting QR URL contains only the opaque receiving lot id", () => {
+  assertEquals(
+    receivingSortingUrl("https://kiwi.example.test", RECEIVING_LOT_ID),
+    `https://kiwi.example.test/sorting/${RECEIVING_LOT_ID}`,
+  );
+});
+
 // Ripening container tests (S3-08) -------------------------------------------
 
 function ripeningHandlerWith(config: FakeConfig) {
   return createHandler({
     sortingFontBytes,
     ripeningFontBytes,
+    appBaseUrl: "https://kiwi.example.test",
     createClient: () =>
       fakeClient({
         ...config,

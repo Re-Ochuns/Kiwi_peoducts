@@ -115,6 +115,28 @@ void main() {
       expect(find.text('再試行'), findsNothing);
       expect(repository.loadCalls, 1);
     });
+
+    testWidgets('QRリンクの受入ロットを読み込み後すぐ選果入力へ開く', (tester) async {
+      await _pumpTargets(
+        tester,
+        FakeSortingRepository(),
+        initialLotId: testLot.id,
+      );
+
+      expect(find.text('選果入力'), findsOneWidget);
+      expect(find.text(testLot.displayId), findsOneWidget);
+    });
+
+    testWidgets('QRリンクの対象がない場合は理由と選果対象一覧を表示する', (tester) async {
+      await _pumpTargets(
+        tester,
+        FakeSortingRepository(),
+        initialLotId: 'missing-lot',
+      );
+
+      expect(find.text('対象が見つからないか、すでに選果が完了しています。'), findsOneWidget);
+      expect(find.text('選果対象'), findsOneWidget);
+    });
   });
 
   group('選果入力', () {
@@ -262,6 +284,7 @@ Future<void> _pumpTargets(
   FakeSortingRepository repository, {
   Size size = const Size(390, 844),
   LabelRepository? labelRepository,
+  String? initialLotId,
 }) async {
   await _setSurface(tester, size);
   await tester.pumpWidget(
@@ -270,6 +293,7 @@ Future<void> _pumpTargets(
       home: SortingTargetPage(
         repository: repository,
         labelRepository: labelRepository,
+        initialLotId: initialLotId,
         currentDate: DateTime(2026, 9, 10),
       ),
     ),
@@ -302,6 +326,12 @@ class _SortingLabelRepository implements LabelRepository {
       filename: '$sortingResultId-labels.pdf',
     );
   }
+
+  @override
+  Future<LabelPdf> fetchReceivingBatchPdf({
+    required String receivingLotId,
+    required int expectedPageCount,
+  }) => throw UnimplementedError();
 
   @override
   Future<LabelBatchActionResult> markSortingBatchPrinted({
