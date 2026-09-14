@@ -33,6 +33,7 @@
 | [08_DESIGN_REQUIREMENTS.md](08_DESIGN_REQUIREMENTS.md) | スマホ・PCの情報設計、表示、操作、レスポンシブ、受け入れ基準 |
 | [09_DEVELOPMENT_WORKFLOW.md](09_DEVELOPMENT_WORKFLOW.md) | 共同開発、Issue・PR、UI変更、レビュー運用 |
 | [10_ISSUE_BACKLOG.md](10_ISSUE_BACKLOG.md) | GitHubへ発行するIssue、依存関係、マイルストーン |
+| [11_ORDER_INVENTORY_RESERVATION.md](11_ORDER_INVENTORY_RESERVATION.md) | 在庫選択から始める受注・受注時予約への変更 |
 
 システム構成と技術判断は [Architecture Decision Records](../docs/adr/README.md) に記録する。業務要件とADRが矛盾する場合は、本ディレクトリの要件を優先し、変更Issueで解消する。
 

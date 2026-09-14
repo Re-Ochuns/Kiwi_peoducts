@@ -168,6 +168,7 @@ class OrderDetail {
     required this.address,
     required this.notes,
     required this.allocations,
+    this.reservations = const [],
   });
 
   final OrderItem item;
@@ -178,6 +179,7 @@ class OrderDetail {
   final String address;
   final String notes;
   final List<OrderAllocation> allocations;
+  final List<OrderStockReservation> reservations;
 }
 
 class OrderAllocation {
@@ -272,6 +274,7 @@ class OrderInput {
     required this.gradeId,
     required this.orderedWeight,
     required this.notes,
+    this.reservations,
   });
   final String customerId;
   final String destinationId;
@@ -281,6 +284,7 @@ class OrderInput {
   final String gradeId;
   final double orderedWeight;
   final String notes;
+  final List<OrderStockReservation>? reservations;
 }
 
 class OrderManagementFailure implements Exception {
@@ -361,4 +365,59 @@ String createOrderIdempotencyKey() {
       .join();
   return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
       '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
+}
+
+class OrderStock {
+  const OrderStock({
+    required this.id,
+    required this.displayId,
+    required this.varietyId,
+    required this.gradeId,
+    required this.varietyLabel,
+    required this.gradeLabel,
+    required this.current,
+    required this.reserved,
+    required this.available,
+    this.ownReserved = 0,
+    this.origin = '',
+    this.sortedOn = '',
+    this.location = '',
+  });
+  final String id,
+      displayId,
+      varietyId,
+      gradeId,
+      varietyLabel,
+      gradeLabel,
+      origin,
+      sortedOn,
+      location;
+  final int current, reserved, available, ownReserved;
+}
+
+class OrderStockReservation {
+  const OrderStockReservation({
+    required this.containerId,
+    required this.displayId,
+    required this.weightHundredths,
+    this.plannedHundredths = 0,
+    this.availableToOrderHundredths,
+  });
+  final String containerId, displayId;
+  final int weightHundredths, plannedHundredths;
+  final int? availableToOrderHundredths;
+  Map<String, Object> toJson() => {
+    'container_id': containerId,
+    'reserved_weight_kg': weightHundredths / 100,
+  };
+}
+
+abstract interface class OrderInventoryRepository {
+  Future<List<OrderStock>> loadInventory({
+    String search = '',
+    String? varietyId,
+    String? gradeId,
+    int offset = 0,
+    String? orderId,
+  });
 }

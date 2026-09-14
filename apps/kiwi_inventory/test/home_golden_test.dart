@@ -24,6 +24,11 @@ import 'package:kiwi_inventory/ripening_work/ripening_work_page.dart';
 import 'package:kiwi_inventory/work_tasks/work_task_repository.dart';
 
 import 'support/golden_test_environment.dart';
+import 'support/fake_order_inventory_repository.dart';
+
+import 'package:kiwi_inventory/orders/order_management_page.dart';
+import 'package:kiwi_inventory/orders/order_management_repository.dart';
+
 import 'support/fake_csv_export_repository.dart';
 import 'support/fake_master_repository.dart';
 import 'support/fake_ripening_plan_repository.dart';
@@ -36,6 +41,27 @@ import 'support/fake_process_board_repository.dart';
 void main() {
   final goldenDate = DateTime(2026, 9, 8);
   setUpAll(loadGoldenTestFont);
+  for (final width in [900.0, 1280.0]) {
+    testWidgets('${width.toInt()}pxの受注前在庫選択', (tester) async {
+      configureGoldenView(tester, Size(width, 900));
+      final repository = FakeOrderInventoryRepository();
+      final data = await repository.load(filter: OrderListFilter.active);
+      await tester.pumpWidget(
+        MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: buildAppTheme(fontFamily: goldenFontFamily),
+          home: Scaffold(
+            body: OrderFormDialog(repository: repository, data: data),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/order_stock_${width.toInt()}.png'),
+      );
+    });
+  }
 
   testWidgets('390pxのログイン画面', (tester) async {
     configureGoldenView(tester, const Size(390, 844));
