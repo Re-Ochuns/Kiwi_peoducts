@@ -1585,7 +1585,7 @@ class _OrderFormDialogState extends State<OrderFormDialog> {
 
   int _stockWeight(String text) {
     final value = double.tryParse(text);
-    return value == null || !value.isFinite || value < 0
+    return value == null || !(value * 100).isFinite || value < 0
         ? 0
         : (value * 100).round();
   }

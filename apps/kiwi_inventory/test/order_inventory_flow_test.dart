@@ -32,9 +32,25 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('order-customer')), findsOneWidget);
       expect(repo.registerOrderCalls, 0);
+      for (final invalid in ['NaN', '1e308', '1.001', '-1']) {
+        await tester.enterText(
+          find.byKey(const Key('order-stock-stock-1')),
+          invalid,
+        );
+        await tester.tap(find.byKey(const Key('order-confirm-input')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('order-save')), findsNothing);
+        expect(tester.takeException(), isNull);
+      }
+      await tester.enterText(
+        find.byKey(const Key('order-stock-stock-1')),
+        '1.00',
+      );
+      await tester.pumpAndSettle();
       await tester.ensureVisible(find.byKey(const Key('order-notes')));
       await tester.enterText(find.byKey(const Key('order-notes')), '入力を保持');
       await tester.ensureVisible(find.text('在庫を再選択'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('在庫を再選択'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('order-stock-next')));
