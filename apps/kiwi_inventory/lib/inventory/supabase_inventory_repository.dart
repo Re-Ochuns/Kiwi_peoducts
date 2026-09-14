@@ -23,10 +23,7 @@ class SupabaseInventoryRepository implements InventoryRepository {
   @override
   Future<InventoryPageData> loadPage(InventoryQuery query) async {
     try {
-      dynamic request = _client
-          .from('containers')
-          .select(_itemColumns)
-          .count(CountOption.exact);
+      var request = _client.from('containers').select(_itemColumns);
       final search = query.search.trim();
       if (search.isNotEmpty) {
         request = request.ilike('display_id', '%$search%');
@@ -35,7 +32,7 @@ class SupabaseInventoryRepository implements InventoryRepository {
         request = request.eq('status', query.status!.value);
       }
 
-      request = switch (query.sort) {
+      final sortedRequest = switch (query.sort) {
         InventorySort.updatedDescending =>
           request.order('updated_at', ascending: false).order('display_id'),
         InventorySort.displayIdAscending =>
@@ -47,16 +44,17 @@ class SupabaseInventoryRepository implements InventoryRepository {
       };
 
       final start = query.page * query.pageSize;
-      final response = await request
+      final response = await sortedRequest
           .range(start, start + query.pageSize - 1)
+          .count(CountOption.exact)
           .timeout(const Duration(seconds: 10));
-      final rows = response.data as List;
+      final rows = response.data;
       return InventoryPageData(
         items: [
           for (final value in rows)
             _itemFromRow(Map<String, dynamic>.from(value as Map)),
         ],
-        totalCount: response.count as int? ?? rows.length,
+        totalCount: response.count,
         page: query.page,
         pageSize: query.pageSize,
       );
