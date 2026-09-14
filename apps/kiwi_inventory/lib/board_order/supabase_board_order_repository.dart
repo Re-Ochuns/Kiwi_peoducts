@@ -27,9 +27,13 @@ class SupabaseBoardOrderRepository implements BoardOrderRepository {
     }
   }
 
-  List<BoardOrderOption> _options(dynamic rows, String label) => [
+  List<BoardOrderOption> _options(
+    dynamic rows,
+    String label, {
+    String idField = 'id',
+  }) => [
     for (final row in rows as List)
-      BoardOrderOption(row['id'] as String, row[label] as String),
+      BoardOrderOption(row[idField] as String, row[label] as String),
   ];
 
   @override
@@ -60,7 +64,7 @@ class SupabaseBoardOrderRepository implements BoardOrderRepository {
     return BoardOrderOptions(
       varieties: _options(data[0], 'name'),
       grades: _options(data[1], 'code'),
-      customers: _options(data[2], 'name'),
+      customers: _options(data[2], 'name', idField: 'customer_id'),
       locations: _options(data[3], 'name'),
       workers: _options(data[4], 'display_name'),
     );
@@ -74,6 +78,7 @@ class SupabaseBoardOrderRepository implements BoardOrderRepository {
         params: {'customer_id_value': customerId, 'include_inactive': false},
       ),
       'destination_name',
+      idField: 'shipping_destination_id',
     ),
   );
 
