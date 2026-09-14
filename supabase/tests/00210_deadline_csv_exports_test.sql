@@ -14,7 +14,7 @@ insert into public.ripening_rules(id,harvest_year,harvest_month,variety_id,
   ethylene_temperature,ethylene_hours,rest_temperature,rest_days,shippable_days,best_before_days,is_active)
 values
  ('96000000-0000-4000-8000-000000000012',2026,11,'96000000-0000-4000-8000-000000000010',20,48,15,3,5,7,true),
- ('96000000-0000-4000-8000-000000000011',2025,10,'96000000-0000-4000-8000-000000000010',18,72,14,4,6,8,false);
+ ('96000000-0000-4000-8000-000000000011',2099,10,'96000000-0000-4000-8000-000000000010',18,72,14,4,6,8,false);
 insert into public.change_history(id,entity_type,entity_id,operation,before_data,after_data,reason,changed_by,changed_at)
 values
  ('96000000-0000-4000-8000-000000000020','master','96000000-0000-4000-8000-000000000012','update','{}','{}','手動更新','96000000-0000-4000-8000-000000000001','2026-09-13T00:00:00Z'),

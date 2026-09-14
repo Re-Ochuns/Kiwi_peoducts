@@ -157,6 +157,15 @@ update results set data=public.ripening_plan_register(req) where name='plan';
 select is((select data->>'ok' from results where name='plan'),'true','plan derives harvest month from inventory');
 select is((select data->'data'->>'harvest_month' from results where name='plan'),'5','receiving month is stored on plan');
 select is((select data->'data'->'master_snapshot'->>'ethylene_hours' from results where name='plan'),'48','month and variety select the master');
+reset role;
+select ok(exists(select 1 from public.change_history
+  where entity_type='ripening_lot' and entity_id=(select (data->'data'->>'id')::uuid from results where name='plan')
+    and reason='品種・収穫月別の追熟条件保存'
+    and after_data->'master_snapshot'->>'ethylene_hours'='48'
+    and after_data->>'planned_completion_at' is not null),
+  'derived master and completion are retained in change history');
+set local role authenticated;
+select set_config('request.jwt.claim.sub','41000000-0000-0000-0000-000000000002',true);
 create function pg_temp.lot_id() returns uuid language sql as $$select (data->'data'->>'id')::uuid from results where name='plan'$$;
 select is((select calculated_removal_at from public.ripening_lots where id=pg_temp.lot_id()),'2030-06-03 00:00Z'::timestamptz,'planned removal uses snapshotted duration');
 select set_config('request.jwt.claim.sub','41000000-0000-0000-0000-000000000003',true);
