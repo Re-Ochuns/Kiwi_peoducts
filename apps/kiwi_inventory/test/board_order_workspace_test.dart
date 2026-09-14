@@ -285,4 +285,21 @@ void main() {
     expect(repo.input!.containsKey('assigned_worker_id'), isFalse);
     expect(repo.input!.containsKey('storage_location_id'), isFalse);
   });
+  testWidgets(
+    'order weight above the database limit is rejected before search',
+    (tester) async {
+      final repo = FakeBoardOrders();
+      await pump(tester, repo);
+      await search(tester);
+      await tester.enterText(
+        find.byKey(const Key('board-order-weight')),
+        '10000000000',
+      );
+      await tester.tap(find.text('候補を表示'));
+      await tester.pumpAndSettle();
+      expect(repo.searches, 1);
+      expect(find.text('正の重量を入力'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
