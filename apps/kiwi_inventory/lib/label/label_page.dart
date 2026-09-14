@@ -773,8 +773,13 @@ class _LabelDetailPageState extends State<LabelDetailPage> {
               label: '正味重量',
               value: '${formatWeight(job.weightHundredths)} kg',
             ),
-            _DialogValue(label: '選果日', value: _formatDate(job.sortedOn)),
-            _DialogValue(label: '選果担当者', value: job.workerName),
+            if (job.isRipening)
+              for (final field in job.ripeningFields!.entries)
+                _DialogValue(label: field.key, value: field.value)
+            else ...[
+              _DialogValue(label: '選果日', value: _formatDate(job.sortedOn!)),
+              _DialogValue(label: '選果担当者', value: job.workerName),
+            ],
           ],
         ),
         actions: [
@@ -918,8 +923,13 @@ class _LabelPreview extends StatelessWidget {
           _PreviewRow(label: '産地・区画', value: job.originName),
           _PreviewRow(label: '品種', value: job.varietyName),
           _PreviewRow(label: '等級', value: job.gradeCode),
-          _PreviewRow(label: '選果日', value: _formatDate(job.sortedOn)),
-          _PreviewRow(label: '担当者', value: job.workerName),
+          if (job.isRipening)
+            for (final field in job.ripeningFields!.entries)
+              _PreviewRow(label: field.key, value: field.value)
+          else ...[
+            _PreviewRow(label: '選果日', value: _formatDate(job.sortedOn!)),
+            _PreviewRow(label: '担当者', value: job.workerName),
+          ],
         ],
       ),
     );

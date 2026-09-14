@@ -40,7 +40,7 @@ class SupabaseLabelRepository implements LabelRepository {
           .select(
             'id, created_at, status, required_copies, printed_copies, reprint_count, '
             'container:containers!label_jobs_container_id_fkey('
-            'id, display_id, original_weight_kg, '
+            'id, display_id, original_weight_kg, ripening_lot_id, '
             'grade:grades!containers_grade_id_fkey(code), '
             'variety:varieties!containers_variety_id_fkey(name), '
             'sorting_result:sorting_results!containers_sorting_result_id_fkey('
@@ -81,6 +81,7 @@ class SupabaseLabelRepository implements LabelRepository {
       final rows = results[0] as List;
       final page = rows.take(50).toList();
       final last = page.isEmpty ? null : page.last as Map;
+      final jobs = await _loadJobs(page).timeout(const Duration(seconds: 10));
       return LabelLoadData(
         nextCursor: rows.length > 50 && last != null
             ? LabelCursor(
@@ -88,10 +89,7 @@ class SupabaseLabelRepository implements LabelRepository {
                 id: last['id'] as String,
               )
             : null,
-        jobs: [
-          for (final value in page)
-            _jobFromRow(Map<String, dynamic>.from(value as Map)),
-        ],
+        jobs: jobs,
         workers: [
           for (final value in results[1] as List)
             _optionFromRow(
@@ -308,15 +306,56 @@ class SupabaseLabelRepository implements LabelRepository {
         const LabelFailure(message: '更新結果を確認できませんでした。', retryable: true);
   }
 
-  LabelJob _jobFromRow(Map<String, dynamic> row) {
+  Future<List<LabelJob>> _loadJobs(List<dynamic> rows) async {
+    final jobs = <LabelJob>[];
+    // Bound concurrent RPCs; preserve the label cursor order.
+    for (var start = 0; start < rows.length; start += 5) {
+      jobs.addAll(
+        await Future.wait(
+          rows.skip(start).take(5).map((value) async {
+            final row = Map<String, dynamic>.from(value as Map);
+            final container = Map<String, dynamic>.from(
+              row['container'] as Map,
+            );
+            if (container['ripening_lot_id'] == null) return _jobFromRow(row);
+            final raw = await _client.rpc(
+              'ripening_label_get',
+              params: {'container_id_value': container['id']},
+            );
+            if (raw is! Map || raw['container_id'] != container['id']) {
+              throw const LabelFailure(
+                message: '追熟ラベルの情報を取得できませんでした。再読み込みしてください。',
+                code: 'LABEL_DATA_UNAVAILABLE',
+                retryable: true,
+              );
+            }
+            return _jobFromRow(row, ripening: Map<String, dynamic>.from(raw));
+          }),
+        ),
+      );
+    }
+    return jobs;
+  }
+
+  String _labelDate(dynamic value) {
+    if (value == null) return '未設定';
+    final date = DateTime.parse(value as String).toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${date.year}/${two(date.month)}/${two(date.day)} ${two(date.hour)}:${two(date.minute)}';
+  }
+
+  LabelJob _jobFromRow(
+    Map<String, dynamic> row, {
+    Map<String, dynamic>? ripening,
+  }) {
     final container = Map<String, dynamic>.from(row['container'] as Map);
     final grade = Map<String, dynamic>.from(container['grade'] as Map);
     final variety = Map<String, dynamic>.from(container['variety'] as Map);
-    final sorting = Map<String, dynamic>.from(
-      container['sorting_result'] as Map,
-    );
-    final worker = Map<String, dynamic>.from(sorting['worker'] as Map);
-    final lot = Map<String, dynamic>.from(sorting['receiving_lot'] as Map);
+    final sorting = ripening == null
+        ? Map<String, dynamic>.from(container['sorting_result'] as Map)
+        : null;
+    final worker = sorting?['worker'] as Map?;
+    final lot = sorting?['receiving_lot'] as Map?;
     return LabelJob(
       id: row['id'] as String,
       containerId: container['id'] as String,
@@ -325,12 +364,34 @@ class SupabaseLabelRepository implements LabelRepository {
       requiredCopies: (row['required_copies'] as num).toInt(),
       printedCopies: (row['printed_copies'] as num).toInt(),
       reprintCount: (row['reprint_count'] as num).toInt(),
-      originName: lot['origin_name'] as String,
+      originName: ripening != null
+          ? ripening['orchard_names'] as String
+          : lot!['origin_name'] as String,
       varietyName: variety['name'] as String,
       gradeCode: grade['code'] as String,
       weightHundredths: _toHundredths(container['original_weight_kg']),
-      sortedOn: DateTime.parse(sorting['sorted_on'] as String),
-      workerName: worker['display_name'] as String,
+      sortedOn: sorting == null
+          ? null
+          : DateTime.parse(sorting['sorted_on'] as String),
+      workerName: worker?['display_name'] as String? ?? '',
+      ripeningFields: ripening == null
+          ? null
+          : {
+              'ラベル種別': '追熟',
+              '追熟場所': ripening['location_name'] as String? ?? '未設定',
+              '注入日時': _labelDate(ripening['injection_at']),
+              '抜き予定': _labelDate(ripening['planned_removal_at']),
+              '追熟完了予定': _labelDate(ripening['planned_completion_at']),
+              '割当': (ripening['allocations'] as List)
+                  .map((value) {
+                    final allocation = value as Map;
+                    final name = allocation['allocation_type'] == 'reserve'
+                        ? '予備'
+                        : allocation['order_number'] as String? ?? '受注';
+                    return '$name ${(allocation['allocated_weight_kg'] as num).toStringAsFixed(2)} kg';
+                  })
+                  .join(' / '),
+            },
     );
   }
 
