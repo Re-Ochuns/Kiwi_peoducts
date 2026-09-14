@@ -48,6 +48,12 @@ M0とM1の検証後、確定した要件を反映してM2とM3を発行する。
 | S2-08 | フロント | [#58 PC予定・警告・予約不足画面を実装する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/58) | S2-02 [#50](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/50)、S2-04 [#53](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/53)、S2-06 [#57](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/57) |
 | S2-09 | 共通 | [#59 S2の統合テストと現場リハーサルを実施する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/59) | S2-01 [#52](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/52)、S2-02 [#50](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/50)、S2-03 [#51](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/51)、S2-04 [#53](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/53)、S2-05 [#55](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/55)、S2-06 [#57](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/57)、S2-07 [#56](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/56)、S2-08 [#58](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/58) |
 
+### 現場確認後の変更要求
+
+| ID | 担当 | Issue | 依存 |
+|---|---|---|---|
+| S2-10 | 共通 | [#109 在庫選択から受注登録し確定時に在庫予約する流れへ変更する](https://github.com/Re-Ochuns/Kiwi_peoducts/issues/109) | 既存S2受注・追熟計画。発見元 #68 |
+
 ## 5. M3 追熟実績・出荷・期限
 
 | ID | 担当 | Issue | 依存 |
