@@ -74,7 +74,7 @@ class _DisplayModeShellState extends State<DisplayModeShell> {
                 children: [
                   const Expanded(
                     child: Text(
-                      '表示切替',
+                      'おおくま農園',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),

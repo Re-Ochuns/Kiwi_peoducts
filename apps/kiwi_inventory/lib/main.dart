@@ -403,7 +403,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _plainAppBar('おおくま農園', onSignOut: onSignOut),
+      appBar: _plainAppBar('作業ホーム', onSignOut: onSignOut),
       body: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
@@ -1463,14 +1463,6 @@ class ManagerNavigation extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    'おおくま農園',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
-                ),
-                const SizedBox(height: 28),
                 for (final item in items)
                   NavigationItem(
                     label: item,
