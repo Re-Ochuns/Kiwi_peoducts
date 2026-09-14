@@ -29,3 +29,7 @@ Thumbs.db
 
 # Local artifact previews
 /tmp/
+
+# Python deployment tooling
+__pycache__/
+*.pyc
