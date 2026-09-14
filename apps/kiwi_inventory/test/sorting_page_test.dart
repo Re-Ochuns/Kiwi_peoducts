@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kiwi_inventory/main.dart';
 import 'package:kiwi_inventory/core/app_theme.dart';
+import 'package:kiwi_inventory/label/label_repository.dart';
 import 'package:kiwi_inventory/sorting/sorting_page.dart';
 import 'package:kiwi_inventory/sorting/sorting_repository.dart';
 
@@ -113,6 +115,28 @@ void main() {
       expect(find.text('再試行'), findsNothing);
       expect(repository.loadCalls, 1);
     });
+
+    testWidgets('QRリンクの受入ロットを読み込み後すぐ選果入力へ開く', (tester) async {
+      await _pumpTargets(
+        tester,
+        FakeSortingRepository(),
+        initialLotId: testLot.id,
+      );
+
+      expect(find.text('選果入力'), findsOneWidget);
+      expect(find.text(testLot.displayId), findsOneWidget);
+    });
+
+    testWidgets('QRリンクの対象がない場合は理由と選果対象一覧を表示する', (tester) async {
+      await _pumpTargets(
+        tester,
+        FakeSortingRepository(),
+        initialLotId: 'missing-lot',
+      );
+
+      expect(find.text('対象が見つからないか、すでに選果が完了しています。'), findsOneWidget);
+      expect(find.text('選果対象'), findsOneWidget);
+    });
   });
 
   group('選果入力', () {
@@ -181,6 +205,21 @@ void main() {
       expect(repository.lastInput!.containers.single.weightHundredths, 850);
     });
 
+    testWidgets('選果確定後に一括ラベルプレビューへ遷移する', (tester) async {
+      final repository = FakeSortingRepository();
+      final labels = _SortingLabelRepository();
+      await _openInput(tester, repository, labelRepository: labels);
+      await _completeForm(tester);
+
+      await _submitFromDialog(tester);
+
+      expect(repository.confirmCalls, 1);
+      expect(find.text('ラベル一括確認'), findsOneWidget);
+      expect(find.text('M'), findsOneWidget);
+      expect(find.text('8.50 kg'), findsOneWidget);
+      expect(labels.fetchBatchCalls, 1);
+    });
+
     testWidgets('送信中は二重操作を受け付けない', (tester) async {
       final completer = Completer<SortingResult>();
       final repository = FakeSortingRepository(confirmCompleter: completer);
@@ -244,6 +283,8 @@ Future<void> _pumpTargets(
   WidgetTester tester,
   FakeSortingRepository repository, {
   Size size = const Size(390, 844),
+  LabelRepository? labelRepository,
+  String? initialLotId,
 }) async {
   await _setSurface(tester, size);
   await tester.pumpWidget(
@@ -251,6 +292,8 @@ Future<void> _pumpTargets(
       theme: buildAppTheme(),
       home: SortingTargetPage(
         repository: repository,
+        labelRepository: labelRepository,
+        initialLotId: initialLotId,
         currentDate: DateTime(2026, 9, 10),
       ),
     ),
@@ -260,12 +303,78 @@ Future<void> _pumpTargets(
 
 Future<void> _openInput(
   WidgetTester tester,
-  FakeSortingRepository repository,
-) async {
-  await _pumpTargets(tester, repository);
+  FakeSortingRepository repository, {
+  LabelRepository? labelRepository,
+}) async {
+  await _pumpTargets(tester, repository, labelRepository: labelRepository);
   await tester.tap(find.text('受入-2026-001'));
   await tester.pumpAndSettle();
   expect(find.text('選果入力'), findsOneWidget);
+}
+
+class _SortingLabelRepository implements LabelRepository {
+  int fetchBatchCalls = 0;
+
+  @override
+  Future<LabelPdf> fetchSortingBatchPdf({
+    required String sortingResultId,
+    required int expectedPageCount,
+  }) async {
+    fetchBatchCalls++;
+    return LabelPdf(
+      bytes: Uint8List.fromList([1, 2, 3]),
+      filename: '$sortingResultId-labels.pdf',
+    );
+  }
+
+  @override
+  Future<LabelPdf> fetchReceivingBatchPdf({
+    required String receivingLotId,
+    required int expectedPageCount,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<LabelBatchActionResult> markSortingBatchPrinted({
+    required String sortingResultId,
+    required String workerId,
+    required String idempotencyKey,
+    String? locationId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<LabelLoadData> load({bool completed = false, LabelCursor? after}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<LabelPdf> fetchPdf({required String containerId}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<LabelActionResult> markPrinted({
+    required String labelJobId,
+    required String workerId,
+    required int copies,
+    required String idempotencyKey,
+    String? locationId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<LabelActionResult> markHandwritten({
+    required String labelJobId,
+    required String workerId,
+    required String idempotencyKey,
+    String? notes,
+    String? locationId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<LabelActionResult> reprint({
+    required String labelJobId,
+    required String workerId,
+    required String reason,
+    required int copies,
+    required String idempotencyKey,
+  }) => throw UnimplementedError();
 }
 
 Future<void> _selectWorker(WidgetTester tester) async {

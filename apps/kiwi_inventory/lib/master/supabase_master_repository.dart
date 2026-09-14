@@ -270,6 +270,13 @@ int _compareRecords(MasterRecord left, MasterRecord right) {
         '${right.value('harvest_year')}-${right.value('harvest_month').padLeft(2, '0')}-${right.value('variety_id')}';
     return leftValue.compareTo(rightValue);
   }
+  if (left.type == MasterType.ripeningRule) {
+    final leftValue =
+        '${left.value('harvest_month').padLeft(2, '0')}-${left.value('variety_id')}';
+    final rightValue =
+        '${right.value('harvest_month').padLeft(2, '0')}-${right.value('variety_id')}';
+    return leftValue.compareTo(rightValue);
+  }
   return left.primaryText.compareTo(right.primaryText);
 }
 

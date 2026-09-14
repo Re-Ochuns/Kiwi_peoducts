@@ -717,6 +717,12 @@ class _MasterFormDialogState extends State<MasterFormDialog> {
         'harvest_year',
         'harvest_month',
         'deadline_days',
+        'ethylene_temperature',
+        'ethylene_hours',
+        'rest_temperature',
+        'rest_days',
+        'shippable_days',
+        'best_before_days',
         'reason',
       ])
         key: TextEditingController(text: values[key]?.toString() ?? ''),
@@ -890,6 +896,51 @@ class _MasterFormDialogState extends State<MasterFormDialog> {
       ],
       _numberField('deadline_days', '選果期限日数', min: 1),
     ],
+    MasterType.ripeningRule => [
+      if (_editing) ...[
+        _fixedValue('収穫月', widget.record!.value('harvest_month')),
+        _fixedValue(
+          '品種',
+          widget.catalog.relatedLabel(
+            MasterType.variety,
+            widget.record!.value('variety_id'),
+          ),
+        ),
+      ] else ...[
+        _numberField('harvest_month', '収穫月', min: 1, max: 12),
+        _optionField(
+          label: '品種',
+          value: _varietyId,
+          type: MasterType.variety,
+          field: 'variety_id',
+          onChanged: (value) => setState(() => _varietyId = value),
+        ),
+      ],
+      _decimalField('ethylene_temperature', 'エチレン処理温度（℃）', min: -50, max: 100),
+      _decimalField(
+        'ethylene_hours',
+        'エチレン処理時間',
+        min: 0,
+        max: 720,
+        minExclusive: true,
+      ),
+      _decimalField('rest_temperature', '寝かせ温度（℃）', min: -50, max: 100),
+      _decimalField('rest_days', '寝かせ日数', min: 0, max: 365, minExclusive: true),
+      _decimalField(
+        'shippable_days',
+        '出荷可能日数',
+        min: 0,
+        max: 365,
+        minExclusive: true,
+      ),
+      _decimalField(
+        'best_before_days',
+        '賞味期限日数',
+        min: 0,
+        max: 365,
+        minExclusive: true,
+      ),
+    ],
   };
 
   List<Widget> _withSpacing(List<Widget> fields) => [
@@ -951,6 +1002,50 @@ class _MasterFormDialogState extends State<MasterFormDialog> {
           ),
         ],
       );
+
+  Widget _decimalField(
+    String key,
+    String label, {
+    required double min,
+    required double max,
+    bool minExclusive = false,
+  }) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Text(label, style: _fieldLabelStyle),
+      const SizedBox(height: 8),
+      TextFormField(
+        key: Key('master-field-$key'),
+        controller: _controllers[key],
+        enabled: !_busy,
+        keyboardType: const TextInputType.numberWithOptions(
+          decimal: true,
+          signed: true,
+        ),
+        decoration: InputDecoration(errorText: _serverError(key)),
+        validator: (value) {
+          final number = double.tryParse(value?.trim() ?? '');
+          if (number == null || !number.isFinite) {
+            return '$labelを数値で入力してください。';
+          }
+          if ((minExclusive ? number <= min : number < min) || number > max) {
+            final lower = minExclusive ? '$minより大きく' : '$min以上';
+            return '$labelは$lower、$max以下で入力してください。';
+          }
+          if (key == 'best_before_days') {
+            final shippable = double.tryParse(
+              _controllers['shippable_days']!.text.trim(),
+            );
+            if (shippable != null && number < shippable) {
+              return '賞味期限日数は出荷可能日数以上にしてください。';
+            }
+          }
+          return null;
+        },
+        onChanged: (_) => setState(() => _failure = null),
+      ),
+    ],
+  );
 
   Widget _optionField({
     required String label,
@@ -1063,6 +1158,28 @@ class _MasterFormDialogState extends State<MasterFormDialog> {
         'variety_id': _varietyId!,
       },
       'deadline_days': int.parse(_controllers['deadline_days']!.text.trim()),
+    },
+    MasterType.ripeningRule => {
+      if (!_editing) ...{
+        'harvest_month': int.parse(_controllers['harvest_month']!.text.trim()),
+        'variety_id': _varietyId!,
+      },
+      'ethylene_temperature': double.parse(
+        _controllers['ethylene_temperature']!.text.trim(),
+      ),
+      'ethylene_hours': double.parse(
+        _controllers['ethylene_hours']!.text.trim(),
+      ),
+      'rest_temperature': double.parse(
+        _controllers['rest_temperature']!.text.trim(),
+      ),
+      'rest_days': double.parse(_controllers['rest_days']!.text.trim()),
+      'shippable_days': double.parse(
+        _controllers['shippable_days']!.text.trim(),
+      ),
+      'best_before_days': double.parse(
+        _controllers['best_before_days']!.text.trim(),
+      ),
     },
   };
 
@@ -1256,6 +1373,10 @@ String _relatedText(
     MasterType.variety,
     record.value('variety_id'),
   ),
+  MasterType.ripeningRule => catalog.relatedLabel(
+    MasterType.variety,
+    record.value('variety_id'),
+  ),
   _ => '—',
 };
 
@@ -1319,6 +1440,20 @@ List<(String, String)> _detailRows(
       catalog.relatedLabel(MasterType.variety, record.value('variety_id')),
     ),
     ('選果期限', '${record.value('deadline_days')}日'),
+    ('版', record.version.toString()),
+  ],
+  MasterType.ripeningRule => [
+    ('収穫月', record.value('harvest_month')),
+    (
+      '品種',
+      catalog.relatedLabel(MasterType.variety, record.value('variety_id')),
+    ),
+    ('エチレン処理温度', '${record.value('ethylene_temperature')} ℃'),
+    ('エチレン処理時間', '${record.value('ethylene_hours')}時間'),
+    ('寝かせ温度', '${record.value('rest_temperature')} ℃'),
+    ('寝かせ日数', '${record.value('rest_days')}日'),
+    ('出荷可能日数', '${record.value('shippable_days')}日'),
+    ('賞味期限日数', '${record.value('best_before_days')}日'),
     ('版', record.version.toString()),
   ],
 };

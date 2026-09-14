@@ -483,12 +483,27 @@ class _GoldenLabelRepository implements LabelRepository {
   );
 
   @override
+  Future<LabelPdf> fetchSortingBatchPdf({
+    required String sortingResultId,
+    required int expectedPageCount,
+  }) async => LabelPdf(
+    bytes: Uint8List.fromList([1, 2, 3]),
+    filename: '$sortingResultId-labels.pdf',
+  );
+
+  @override
   Future<LabelActionResult> markHandwritten({
     required String labelJobId,
     required String workerId,
     required String idempotencyKey,
     String? notes,
     String? locationId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<LabelPdf> fetchReceivingBatchPdf({
+    required String receivingLotId,
+    required int expectedPageCount,
   }) => throw UnimplementedError();
 
   @override
@@ -507,6 +522,14 @@ class _GoldenLabelRepository implements LabelRepository {
     required String reason,
     required int copies,
     required String idempotencyKey,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<LabelBatchActionResult> markSortingBatchPrinted({
+    required String sortingResultId,
+    required String workerId,
+    required String idempotencyKey,
+    String? locationId,
   }) => throw UnimplementedError();
 }
 

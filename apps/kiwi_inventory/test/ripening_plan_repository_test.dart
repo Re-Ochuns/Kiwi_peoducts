@@ -54,6 +54,7 @@ RipeningPlanInput _input() => RipeningPlanInput(
     varietyLabel: 'ヘイワード',
     gradeId: 'grade-m',
     gradeLabel: 'M',
+    harvestMonth: 9,
     availableWeightHundredths: 1000,
   ),
   totalWeightHundredths: 1000,

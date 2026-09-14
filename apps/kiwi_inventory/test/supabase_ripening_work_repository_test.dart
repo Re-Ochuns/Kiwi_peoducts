@@ -167,6 +167,7 @@ void main() {
     expect(meta['correlation_id'], matches(RegExp(r'^[0-9a-f-]{36}$')));
     expect(input['checked'], isTrue);
     expect(input['expected_version'], 3);
+    expect(input.containsKey('actual_temperature'), isFalse);
     expect(input['rest_temperature'], 16.5);
     expect(result.displayId, '追熟-2026-001');
     expect(result.version, 4);
@@ -250,7 +251,6 @@ RipeningWorkInput _input() => RipeningWorkInput(
   ripeningLotId: 'ripening-1',
   expectedVersion: 3,
   actualAt: DateTime.utc(2026, 9, 13, 1),
-  actualTemperature: 18,
   locationId: 'location-1',
   workerId: 'worker-1',
   restStartedAt: DateTime.utc(2026, 9, 13, 2),

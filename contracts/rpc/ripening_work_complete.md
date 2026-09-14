@@ -18,7 +18,8 @@ inputは以下のみ。未知のキー、延長・再処理の指定は拒否。
 - checked: JSON boolean true、必須。対象と作業実施の確認。
 - actual_at: タイムゾーン付きISO 8601。省略時はサーバーのstatement_timestamp。
   明示nullは不正。再送は初回に保存した結果と実績日時を維持。
-- actual_temperature: 有限のJSON数値、必須。温度範囲の追加業務規則は定義しない。
+- actual_temperature: 後方互換用の任意項目。新規画面では入力・送信しない。
+  指定する場合は有限のJSON数値とする。
 - location_id / performed_by: 有効な場所・作業者マスターのUUID、必須。
 - notes: 任意文字列。
 - 抜き確認のみ rest_started_at（省略時actual_at）とrest_temperature（有限数値、必須）。

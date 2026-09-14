@@ -9,6 +9,17 @@ select has_table('public', 'ripening_lots', 'ripening lots table exists');
 select has_table('public', 'ripening_allocations', 'ripening allocations table exists');
 select has_table('public', 'inventory_reservations', 'inventory reservations table exists');
 select has_table('public', 'work_tasks', 'work tasks table exists');
+select ok(
+  not (select a.attnotnull from pg_attribute a
+    where a.attrelid='public.ripening_work_results'::regclass
+      and a.attname='actual_temperature'),
+  'actual work temperature is optional'
+);
+select is(
+  private.ripening_work_temperature('{}'::jsonb,'actual_temperature'),
+  null::numeric,
+  'omitted actual work temperature is accepted'
+);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -185,7 +196,7 @@ returns jsonb language sql as $$
       'expected_version',(select version from public.ripening_lots where id='49000000-0000-0000-0000-000000000001'),
       'location_id','44000000-0000-0000-0000-000000000001',
       'performed_by','43000000-0000-0000-0000-000000000001',
-      'actual_temperature',20,'checked',true) || extra);
+      'checked',true) || extra);
 $$;
 create temporary table initial_tasks as select * from public.work_tasks;
 grant select on initial_tasks to authenticated;

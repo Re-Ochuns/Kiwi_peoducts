@@ -177,7 +177,11 @@ select is((select data->>'ok' from results where name='ripening'),'true','member
 select is((select (data->'data'->>'row_count')::int from results where name='ripening'),1,'one ripening row');
 select is((select ascii(left(data->'data'->>'csv',1)) from results where name='ripening'),65279,'ripening BOM');
 select is((select right(data->'data'->>'csv',2) from results where name='ripening'),E'\r\n','ripening CRLF');
-select is((select cardinality(string_to_array(split_part(data->'data'->>'csv',E'\r\n',1),',')) from results where name='ripening'),38,'ripening fixed header columns');
+select is((select cardinality(string_to_array(split_part(data->'data'->>'csv',E'\r\n',1),',')) from results where name='ripening'),37,'ripening fixed header columns');
+select ok(position('収穫年' in (select data->'data'->>'csv' from results where name='ripening'))=0,
+  'ripening CSV does not expose compatibility harvest year');
+select ok(position('harvest_year' in (select data->'data'->>'csv' from results where name='ripening'))=0,
+  'ripening snapshot does not expose compatibility harvest year');
 select is((pg_temp.export('ripening','{"search":"no match"}')->'data'->>'row_count')::int,0,'ripening empty');
 select is((pg_temp.export('ripening','{"search":"no match"}')->'data'->>'csv'),
  (select split_part(data->'data'->>'csv',E'\r\n',1)||E'\r\n' from results where name='ripening'),'ripening header only');
@@ -209,7 +213,7 @@ select is((pg_temp.export('orders','{"from_date":"2027-06-20","to_date":"2027-06
 select is((pg_temp.export('orders','{"to_date":"2027-06-19"}')->'data'->>'row_count')::int,0,'order excludes date outside range');
 select ok(position(E'"''=SUM(1,2)""\n顧客"' in (select data->'data'->>'csv' from results where name='orders'))>0,'order escapes dangerous quoted multiline customer');
 select ok(position(E'"''@危険""\r\n改行"' in (select data->'data'->>'csv' from results where name='orders'))>0,'order protects notes');
-select ok(position('"2025","11"' in (select data->'data'->>'csv' from results where name='ripening'))>0,'harvest identity retained');
+select ok(position('"11","S2ヘイワード"' in (select data->'data'->>'csv' from results where name='ripening'))>0,'harvest month retained without year');
 select ok(position('"2026-09-13T00:00:00.000+09:00","-1"' in (select data->'data'->>'csv' from results where name='ripening'))>0,'actual time in JST and negative numeric not prefixed');
 select is((pg_temp.export('ripening','{"from_date":"2026-09-13","to_date":"2026-09-13","search":"CSV66"}')->'data'->>'row_count')::int,1,'ripening JST boundary and search');
 select is((pg_temp.export('ripening','{"to_date":"2026-09-12"}')->'data'->>'row_count')::int,0,'ripening previous JST date excluded');

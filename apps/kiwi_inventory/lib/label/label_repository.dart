@@ -105,6 +105,18 @@ class LabelActionResult {
   final int reprintCount;
 }
 
+class LabelBatchActionResult {
+  const LabelBatchActionResult({
+    required this.sortingResultId,
+    required this.completedCount,
+    required this.idempotentReplay,
+  });
+
+  final String sortingResultId;
+  final int completedCount;
+  final bool idempotentReplay;
+}
+
 class LabelFailure implements Exception {
   const LabelFailure({
     required this.message,
@@ -131,6 +143,16 @@ abstract interface class LabelRepository {
 
   Future<LabelPdf> fetchPdf({required String containerId});
 
+  Future<LabelPdf> fetchSortingBatchPdf({
+    required String sortingResultId,
+    required int expectedPageCount,
+  });
+
+  Future<LabelPdf> fetchReceivingBatchPdf({
+    required String receivingLotId,
+    required int expectedPageCount,
+  });
+
   Future<LabelActionResult> markPrinted({
     required String labelJobId,
     required String workerId,
@@ -153,6 +175,13 @@ abstract interface class LabelRepository {
     required String reason,
     required int copies,
     required String idempotencyKey,
+  });
+
+  Future<LabelBatchActionResult> markSortingBatchPrinted({
+    required String sortingResultId,
+    required String workerId,
+    required String idempotencyKey,
+    String? locationId,
   });
 }
 

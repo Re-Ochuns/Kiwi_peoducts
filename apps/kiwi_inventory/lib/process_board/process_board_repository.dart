@@ -50,6 +50,7 @@ class ProcessBoardItem {
     this.ripeningDisplayId,
     this.nextTask,
     this.plans = const [],
+    this.inventoryBalance,
   });
 
   final String id;
@@ -70,6 +71,7 @@ class ProcessBoardItem {
   final WorkTaskItem? nextTask;
 
   final List<ProcessBoardPlan> plans;
+  final ProcessBoardInventoryBalance? inventoryBalance;
 
   ProcessBoardItem forPlan(String? planId) {
     if (plans.isEmpty) return this;
@@ -93,6 +95,7 @@ class ProcessBoardItem {
       orderNumbers: plan.orderNumbers,
       nextTask: plan.nextTask,
       plans: plans,
+      inventoryBalance: inventoryBalance,
     );
   }
 
@@ -117,10 +120,25 @@ class ProcessBoardPlan {
   final WorkTaskItem? nextTask;
 }
 
+class ProcessBoardInventoryBalance {
+  const ProcessBoardInventoryBalance({
+    required this.totalHundredths,
+    required this.orderHundredths,
+    required this.containerDisplayIds,
+    required this.isLot,
+  });
+
+  final int totalHundredths;
+  final int orderHundredths;
+  final List<String> containerDisplayIds;
+  final bool isLot;
+}
+
 class ProcessBoardData {
-  const ProcessBoardData({required this.items});
+  const ProcessBoardData({required this.items, this.inventoryItems});
 
   final List<ProcessBoardItem> items;
+  final List<ProcessBoardItem>? inventoryItems;
 
   List<ProcessBoardItem> itemsFor(ProcessStage stage) =>
       items.where((item) => item.stage == stage).toList(growable: false);

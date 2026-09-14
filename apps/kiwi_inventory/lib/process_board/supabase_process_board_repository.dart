@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../work_tasks/work_task_repository.dart';
 import 'process_board_repository.dart';
+import 'process_board_inventory.dart';
 
 // Initial production rule until a dedicated cold-storage master is introduced.
 const _defaultColdStoragePeriod = Duration(days: 30);
@@ -59,7 +60,7 @@ class SupabaseProcessBoardRepository implements ProcessBoardRepository {
           ? const <dynamic>[]
           : await _client
                 .from('inventory_reservations')
-                .select('container_id, ripening_lot_id')
+                .select('container_id, ripening_lot_id, reserved_weight_kg')
                 .inFilter('container_id', coldIds)
                 .eq('status', 'active')
                 .timeout(const Duration(seconds: 10));
@@ -89,7 +90,9 @@ class SupabaseProcessBoardRepository implements ProcessBoardRepository {
         else
           _client
               .from('ripening_allocations')
-              .select('ripening_lot_id, allocation_type, order_id')
+              .select(
+                'ripening_lot_id, allocation_type, order_id, allocated_weight_kg',
+              )
               .inFilter('ripening_lot_id', lotIds),
         if (lotIds.isEmpty)
           Future.value(const <dynamic>[])
@@ -122,7 +125,13 @@ class SupabaseProcessBoardRepository implements ProcessBoardRepository {
           ? const <dynamic>[]
           : await _client
                 .from('orders')
-                .select('id, order_number, scheduled_ship_on, status')
+                .select('''
+                  id, order_number, scheduled_ship_on, status,
+                  shipments(status, shipment_lines(
+                    shipped_weight_kg,
+                    container:containers!shipment_lines_container_id_fkey(ripening_lot_id)
+                  ))
+                ''')
                 .inFilter('id', orderIds)
                 .timeout(const Duration(seconds: 10));
       final orders = {
@@ -176,23 +185,32 @@ class SupabaseProcessBoardRepository implements ProcessBoardRepository {
           (raw as Map)['id'] as String: raw['remaining_use_type'] as String?,
       };
 
+      final items = <ProcessBoardItem>[
+        for (final container in containers)
+          _containerItem(
+            container,
+            lotIds: container['ripening_lot_id'] is String
+                ? [container['ripening_lot_id'] as String]
+                : (reservedLotsByContainer[container['id']] ?? {}).toList(),
+            eligibleOrderIds: eligibleOrdersByContainer[container['id']] ?? {},
+            lots: lots,
+            allocations: allocations,
+            orders: orders,
+            tasksByLot: tasksByLot,
+            remainingUse: remainingUse,
+          ),
+      ];
       return ProcessBoardData(
-        items: [
-          for (final container in containers)
-            _containerItem(
-              container,
-              lotIds: container['ripening_lot_id'] is String
-                  ? [container['ripening_lot_id'] as String]
-                  : (reservedLotsByContainer[container['id']] ?? {}).toList(),
-              eligibleOrderIds:
-                  eligibleOrdersByContainer[container['id']] ?? {},
-              lots: lots,
-              allocations: allocations,
-              orders: orders,
-              tasksByLot: tasksByLot,
-              remainingUse: remainingUse,
-            ),
-        ],
+        items: items,
+        inventoryItems: buildProcessBoardInventory(
+          items: items,
+          reservations: [
+            for (final row in reservations)
+              Map<String, dynamic>.from(row as Map),
+          ],
+          allocations: allocations,
+          orders: orders,
+        ),
       );
     } on TimeoutException {
       throw const ProcessBoardFailure(

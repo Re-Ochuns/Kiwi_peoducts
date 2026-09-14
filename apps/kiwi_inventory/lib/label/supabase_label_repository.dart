@@ -174,6 +174,138 @@ class SupabaseLabelRepository implements LabelRepository {
   }
 
   @override
+  Future<LabelPdf> fetchSortingBatchPdf({
+    required String sortingResultId,
+    required int expectedPageCount,
+  }) async {
+    final session = _client.auth.currentSession;
+    if (session == null) {
+      throw const LabelFailure(
+        message: 'セッションの有効期限が切れています。再ログインしてください。',
+        code: 'AUTH_REQUIRED',
+      );
+    }
+    final correlationId = _uuidV4();
+    try {
+      final response = await _httpClient
+          .post(
+            Uri.parse('$supabaseUrl/functions/v1/label-pdf'),
+            headers: {
+              'Authorization': 'Bearer ${session.accessToken}',
+              'apikey': supabaseKey,
+              'Content-Type': 'application/json',
+              'x-correlation-id': correlationId,
+            },
+            body: jsonEncode({
+              'sorting_result_id': sortingResultId,
+              'expected_page_count': expectedPageCount,
+              'correlation_id': correlationId,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final pageCount = int.tryParse(
+          response.headers['x-label-page-count'] ?? '',
+        );
+        if (pageCount != expectedPageCount) {
+          throw LabelFailure(
+            message: '選果結果とラベル枚数が一致しません。選果対象を再読み込みしてください。',
+            code: 'LABEL_COUNT_MISMATCH',
+            correlationId: correlationId,
+          );
+        }
+        return LabelPdf(
+          bytes: Uint8List.fromList(response.bodyBytes),
+          filename: '$sortingResultId-labels.pdf',
+        );
+      }
+      throw _failureForPdfResponse(response, correlationId);
+    } on TimeoutException {
+      throw LabelFailure(
+        message: '一括ラベルPDFの生成がタイムアウトしました。再試行してください。',
+        code: 'TIMEOUT',
+        correlationId: correlationId,
+        retryable: true,
+      );
+    } on LabelFailure {
+      rethrow;
+    } catch (_) {
+      throw LabelFailure(
+        message: '一括ラベルPDFを取得できませんでした。通信状況を確認してください。',
+        code: 'NETWORK_FAILED',
+        correlationId: correlationId,
+        retryable: true,
+      );
+    }
+  }
+
+  @override
+  Future<LabelPdf> fetchReceivingBatchPdf({
+    required String receivingLotId,
+    required int expectedPageCount,
+  }) async {
+    final session = _client.auth.currentSession;
+    if (session == null) {
+      throw const LabelFailure(
+        message: 'セッションの有効期限が切れています。再ログインしてください。',
+        code: 'AUTH_REQUIRED',
+      );
+    }
+    final correlationId = _uuidV4();
+    try {
+      final response = await _httpClient
+          .post(
+            Uri.parse('$supabaseUrl/functions/v1/label-pdf'),
+            headers: {
+              'Authorization': 'Bearer ${session.accessToken}',
+              'apikey': supabaseKey,
+              'Content-Type': 'application/json',
+              'x-correlation-id': correlationId,
+            },
+            body: jsonEncode({
+              'receiving_lot_id': receivingLotId,
+              'expected_page_count': expectedPageCount,
+              'correlation_id': correlationId,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final pageCount = int.tryParse(
+          response.headers['x-label-page-count'] ?? '',
+        );
+        if (pageCount != expectedPageCount) {
+          throw LabelFailure(
+            message: '登録したコンテナ数とラベル枚数が一致しません。登録結果を確認してください。',
+            code: 'LABEL_COUNT_MISMATCH',
+            correlationId: correlationId,
+          );
+        }
+        return LabelPdf(
+          bytes: Uint8List.fromList(response.bodyBytes),
+          filename: '$receivingLotId-receiving-labels.pdf',
+        );
+      }
+      throw _failureForPdfResponse(response, correlationId);
+    } on TimeoutException {
+      throw LabelFailure(
+        message: '仮ラベルPDFの生成がタイムアウトしました。再試行してください。',
+        code: 'TIMEOUT',
+        correlationId: correlationId,
+        retryable: true,
+      );
+    } on LabelFailure {
+      rethrow;
+    } catch (_) {
+      throw LabelFailure(
+        message: '仮ラベルPDFを取得できませんでした。通信状況を確認してください。',
+        code: 'NETWORK_FAILED',
+        correlationId: correlationId,
+        retryable: true,
+      );
+    }
+  }
+
+  @override
   Future<LabelActionResult> markPrinted({
     required String labelJobId,
     required String workerId,
@@ -226,6 +358,96 @@ class SupabaseLabelRepository implements LabelRepository {
     },
     idempotencyKey: idempotencyKey,
   );
+
+  @override
+  Future<LabelBatchActionResult> markSortingBatchPrinted({
+    required String sortingResultId,
+    required String workerId,
+    required String idempotencyKey,
+    String? locationId,
+  }) async {
+    LabelFailure? lastFailure;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      final correlationId = _uuidV4();
+      try {
+        final raw = await _client
+            .rpc(
+              'label_batch_mark_printed',
+              params: {
+                'req': {
+                  'meta': {
+                    'idempotency_key': idempotencyKey,
+                    'correlation_id': correlationId,
+                  },
+                  'input': {
+                    'sorting_result_id': sortingResultId,
+                    'worker_id': workerId,
+                    'location_id': ?locationId,
+                  },
+                },
+              },
+            )
+            .timeout(const Duration(seconds: 10));
+        final response = Map<String, dynamic>.from(raw as Map);
+        if (response['ok'] == true) {
+          final data = Map<String, dynamic>.from(response['data'] as Map);
+          return LabelBatchActionResult(
+            sortingResultId: data['sorting_result_id'] as String,
+            completedCount: (data['completed_count'] as num).toInt(),
+            idempotentReplay: response['idempotent_replay'] == true,
+          );
+        }
+        final error = Map<String, dynamic>.from(response['error'] as Map);
+        final details = error['details'] is Map
+            ? Map<String, dynamic>.from(error['details'] as Map)
+            : const <String, dynamic>{};
+        final failure = LabelFailure(
+          message: error['message'] as String? ?? '一括印刷の状態を更新できませんでした。',
+          code: error['code'] as String?,
+          field: details['field'] as String?,
+          correlationId: response['correlation_id'] as String?,
+          retryable: error['retryable'] == true,
+          current: details['current'] is Map
+              ? Map<String, dynamic>.from(details['current'] as Map)
+              : null,
+        );
+        if (!failure.retryable) throw failure;
+        lastFailure = failure;
+      } on LabelFailure catch (failure) {
+        if (!failure.retryable) rethrow;
+        lastFailure = failure;
+      } on TimeoutException {
+        lastFailure = LabelFailure(
+          message: '一括印刷の記録結果を確認できませんでした。自動で再確認します。',
+          correlationId: correlationId,
+          retryable: true,
+        );
+      } on PostgrestException catch (error) {
+        final failure = _failureForPostgrest(
+          error.code,
+          correlationId: correlationId,
+        );
+        if (!failure.retryable) throw failure;
+        lastFailure = failure;
+      } catch (_) {
+        lastFailure = LabelFailure(
+          message: '通信に失敗しました。自動で再確認します。',
+          correlationId: correlationId,
+          retryable: true,
+        );
+      }
+      if (attempt < 2) {
+        await Future<void>.delayed(
+          Duration(
+            seconds: attempt + 1,
+            milliseconds: Random.secure().nextInt(251),
+          ),
+        );
+      }
+    }
+    throw lastFailure ??
+        const LabelFailure(message: '一括印刷の記録結果を確認できませんでした。', retryable: true);
+  }
 
   Future<LabelActionResult> _execute({
     required String functionName,

@@ -8,13 +8,18 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { createHandler, LabelClient } from "./handler.ts";
 
-const fontBytes = await Deno.readFile(
+const sortingFontBytes = await Deno.readFile(
+  new URL("./assets/NotoSansJP-SemiBold.ttf", import.meta.url),
+);
+const ripeningFontBytes = await Deno.readFile(
   new URL("./assets/NotoSansJP-VariableFont_wght.ttf", import.meta.url),
 );
 
 Deno.serve(
   createHandler({
-    fontBytes,
+    sortingFontBytes,
+    ripeningFontBytes,
+    appBaseUrl: Deno.env.get("APP_BASE_URL") ?? "",
     createClient: (authHeader) =>
       createClient(
         Deno.env.get("SUPABASE_URL") ?? "",

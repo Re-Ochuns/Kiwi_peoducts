@@ -119,7 +119,7 @@ grant all on results to authenticated;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','41000000-0000-0000-0000-000000000003',true);
 insert into results(name,req) values('master',pg_temp.req('{
-  "master_type":"ripening_rule","harvest_year":2026,"harvest_month":11,
+  "master_type":"ripening_rule","harvest_month":5,
   "variety_id":"42000000-0000-0000-0000-000000000001","ethylene_temperature":20,
   "ethylene_hours":48,"rest_temperature":15,"rest_days":3,"shippable_days":5,"best_before_days":7
 }'));
@@ -132,9 +132,8 @@ select is(public.master_register(pg_temp.req((select req->'input'||'{"harvest_mo
   'VALIDATION_FAILED','shipping period cannot exceed shelf life');
 select is(public.master_register(pg_temp.req((select req->'input'||'{"harvest_month":13}' from results where name='master')))->'error'->>'code',
   'VALIDATION_FAILED','invalid harvest month rejected');
--- A different year's master deliberately has very different durations.
-select is(public.master_register(pg_temp.req((select req->'input'||'{"harvest_year":2027,"ethylene_hours":168}' from results where name='master')))->>'ok',
-  'true','current-year rule exists independently');
+select is(public.master_register(pg_temp.req((select req->'input'||'{"harvest_year":2027}' from results where name='master')))->'error'->>'code',
+  'VALIDATION_FAILED','harvest year is not accepted');
 select set_config('request.jwt.claim.sub','41000000-0000-0000-0000-000000000002',true);
 select is(public.master_register(pg_temp.req((select req->'input'||'{"harvest_month":10}' from results where name='master')))->'error'->>'code',
   'AUTH_FORBIDDEN','member cannot modify master');
@@ -143,7 +142,7 @@ select ok(not has_function_privilege('authenticated','public.ripening_deadlines_
 select ok(not has_function_privilege('anon','public.ripening_deadlines_process()','EXECUTE'),'anonymous cannot run clock transitions');
 select ok(not has_function_privilege('authenticated','private.process_ripening_deadlines(timestamptz)','EXECUTE'),'caller cannot supply arbitrary time');
 insert into results(name,req) values('plan',pg_temp.req('{
-  "harvest_year":2026,"harvest_month":11,"variety_id":"42000000-0000-0000-0000-000000000001",
+  "variety_id":"42000000-0000-0000-0000-000000000001",
   "grade_id":"a2000000-0000-0000-0000-000000000005","total_weight_kg":8,
   "storage_location_id":"44000000-0000-0000-0000-000000000001",
   "assigned_worker_id":"43000000-0000-0000-0000-000000000001",
@@ -152,11 +151,21 @@ insert into results(name,req) values('plan',pg_temp.req('{
     {"allocation_type":"reserve","allocated_weight_kg":2}],
   "reservations":[{"container_id":"48500000-0000-0000-0000-000000000001","reserved_weight_kg":8}]
 }'));
-select is(public.ripening_plan_register(pg_temp.req((select req->'input'||'{"harvest_year":2025}' from results where name='plan')))->'error'->>'code',
-  'RIPENING_MASTER_NOT_FOUND','missing harvest master rolls back creation and reservations');
+select is(public.ripening_plan_register(pg_temp.req((select req->'input'||'{"harvest_month":5}' from results where name='plan')))->'error'->>'code',
+  'VALIDATION_FAILED','client cannot override the inventory harvest month');
 update results set data=public.ripening_plan_register(req) where name='plan';
-select is((select data->>'ok' from results where name='plan'),'true','plan creation snapshots explicit harvest year');
-select is((select data->'data'->'master_snapshot'->>'ethylene_hours' from results where name='plan'),'48','previous year selected, not injection year');
+select is((select data->>'ok' from results where name='plan'),'true','plan derives harvest month from inventory');
+select is((select data->'data'->>'harvest_month' from results where name='plan'),'5','receiving month is stored on plan');
+select is((select data->'data'->'master_snapshot'->>'ethylene_hours' from results where name='plan'),'48','month and variety select the master');
+reset role;
+select ok(exists(select 1 from public.change_history
+  where entity_type='ripening_lot' and entity_id=(select (data->'data'->>'id')::uuid from results where name='plan')
+    and reason='品種・収穫月別の追熟条件保存'
+    and after_data->'master_snapshot'->>'ethylene_hours'='48'
+    and after_data->>'planned_completion_at' is not null),
+  'derived master and completion are retained in change history');
+set local role authenticated;
+select set_config('request.jwt.claim.sub','41000000-0000-0000-0000-000000000002',true);
 create function pg_temp.lot_id() returns uuid language sql as $$select (data->'data'->>'id')::uuid from results where name='plan'$$;
 select is((select calculated_removal_at from public.ripening_lots where id=pg_temp.lot_id()),'2030-06-03 00:00Z'::timestamptz,'planned removal uses snapshotted duration');
 select set_config('request.jwt.claim.sub','41000000-0000-0000-0000-000000000003',true);
@@ -166,8 +175,8 @@ select is(public.master_update(pg_temp.req((select req->'input'||jsonb_build_obj
 select set_config('request.jwt.claim.sub','41000000-0000-0000-0000-000000000002',true);
 select is(public.ripening_plan_update(pg_temp.req((select req->'input'||jsonb_build_object(
   'ripening_lot_id',pg_temp.lot_id(),'expected_version',(select version from public.ripening_lots where id=pg_temp.lot_id()),'reason','same harvest replan')
-  from results where name='plan')))->>'ok','true','same-harvest plan update succeeds');
-select is((select master_snapshot->>'ethylene_hours' from public.ripening_lots where id=pg_temp.lot_id()),'48','same-harvest update preserves original snapshot');
+  from results where name='plan')))->>'ok','true','same-source plan update succeeds');
+select is((select master_snapshot->>'ethylene_hours' from public.ripening_lots where id=pg_temp.lot_id()),'48','same month update preserves original snapshot');
 select is(public.ripening_plan_confirm(pg_temp.req(jsonb_build_object('ripening_lot_id',pg_temp.lot_id(),
   'expected_version',(select version from public.ripening_lots where id=pg_temp.lot_id()),'reason','confirm')))->>'ok','true','confirm plan');
 create function pg_temp.work_req(actual text) returns jsonb language sql as $$
@@ -182,7 +191,7 @@ select is((select data->>'ok' from results where name='injection'),'true','injec
 select is((select calculated_removal_at from public.ripening_lots where id=pg_temp.lot_id()),'2030-06-04 00:00Z'::timestamptz,'actual injection moves removal date');
 select is((select calculated_rest_end_at from public.ripening_lots where id=pg_temp.lot_id()),'2030-06-07 00:00Z'::timestamptz,'rest end calculated from actual injection');
 select is((select planned_ethylene_at from public.ripening_lots where id=pg_temp.lot_id()),'2030-06-01 00:00Z'::timestamptz,'original planned injection unchanged');
-select is((select planned_completion_at from public.ripening_lots where id=pg_temp.lot_id()),'2030-06-20 00:00Z'::timestamptz,'original planned completion unchanged');
+select is((select planned_completion_at from public.ripening_lots where id=pg_temp.lot_id()),'2030-06-06 00:00Z'::timestamptz,'completion plan is calculated from the saved master');
 select is((select shippable_until from public.containers where ripening_lot_id=pg_temp.lot_id()),'2030-06-12 00:00Z'::timestamptz,'shipping cutoff uses rest end plus shipping days');
 select is((select best_before_at from public.containers where ripening_lot_id=pg_temp.lot_id()),'2030-06-14 00:00Z'::timestamptz,'best-before uses actual schedule');
 select is(public.ripening_ethylene_injection_complete((select req from results where name='injection'))->>'idempotent_replay','true','injection replay retains snapshot and dates');
@@ -240,36 +249,9 @@ select private.process_ripening_deadlines('2030-06-15 00:00Z');
 select is((select count(*) from public.change_history),(select count from history_checkpoint),'next-day repeat has no additional updates');
 select is((select count(*) from cron.job where jobname='ripening-deadlines'),1::bigint,'one automatic deadline job installed');
 
--- Legacy plans can be viewed/edited, but cannot guess harvest metadata at injection.
-set local role authenticated;
-insert into results(name,req) values('legacy',pg_temp.req((select (req->'input')-'harvest_year'-'harvest_month'||
-  '{"total_weight_kg":2,"allocations":[{"allocation_type":"reserve","allocated_weight_kg":2}],
-    "reservations":[{"container_id":"48500000-0000-0000-0000-000000000001","reserved_weight_kg":2}]}'::jsonb
-  from results where name='plan')));
-update results set data=public.ripening_plan_register(req) where name='legacy';
-select is((select data->>'ok' from results where name='legacy'),'true','legacy draft creation remains compatible');
-create function pg_temp.legacy_id() returns uuid language sql as $$select (data->'data'->>'id')::uuid from results where name='legacy'$$;
-select is(public.ripening_plan_confirm(pg_temp.req(jsonb_build_object('ripening_lot_id',pg_temp.legacy_id(),
-  'expected_version',(select version from public.ripening_lots where id=pg_temp.legacy_id()),'reason','legacy confirmation')))->>'ok','true','legacy confirmation retained');
-select is(public.ripening_ethylene_injection_complete(pg_temp.req((pg_temp.work_req('2030-06-02T09:00:00+09:00')->'input')||
-  jsonb_build_object('ripening_lot_id',pg_temp.legacy_id(),'expected_version',(select version from public.ripening_lots where id=pg_temp.legacy_id()))))->'error'->>'code',
-  'RIPENING_MASTER_NOT_FOUND','legacy injection fails safely instead of inferring harvest date');
-select is(public.ripening_plan_update(pg_temp.req((select req->'input'||jsonb_build_object(
-  'ripening_lot_id',pg_temp.legacy_id(),'expected_version',(select version from public.ripening_lots where id=pg_temp.legacy_id()),
-  'harvest_year',2026,'harvest_month',11,'reason','set actual harvest') from results where name='legacy')))->>'ok','true','legacy plan can explicitly acquire harvest snapshot');
-select is((select master_snapshot->>'ethylene_hours' from public.ripening_lots where id=pg_temp.legacy_id()),'72','new snapshot uses updated master');
-select is(public.ripening_plan_confirm(pg_temp.req(jsonb_build_object('ripening_lot_id',pg_temp.legacy_id(),
-  'expected_version',(select version from public.ripening_lots where id=pg_temp.legacy_id()),'reason','confirm harvest')))->>'ok','true','confirm corrected legacy plan');
-select is(public.ripening_ethylene_injection_complete(pg_temp.req((pg_temp.work_req('2030-06-02T09:00:00+09:00')->'input')||
-  jsonb_build_object('ripening_lot_id',pg_temp.legacy_id(),'expected_version',(select version from public.ripening_lots where id=pg_temp.legacy_id()))))->>'ok',
-  'true','corrected plan starts');
-reset role;
-select private.process_ripening_deadlines('2030-06-15 00:00Z');
-select is((select status from public.containers where ripening_lot_id=pg_temp.legacy_id()),'expired','unconfirmed ethylene-processing stock also expires');
-select is((select current_weight_kg::numeric from public.containers where ripening_lot_id=pg_temp.legacy_id()),2::numeric,'unfinished expired inventory keeps physical weight');
 select ok((select bool_and(changed_by is null) from public.change_history where reason like '%（自動）'),'automatic changes do not impersonate workers');
 select ok((select bool_and(j.revision=t.version) from private.calendar_sync_jobs j join public.work_tasks t on t.id=j.task_id
-  where t.ripening_lot_id=pg_temp.legacy_id()),'overdue flags enqueue current calendar revisions');
+  where t.ripening_lot_id=pg_temp.lot_id()),'overdue flags enqueue current calendar revisions');
 
 select * from finish();
 rollback;

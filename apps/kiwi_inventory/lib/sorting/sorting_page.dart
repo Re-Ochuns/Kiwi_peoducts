@@ -3,17 +3,23 @@ import 'package:flutter/services.dart';
 
 import '../core/app_theme.dart';
 import '../core/common_state_view.dart';
+import '../label/label_repository.dart';
+import '../label/sorting_label_batch_page.dart';
 import 'sorting_repository.dart';
 import 'supabase_sorting_repository.dart';
 
 class SortingTargetPage extends StatefulWidget {
   const SortingTargetPage({
     required this.repository,
+    this.labelRepository,
+    this.initialLotId,
     this.currentDate,
     super.key,
   });
 
   final SortingRepository repository;
+  final LabelRepository? labelRepository;
+  final String? initialLotId;
   final DateTime? currentDate;
 
   @override
@@ -24,6 +30,8 @@ class _SortingTargetPageState extends State<SortingTargetPage> {
   final _searchController = TextEditingController();
   SortingLoadData? _data;
   SortingFailure? _error;
+  String? _initialRouteMessage;
+  bool _initialRouteHandled = false;
 
   @override
   void initState() {
@@ -51,6 +59,7 @@ class _SortingTargetPageState extends State<SortingTargetPage> {
       final data = await widget.repository.load();
       if (!mounted) return;
       setState(() => _data = data);
+      await _openInitialLot(data);
     } on SortingFailure catch (failure) {
       if (!mounted) return;
       setState(() => _error = failure);
@@ -64,6 +73,26 @@ class _SortingTargetPageState extends State<SortingTargetPage> {
         ),
       );
     }
+  }
+
+  Future<void> _openInitialLot(SortingLoadData data) async {
+    final initialLotId = widget.initialLotId;
+    if (_initialRouteHandled || initialLotId == null) return;
+    _initialRouteHandled = true;
+    SortingLot? target;
+    for (final lot in data.lots) {
+      if (lot.id == initialLotId) {
+        target = lot;
+        break;
+      }
+    }
+    if (target == null) {
+      setState(() {
+        _initialRouteMessage = '対象が見つからないか、すでに選果が完了しています。';
+      });
+      return;
+    }
+    await _openInput(data, target);
   }
 
   @override
@@ -119,6 +148,18 @@ class _SortingTargetPageState extends State<SortingTargetPage> {
                     style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 20),
+                  if (_initialRouteMessage != null) ...[
+                    Text(
+                      _initialRouteMessage!,
+                      key: const Key('sorting-deep-link-message'),
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   const Text('検索', style: _fieldLabelStyle),
                   const SizedBox(height: 8),
                   TextField(
@@ -164,6 +205,7 @@ class _SortingTargetPageState extends State<SortingTargetPage> {
           lot: lot,
           grades: data.grades,
           workers: data.workers,
+          labelRepository: widget.labelRepository,
           currentDate: widget.currentDate,
         ),
         transitionDuration: Duration.zero,
@@ -278,6 +320,7 @@ class SortingInputPage extends StatefulWidget {
     required this.lot,
     required this.grades,
     required this.workers,
+    this.labelRepository,
     this.currentDate,
     super.key,
   });
@@ -286,6 +329,7 @@ class SortingInputPage extends StatefulWidget {
   final SortingLot lot;
   final List<SortingGrade> grades;
   final List<SortingWorker> workers;
+  final LabelRepository? labelRepository;
   final DateTime? currentDate;
 
   @override
@@ -771,6 +815,29 @@ class _SortingInputPageState extends State<SortingInputPage> {
   }
 
   Future<void> _showSuccess(SortingResult result) async {
+    final labelRepository = widget.labelRepository;
+    if (labelRepository != null) {
+      final worker = widget.workers.firstWhere(
+        (worker) => worker.id == _workerId,
+      );
+      final printed = await Navigator.of(context).push<bool>(
+        PageRouteBuilder<bool>(
+          pageBuilder: (_, _, _) => SortingLabelBatchPage(
+            repository: labelRepository,
+            result: result,
+            lot: widget.lot,
+            grades: widget.grades,
+            workerId: worker.id,
+            workerName: worker.displayName,
+            sortedOn: _parseDate(_dateController.text)!,
+          ),
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
+        ),
+      );
+      if (printed == true && mounted) Navigator.pop(context, true);
+      return;
+    }
     await showDialog<void>(
       context: context,
       barrierDismissible: false,

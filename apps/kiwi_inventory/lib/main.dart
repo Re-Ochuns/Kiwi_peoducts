@@ -10,6 +10,7 @@ import 'auth/auth_gate.dart';
 import 'auth/auth_repository.dart';
 import 'auth/supabase_auth_repository.dart';
 import 'core/app_breakpoints.dart';
+import 'core/app_deep_link.dart';
 import 'core/app_config.dart';
 import 'core/app_theme.dart';
 import 'core/common_state_view.dart';
@@ -155,7 +156,7 @@ class KiwiInventoryApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: theme ?? buildAppTheme(),
           home: _buildHome(),
-          initialRoute: workTaskInitialRoute(Uri.base),
+          initialRoute: appInitialRoute(Uri.base),
           onGenerateRoute: _onGenerateRoute,
           navigatorObservers: [managerDashboardRouteObserver],
         ),
@@ -164,6 +165,23 @@ class KiwiInventoryApp extends StatelessWidget {
   }
 
   Route<dynamic>? _onGenerateRoute(RouteSettings settings) {
+    final receivingLotId = sortingLotIdFromRoute(settings.name);
+    final sorting = sortingRepository;
+    if (receivingLotId != null && sorting != null) {
+      return PageRouteBuilder<void>(
+        settings: settings,
+        pageBuilder: (context, _, _) => _authenticated(
+          (_, _) => SortingTargetPage(
+            repository: sorting,
+            labelRepository: labelRepository,
+            initialLotId: receivingLotId,
+            currentDate: currentDate,
+          ),
+        ),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      );
+    }
     final taskId = workTaskIdFromRoute(settings.name);
     final repository = workTaskRepository;
     if (taskId == null || repository == null) return null;
@@ -523,8 +541,11 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
     Navigator.of(context)
         .push(
           PageRouteBuilder<void>(
-            pageBuilder: (_, _, _) =>
-                ReceivingPage(repository: repository, currentDate: currentDate),
+            pageBuilder: (_, _, _) => ReceivingPage(
+              repository: repository,
+              labelRepository: labelRepository,
+              currentDate: currentDate,
+            ),
             transitionDuration: Duration.zero,
             reverseTransitionDuration: Duration.zero,
           ),
@@ -545,6 +566,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
           PageRouteBuilder<void>(
             pageBuilder: (_, _, _) => SortingTargetPage(
               repository: repository,
+              labelRepository: labelRepository,
               currentDate: currentDate,
             ),
             transitionDuration: Duration.zero,
@@ -669,6 +691,7 @@ Widget? _buildWorkTaskTargetPage(
 }) => switch (task.type) {
   WorkTaskType.sorting when sortingRepository != null => SortingTargetPage(
     repository: sortingRepository,
+    labelRepository: labelRepository,
     currentDate: currentDate,
   ),
   WorkTaskType.labelPrinting when labelRepository != null => LabelTargetPage(
@@ -1409,6 +1432,7 @@ class ManagerProcessBoardPage extends StatefulWidget {
 
 class _ManagerProcessBoardPageState extends State<ManagerProcessBoardPage> {
   bool _busy = false;
+  bool _showInventory = false;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -1435,13 +1459,47 @@ class _ManagerProcessBoardPageState extends State<ManagerProcessBoardPage> {
         ),
         const VerticalDivider(width: 1),
         Expanded(
-          child: ProcessBoardPage(
-            onBusyChanged: (value) => setState(() => _busy = value),
-            repository: widget.repository,
-            ripeningPlanRepository: widget.ripeningPlanRepository,
-            ripeningWorkRepository: widget.ripeningWorkRepository,
-            shippingRepository: widget.shippingRepository,
-            currentDate: widget.currentDate,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: SegmentedButton<bool>(
+                    key: const Key('process-board-view-switch'),
+                    segments: const [
+                      ButtonSegment(
+                        value: false,
+                        icon: Icon(Icons.view_kanban_outlined),
+                        label: Text('一覧'),
+                      ),
+                      ButtonSegment(
+                        value: true,
+                        icon: Icon(Icons.inventory_2_outlined),
+                        label: Text('在庫'),
+                      ),
+                    ],
+                    selected: {_showInventory},
+                    onSelectionChanged: _busy
+                        ? null
+                        : (selection) =>
+                              setState(() => _showInventory = selection.single),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: ProcessBoardPage(
+                  inventoryOnly: _showInventory,
+                  onBusyChanged: (value) => setState(() => _busy = value),
+                  repository: widget.repository,
+                  ripeningPlanRepository: widget.ripeningPlanRepository,
+                  ripeningWorkRepository: widget.ripeningWorkRepository,
+                  shippingRepository: widget.shippingRepository,
+                  currentDate: widget.currentDate,
+                ),
+              ),
+            ],
           ),
         ),
       ],
