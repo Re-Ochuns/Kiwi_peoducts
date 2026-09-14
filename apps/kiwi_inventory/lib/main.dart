@@ -9,6 +9,7 @@ import 'core/app_breakpoints.dart';
 import 'core/app_config.dart';
 import 'core/app_theme.dart';
 import 'core/common_state_view.dart';
+import 'core/display_mode_shell.dart';
 import 'csv_export/csv_export_repository.dart';
 import 'csv_export/supabase_csv_export_repository.dart';
 import 'inventory/inventory_page.dart';
@@ -135,14 +136,18 @@ class KiwiInventoryApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'キウイ在庫管理',
-      debugShowCheckedModeBanner: false,
-      theme: theme ?? buildAppTheme(),
-      home: _buildHome(),
-      initialRoute: workTaskInitialRoute(Uri.base),
-      onGenerateRoute: _onGenerateRoute,
-      navigatorObservers: [managerDashboardRouteObserver],
+    return DisplayModeShell(
+      appBuilder: (navigatorKey, frameBuilder) => MaterialApp(
+        navigatorKey: navigatorKey,
+        builder: frameBuilder,
+        title: 'キウイ在庫管理',
+        debugShowCheckedModeBanner: false,
+        theme: theme ?? buildAppTheme(),
+        home: _buildHome(),
+        initialRoute: workTaskInitialRoute(Uri.base),
+        onGenerateRoute: _onGenerateRoute,
+        navigatorObservers: [managerDashboardRouteObserver],
+      ),
     );
   }
 
@@ -398,7 +403,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _plainAppBar('おおくま農園', onSignOut: onSignOut),
+      appBar: _plainAppBar('作業ホーム', onSignOut: onSignOut),
       body: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
@@ -1458,14 +1463,6 @@ class ManagerNavigation extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    'おおくま農園',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
-                ),
-                const SizedBox(height: 28),
                 for (final item in items)
                   NavigationItem(
                     label: item,
