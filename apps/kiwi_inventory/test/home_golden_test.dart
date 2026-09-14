@@ -48,6 +48,7 @@ void main() {
       final data = await repository.load(filter: OrderListFilter.active);
       await tester.pumpWidget(
         MaterialApp(
+          debugShowCheckedModeBanner: false,
           theme: buildAppTheme(fontFamily: goldenFontFamily),
           home: Scaffold(
             body: OrderFormDialog(repository: repository, data: data),

@@ -129,7 +129,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('不足 7.50 kg'), findsOneWidget);
+    expect(find.text('未計画 7.50 kg'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.tap(find.text('受注-2026-001'));
     await tester.pumpAndSettle();
@@ -155,7 +155,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('20.00 kg'), findsOneWidget);
-    expect(find.text('不足 7.50 kg'), findsOneWidget);
+    expect(find.text('未計画 7.50 kg'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.byKey(const Key('order-status-filter')));
@@ -167,13 +167,13 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('未出荷受注を初期表示し不足量を文字で識別できる', (tester) async {
+  testWidgets('未出荷受注を初期表示し未計画量を文字で識別できる', (tester) async {
     final repository = FakeOrderManagementRepository();
     await _pump(tester, repository);
 
     expect(repository.lastFilter, OrderListFilter.active);
     expect(find.text('受注-2026-001'), findsOneWidget);
-    expect(find.text('不足 7.50 kg'), findsOneWidget);
+    expect(find.text('未計画 7.50 kg'), findsOneWidget);
     expect(find.textContaining('ヘイワード・L'), findsOneWidget);
     expect(find.byType(Icon), findsNothing);
     expect(tester.takeException(), isNull);

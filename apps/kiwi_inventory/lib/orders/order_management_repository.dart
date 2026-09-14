@@ -401,9 +401,11 @@ class OrderStockReservation {
     required this.displayId,
     required this.weightHundredths,
     this.plannedHundredths = 0,
+    this.availableToOrderHundredths,
   });
   final String containerId, displayId;
   final int weightHundredths, plannedHundredths;
+  final int? availableToOrderHundredths;
   Map<String, Object> toJson() => {
     'container_id': containerId,
     'reserved_weight_kg': weightHundredths / 100,

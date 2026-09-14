@@ -86,6 +86,7 @@ class _OrderInventoryPickerState extends State<OrderInventoryPicker> {
         containerId: stock.id,
         displayId: stock.displayId,
         weightHundredths: stock.available + stock.ownReserved,
+        availableToOrderHundredths: stock.available + stock.ownReserved,
       );
     });
   }
@@ -111,15 +112,14 @@ class _OrderInventoryPickerState extends State<OrderInventoryPicker> {
                 },
               ),
             ),
-            IconButton(
-              tooltip: '在庫を検索・更新',
+            OutlinedButton(
               onPressed: _loading
                   ? null
                   : () {
                       _offset = 0;
                       _load();
                     },
-              icon: const Icon(Icons.search),
+              child: const Text('検索・更新'),
             ),
           ],
         ),
@@ -130,6 +130,7 @@ class _OrderInventoryPickerState extends State<OrderInventoryPicker> {
                 key: ValueKey('variety-$_variety'),
                 initialValue: _variety,
                 isExpanded: true,
+                icon: const SizedBox.shrink(),
                 decoration: const InputDecoration(labelText: '品種'),
                 items: [
                   const DropdownMenuItem<String>(
@@ -154,6 +155,7 @@ class _OrderInventoryPickerState extends State<OrderInventoryPicker> {
                 key: ValueKey('grade-$_grade'),
                 initialValue: _grade,
                 isExpanded: true,
+                icon: const SizedBox.shrink(),
                 decoration: const InputDecoration(labelText: '等級'),
                 items: [
                   const DropdownMenuItem<String>(

@@ -511,7 +511,7 @@ class _OrderTable extends StatelessWidget {
                 DataColumn(label: Text('受注番号')),
                 DataColumn(label: Text('顧客・品種')),
                 DataColumn(label: Text('出荷予定日')),
-                DataColumn(label: Text('注文量・不足'), numeric: true),
+                DataColumn(label: Text('注文量・未計画'), numeric: true),
                 DataColumn(label: Text('状態')),
                 DataColumn(label: Text('')),
               ],
@@ -544,8 +544,8 @@ class _OrderTable extends StatelessWidget {
                             _Weight(item.orderedWeight),
                             Text(
                               item.shortageWeight > 0
-                                  ? '不足 ${item.shortageWeight.toStringAsFixed(2)} kg'
-                                  : '不足なし',
+                                  ? '未計画 ${item.shortageWeight.toStringAsFixed(2)} kg'
+                                  : '計画済み',
                               style: TextStyle(
                                 color: item.shortageWeight > 0
                                     ? AppColors.error
@@ -748,11 +748,11 @@ class _OrderDetailPanelState extends State<_OrderDetailPanel> {
             strong: true,
           ),
           _DetailRow(
-            label: '割当済み',
+            label: '計画済み',
             value: '${item.allocatedWeight.toStringAsFixed(2)} kg',
           ),
           _DetailRow(
-            label: '不足',
+            label: '未計画',
             value: item.shortageWeight > 0
                 ? '${item.shortageWeight.toStringAsFixed(2)} kg'
                 : 'なし',
@@ -1583,17 +1583,23 @@ class _OrderFormDialogState extends State<OrderFormDialog> {
     });
   }
 
+  int _stockWeight(String text) {
+    final value = double.tryParse(text);
+    return value == null || !value.isFinite || value < 0
+        ? 0
+        : (value * 100).round();
+  }
+
   List<OrderStockReservation> get _reservationInput => [
     for (final row in _reservations)
       OrderStockReservation(
         containerId: row.containerId,
         displayId: row.displayId,
-        weightHundredths:
-            ((double.tryParse(_stockWeights[row.containerId]?.text ?? '') ??
-                        0) *
-                    100)
-                .round(),
+        weightHundredths: _stockWeight(
+          _stockWeights[row.containerId]?.text ?? '',
+        ),
         plannedHundredths: row.plannedHundredths,
+        availableToOrderHundredths: row.availableToOrderHundredths,
       ),
   ];
   final _formKey = GlobalKey<FormState>();
@@ -1684,87 +1690,90 @@ class _OrderFormDialogState extends State<OrderFormDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(
-      _completed
-          ? '登録完了'
-          : _selectingStock
-          ? '受注用在庫を選択'
-          : widget.existing == null
-          ? '受注を登録'
-          : '受注を編集',
-    ),
-    content: SizedBox(
-      width: 620,
-      child: _completed
-          ? Text(
-              '${_resultNumber ?? widget.existing?.item.number ?? ''} を保存しました。',
-            )
-          : _selectingStock
-          ? OrderInventoryPicker(
-              repository: widget.repository as OrderInventoryRepository,
-              data: widget.data,
-              initial: _reservationInput,
-              orderId: widget.existing?.item.id,
-              varietyId: _reservations.isEmpty ? null : _varietyId,
-              gradeId: _reservations.isEmpty ? null : _gradeId,
-              onSelected: _setReservations,
-            )
-          : _confirming
-          ? _confirmation()
-          : _form(),
-    ),
-    actions: _completed
-        ? [
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('閉じる'),
-            ),
-          ]
-        : _selectingStock
-        ? [
-            TextButton(
-              onPressed: () {
-                if (_reservations.isNotEmpty) {
-                  setState(() => _selectingStock = false);
-                } else {
-                  Navigator.of(context).pop(false);
-                }
-              },
-              child: const Text('戻る'),
-            ),
-          ]
-        : _confirming
-        ? [
-            OutlinedButton(
-              onPressed: _saving
-                  ? null
-                  : () => setState(() => _confirming = false),
-              child: const Text('入力へ戻る'),
-            ),
-            FilledButton(
-              key: const Key('order-save'),
-              onPressed: _saving ? null : _save,
-              child: Text(
-                _saving
-                    ? '保存中'
-                    : _usesInventory
-                    ? '受注・在庫予約を確定'
-                    : 'この内容で保存',
+  Widget build(BuildContext context) => PopScope(
+    canPop: !_saving,
+    child: AlertDialog(
+      title: Text(
+        _completed
+            ? '登録完了'
+            : _selectingStock
+            ? '受注用在庫を選択'
+            : widget.existing == null
+            ? '受注を登録'
+            : '受注を編集',
+      ),
+      content: SizedBox(
+        width: 620,
+        child: _completed
+            ? Text(
+                '${_resultNumber ?? widget.existing?.item.number ?? ''} を保存しました。',
+              )
+            : _selectingStock
+            ? OrderInventoryPicker(
+                repository: widget.repository as OrderInventoryRepository,
+                data: widget.data,
+                initial: _reservationInput,
+                orderId: widget.existing?.item.id,
+                varietyId: _reservations.isEmpty ? null : _varietyId,
+                gradeId: _reservations.isEmpty ? null : _gradeId,
+                onSelected: _setReservations,
+              )
+            : _confirming
+            ? _confirmation()
+            : _form(),
+      ),
+      actions: _completed
+          ? [
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('閉じる'),
               ),
-            ),
-          ]
-        : [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('キャンセル'),
-            ),
-            FilledButton(
-              key: const Key('order-confirm-input'),
-              onPressed: _loadingDestinations ? null : _toConfirm,
-              child: const Text('入力内容を確認'),
-            ),
-          ],
+            ]
+          : _selectingStock
+          ? [
+              TextButton(
+                onPressed: () {
+                  if (_reservations.isNotEmpty) {
+                    setState(() => _selectingStock = false);
+                  } else {
+                    Navigator.of(context).pop(false);
+                  }
+                },
+                child: const Text('戻る'),
+              ),
+            ]
+          : _confirming
+          ? [
+              OutlinedButton(
+                onPressed: _saving
+                    ? null
+                    : () => setState(() => _confirming = false),
+                child: const Text('入力へ戻る'),
+              ),
+              FilledButton(
+                key: const Key('order-save'),
+                onPressed: _saving ? null : _save,
+                child: Text(
+                  _saving
+                      ? '保存中'
+                      : _usesInventory
+                      ? '受注・在庫予約を確定'
+                      : 'この内容で保存',
+                ),
+              ),
+            ]
+          : [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('キャンセル'),
+              ),
+              FilledButton(
+                key: const Key('order-confirm-input'),
+                onPressed: _loadingDestinations ? null : _toConfirm,
+                child: const Text('入力内容を確認'),
+              ),
+            ],
+    ),
   );
 
   Widget _form() => Form(
@@ -1782,7 +1791,16 @@ class _OrderFormDialogState extends State<OrderFormDialog> {
                 controller: _stockWeights[row.containerId]!,
                 keyValue: 'order-stock-${row.containerId}',
                 number: true,
+                onChanged: (_) => setState(() {}),
               ),
+            for (final row in _reservationInput)
+              if (row.availableToOrderHundredths != null)
+                Text(
+                  '${row.displayId} 選択時点の残り ${((row.availableToOrderHundredths! - row.weightHundredths) / 100).toStringAsFixed(2)} kg',
+                ),
+            Text(
+              '予約合計 ${(_reservationInput.fold<int>(0, (n, r) => n + r.weightHundredths) / 100).toStringAsFixed(2)} kg',
+            ),
             TextButton(
               onPressed: () => setState(() => _selectingStock = true),
               child: const Text('在庫を再選択'),
