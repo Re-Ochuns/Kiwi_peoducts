@@ -803,6 +803,7 @@ class _ManagerHomePageState extends State<ManagerHomePage> with RouteAware {
                   masterRepository: masterRepository,
                   csvExportRepository: csvExportRepository,
                   onSignOut: onSignOut,
+                  onNavigate: (item) => _openNavigation(context, item),
                 ),
                 transitionDuration: Duration.zero,
                 reverseTransitionDuration: Duration.zero,
@@ -812,6 +813,11 @@ class _ManagerHomePageState extends State<ManagerHomePage> with RouteAware {
   }
 
   void _openNavigation(BuildContext context, String item) {
+    final navigator = Navigator.of(context);
+    if (item == 'ホーム') {
+      navigator.popUntil((route) => route.isFirst);
+      return;
+    }
     final Widget? page = switch (item) {
       '受注' when orderManagementRepository != null => ManagerOrderPage(
         repository: orderManagementRepository!,
@@ -821,6 +827,7 @@ class _ManagerHomePageState extends State<ManagerHomePage> with RouteAware {
         masterRepository: masterRepository,
         csvExportRepository: csvExportRepository,
         onSignOut: onSignOut,
+        onNavigate: (item) => _openNavigation(context, item),
       ),
       '在庫管理' when inventoryRepository != null => ManagerInventoryPage(
         repository: inventoryRepository!,
@@ -829,6 +836,7 @@ class _ManagerHomePageState extends State<ManagerHomePage> with RouteAware {
         csvExportRepository: csvExportRepository,
         ripeningPlanRepository: ripeningPlanRepository,
         onSignOut: onSignOut,
+        onNavigate: (item) => _openNavigation(context, item),
       ),
       'マスター' when masterRepository != null => ManagerMasterPage(
         repository: masterRepository!,
@@ -837,6 +845,7 @@ class _ManagerHomePageState extends State<ManagerHomePage> with RouteAware {
         csvExportRepository: csvExportRepository,
         ripeningPlanRepository: ripeningPlanRepository,
         onSignOut: onSignOut,
+        onNavigate: (item) => _openNavigation(context, item),
       ),
       '追熟計画' when ripeningPlanRepository != null => ManagerRipeningPlanPage(
         repository: ripeningPlanRepository!,
@@ -846,12 +855,14 @@ class _ManagerHomePageState extends State<ManagerHomePage> with RouteAware {
         masterRepository: masterRepository,
         csvExportRepository: csvExportRepository,
         onSignOut: onSignOut,
+        onNavigate: (item) => _openNavigation(context, item),
       ),
       '出荷' when shippingRepository != null => ManagerShippingPage(
         repository: shippingRepository!,
         csvExportRepository: csvExportRepository,
         currentDate: currentDate,
         onSignOut: onSignOut,
+        onNavigate: (item) => _openNavigation(context, item),
       ),
       '工程ボード' when processBoardRepository != null => ManagerProcessBoardPage(
         repository: processBoardRepository!,
@@ -860,6 +871,7 @@ class _ManagerHomePageState extends State<ManagerHomePage> with RouteAware {
         shippingRepository: shippingRepository,
         currentDate: currentDate,
         onSignOut: onSignOut,
+        onNavigate: (item) => _openNavigation(context, item),
       ),
       _ => null,
     };
@@ -867,13 +879,16 @@ class _ManagerHomePageState extends State<ManagerHomePage> with RouteAware {
       preparing(context, '$item画面は準備中です');
       return;
     }
-    Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        pageBuilder: (_, _, _) => page,
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-      ),
+    final route = PageRouteBuilder<void>(
+      pageBuilder: (_, _, _) => page,
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
     );
+    if (navigator.canPop()) {
+      navigator.pushReplacement(route);
+    } else {
+      navigator.push(route);
+    }
   }
 }
 
@@ -900,6 +915,7 @@ class ManagerShippingPage extends StatelessWidget {
     this.csvExportRepository,
     this.currentDate,
     this.onSignOut,
+    this.onNavigate,
     super.key,
   });
 
@@ -907,6 +923,7 @@ class ManagerShippingPage extends StatelessWidget {
   final CsvExportRepository? csvExportRepository;
   final DateTime? currentDate;
   final VoidCallback? onSignOut;
+  final ValueChanged<String>? onNavigate;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -920,6 +937,7 @@ class ManagerShippingPage extends StatelessWidget {
                   Navigator.of(context).popUntil((route) => route.isFirst);
                   onSignOut!.call();
                 },
+          onNavigate: onNavigate,
           onSelected: (item) {
             if (item == 'ホーム') {
               Navigator.of(context).pop();
@@ -950,6 +968,7 @@ class ManagerMasterPage extends StatelessWidget {
     this.ripeningPlanRepository,
     this.orderManagementRepository,
     this.onSignOut,
+    this.onNavigate,
     super.key,
   });
 
@@ -959,6 +978,7 @@ class ManagerMasterPage extends StatelessWidget {
   final RipeningPlanRepository? ripeningPlanRepository;
   final OrderManagementRepository? orderManagementRepository;
   final VoidCallback? onSignOut;
+  final ValueChanged<String>? onNavigate;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -972,6 +992,7 @@ class ManagerMasterPage extends StatelessWidget {
                   Navigator.of(context).popUntil((route) => route.isFirst);
                   onSignOut!.call();
                 },
+          onNavigate: onNavigate,
           onSelected: (item) {
             if (item == 'ホーム') {
               Navigator.of(context).pop();
@@ -1046,6 +1067,7 @@ class ManagerInventoryPage extends StatelessWidget {
     this.ripeningPlanRepository,
     this.orderManagementRepository,
     this.onSignOut,
+    this.onNavigate,
     super.key,
   });
 
@@ -1055,6 +1077,7 @@ class ManagerInventoryPage extends StatelessWidget {
   final RipeningPlanRepository? ripeningPlanRepository;
   final OrderManagementRepository? orderManagementRepository;
   final VoidCallback? onSignOut;
+  final ValueChanged<String>? onNavigate;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -1068,6 +1091,7 @@ class ManagerInventoryPage extends StatelessWidget {
                   Navigator.of(context).popUntil((route) => route.isFirst);
                   onSignOut!.call();
                 },
+          onNavigate: onNavigate,
           onSelected: (item) {
             if (item == 'ホーム') {
               Navigator.of(context).pop();
@@ -1143,6 +1167,7 @@ class ManagerRipeningPlanPage extends StatelessWidget {
     this.csvExportRepository,
     this.orderManagementRepository,
     this.onSignOut,
+    this.onNavigate,
     super.key,
   });
 
@@ -1153,6 +1178,7 @@ class ManagerRipeningPlanPage extends StatelessWidget {
   final CsvExportRepository? csvExportRepository;
   final OrderManagementRepository? orderManagementRepository;
   final VoidCallback? onSignOut;
+  final ValueChanged<String>? onNavigate;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -1166,6 +1192,7 @@ class ManagerRipeningPlanPage extends StatelessWidget {
                   Navigator.of(context).popUntil((route) => route.isFirst);
                   onSignOut!.call();
                 },
+          onNavigate: onNavigate,
           onSelected: (item) {
             if (item == 'ホーム') {
               Navigator.of(context).pop();
@@ -1243,6 +1270,7 @@ class ManagerOrderPage extends StatelessWidget {
     this.masterRepository,
     this.csvExportRepository,
     this.onSignOut,
+    this.onNavigate,
     super.key,
   });
 
@@ -1254,6 +1282,7 @@ class ManagerOrderPage extends StatelessWidget {
   final MasterRepository? masterRepository;
   final CsvExportRepository? csvExportRepository;
   final VoidCallback? onSignOut;
+  final ValueChanged<String>? onNavigate;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -1267,6 +1296,7 @@ class ManagerOrderPage extends StatelessWidget {
                   Navigator.of(context).popUntil((route) => route.isFirst);
                   onSignOut!.call();
                 },
+          onNavigate: onNavigate,
           onSelected: (item) {
             if (item == 'ホーム') {
               Navigator.of(context).pop();
@@ -1342,6 +1372,7 @@ class ManagerProcessBoardPage extends StatefulWidget {
     this.shippingRepository,
     this.currentDate,
     this.onSignOut,
+    this.onNavigate,
     super.key,
   });
 
@@ -1351,6 +1382,7 @@ class ManagerProcessBoardPage extends StatefulWidget {
   final ShippingRepository? shippingRepository;
   final DateTime? currentDate;
   final VoidCallback? onSignOut;
+  final ValueChanged<String>? onNavigate;
 
   @override
   State<ManagerProcessBoardPage> createState() =>
@@ -1372,6 +1404,7 @@ class _ManagerProcessBoardPageState extends State<ManagerProcessBoardPage> {
                   Navigator.of(context).popUntil((route) => route.isFirst);
                   widget.onSignOut!.call();
                 },
+          onNavigate: _busy ? null : widget.onNavigate,
           onSelected: _busy
               ? null
               : (item) {
@@ -1402,12 +1435,14 @@ class ManagerNavigation extends StatelessWidget {
   const ManagerNavigation({
     this.onSignOut,
     this.onSelected,
+    this.onNavigate,
     this.selectedItem = 'ホーム',
     super.key,
   });
 
   final VoidCallback? onSignOut;
   final ValueChanged<String>? onSelected;
+  final ValueChanged<String>? onNavigate;
   final String selectedItem;
   static const items = ['ホーム', '受注', '追熟計画', '工程ボード', '在庫管理', '出荷', 'マスター'];
 
@@ -1435,7 +1470,11 @@ class ManagerNavigation extends StatelessWidget {
                   NavigationItem(
                     label: item,
                     selected: item == selectedItem,
-                    onTap: () => onSelected?.call(item),
+                    onTap: () {
+                      if (item != selectedItem) {
+                        (onNavigate ?? onSelected)?.call(item);
+                      }
+                    },
                   ),
                 const Spacer(),
                 if (onSignOut != null)
