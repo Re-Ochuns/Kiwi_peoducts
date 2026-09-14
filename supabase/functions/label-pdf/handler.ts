@@ -10,6 +10,7 @@
 import {
   buildRipeningLabelPdf,
   buildSortingLabelPdf,
+  buildSortingLabelsPdf,
   LABEL_LAYOUT_VERSION,
   RipeningLabelData,
   SortingLabelData,
@@ -18,7 +19,8 @@ import {
 // Response headers the browser client is allowed to read. Flutter Web uses the
 // layout version for reproducibility diagnostics and Content-Disposition for
 // the download filename, so both must be exposed across CORS.
-const EXPOSED_HEADERS = "Content-Disposition, X-Label-Layout-Version";
+const EXPOSED_HEADERS =
+  "Content-Disposition, X-Label-Layout-Version, X-Label-Page-Count";
 
 export const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -56,7 +58,31 @@ export interface RipeningLabelRow {
   planned_removal_at: string | null;
   planned_completion_at: string | null;
   orchard_names: string | null;
-  allocations: Array<{ order_id: string | null; order_number: string | null; allocation_type: string; allocated_weight_kg: number }>;
+  allocations: Array<
+    {
+      order_id: string | null;
+      order_number: string | null;
+      allocation_type: string;
+      allocated_weight_kg: number;
+    }
+  >;
+}
+
+export interface SortingLabelBatchContainerRow {
+  container_id: string;
+  display_id: string;
+  weight_kg: number | string;
+  grade_code: string;
+  variety_name: string;
+  origin_name: string;
+  sorted_on: string;
+  worker_name: string;
+}
+
+export interface SortingLabelBatchRow {
+  sorting_result_id: string;
+  display_id: string;
+  containers: SortingLabelBatchContainerRow[];
 }
 
 export interface QueryResult<T> {
@@ -87,7 +113,8 @@ export interface LabelClient {
 }
 
 export interface HandlerDeps {
-  fontBytes: Uint8Array;
+  sortingFontBytes: Uint8Array;
+  ripeningFontBytes: Uint8Array;
   createClient(authHeader: string): LabelClient;
 }
 
@@ -113,7 +140,9 @@ function errorResponse(
   );
 }
 
-export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Response> {
+export function createHandler(
+  deps: HandlerDeps,
+): (req: Request) => Promise<Response> {
   return async (req: Request): Promise<Response> => {
     const startedAt = performance.now();
     if (req.method === "OPTIONS") {
@@ -121,42 +150,104 @@ export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Resp
     }
 
     let containerId = "";
+    let sortingResultId = "";
+    let expectedPageCount: number | null = null;
     let correlationId = req.headers.get("x-correlation-id") ?? "";
     if (req.method === "GET") {
-      containerId = new URL(req.url).searchParams.get("container_id") ?? "";
+      const params = new URL(req.url).searchParams;
+      containerId = params.get("container_id") ?? "";
+      sortingResultId = params.get("sorting_result_id") ?? "";
+      const rawExpectedPageCount = params.get("expected_page_count");
+      if (rawExpectedPageCount !== null) {
+        expectedPageCount = Number(rawExpectedPageCount);
+      }
     } else if (req.method === "POST") {
       try {
         const body = await req.json();
-        containerId = typeof body?.container_id === "string" ? body.container_id : "";
+        containerId = typeof body?.container_id === "string"
+          ? body.container_id
+          : "";
+        sortingResultId = typeof body?.sorting_result_id === "string"
+          ? body.sorting_result_id
+          : "";
+        if (body?.expected_page_count !== undefined) {
+          expectedPageCount = Number(body.expected_page_count);
+        }
         if (typeof body?.correlation_id === "string") {
           correlationId = body.correlation_id;
         }
       } catch {
-        return errorResponse(400, "VALIDATION_FAILED", "JSON本文を読み取れません。", correlationId);
+        return errorResponse(
+          400,
+          "VALIDATION_FAILED",
+          "JSON本文を読み取れません。",
+          correlationId,
+        );
       }
     } else {
-      return errorResponse(405, "VALIDATION_FAILED", "GETまたはPOSTで呼び出してください。", correlationId);
+      return errorResponse(
+        405,
+        "VALIDATION_FAILED",
+        "GETまたはPOSTで呼び出してください。",
+        correlationId,
+      );
     }
 
-    if (!UUID_PATTERN.test(containerId)) {
+    const hasContainerId = containerId !== "";
+    const hasSortingResultId = sortingResultId !== "";
+    if (
+      hasContainerId === hasSortingResultId ||
+      (hasContainerId && !UUID_PATTERN.test(containerId)) ||
+      (hasSortingResultId && !UUID_PATTERN.test(sortingResultId))
+    ) {
       logEvent({ outcome: "invalid_request", correlation_id: correlationId });
-      return errorResponse(400, "VALIDATION_FAILED", "container_id が正しくありません。", correlationId);
+      return errorResponse(
+        400,
+        "VALIDATION_FAILED",
+        "container_id または sorting_result_id のどちらか一方を正しく指定してください。",
+        correlationId,
+      );
+    }
+    if (
+      hasSortingResultId &&
+      (expectedPageCount === null ||
+        !Number.isSafeInteger(expectedPageCount) || expectedPageCount <= 0)
+    ) {
+      logEvent({ outcome: "invalid_request", correlation_id: correlationId });
+      return errorResponse(
+        400,
+        "VALIDATION_FAILED",
+        "expected_page_count を1以上の整数で指定してください。",
+        correlationId,
+      );
     }
 
     const authHeader = req.headers.get("Authorization") ?? "";
     const bearerToken = authHeader.replace(/^Bearer\s+/i, "").trim();
     if (bearerToken === "") {
       logEvent({ outcome: "auth_required", correlation_id: correlationId });
-      return errorResponse(401, "AUTH_REQUIRED", "ログインが必要です。", correlationId);
+      return errorResponse(
+        401,
+        "AUTH_REQUIRED",
+        "ログインが必要です。",
+        correlationId,
+      );
     }
 
     try {
       const client = deps.createClient(authHeader);
 
-      const { data: userData, error: userError } = await client.auth.getUser(bearerToken);
+      const { data: userData, error: userError } = await client.auth.getUser(
+        bearerToken,
+      );
       if (userError || !userData?.user) {
         logEvent({ outcome: "auth_required", correlation_id: correlationId });
-        return errorResponse(401, "AUTH_REQUIRED", "ログインが必要です。", correlationId);
+        return errorResponse(
+          401,
+          "AUTH_REQUIRED",
+          "ログインが必要です。",
+          correlationId,
+        );
       }
 
       // RLS only exposes their own profile to active users. A query error means
@@ -172,7 +263,86 @@ export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Resp
       }
       if (!profile) {
         logEvent({ outcome: "auth_forbidden", correlation_id: correlationId });
-        return errorResponse(403, "AUTH_FORBIDDEN", "この操作を行う権限がありません。", correlationId);
+        return errorResponse(
+          403,
+          "AUTH_FORBIDDEN",
+          "この操作を行う権限がありません。",
+          correlationId,
+        );
+      }
+
+      if (hasSortingResultId) {
+        const { data: batch, error: batchError } = await client
+          .rpc("sorting_labels_get", {
+            sorting_result_id_value: sortingResultId,
+          })
+          .maybeSingle<SortingLabelBatchRow>();
+        if (batchError) {
+          throw new Error(`sorting_labels_get failed: ${batchError.message}`);
+        }
+        if (
+          !batch || !Array.isArray(batch.containers) ||
+          batch.containers.length === 0
+        ) {
+          logEvent({
+            outcome: "not_found",
+            sorting_result_id: sortingResultId,
+            correlation_id: correlationId,
+          });
+          return errorResponse(
+            404,
+            "SORTING_RESULT_NOT_FOUND",
+            "対象の選果結果またはラベルが見つかりません。",
+            correlationId,
+          );
+        }
+        if (batch.containers.length !== expectedPageCount) {
+          logEvent({
+            outcome: "page_count_mismatch",
+            sorting_result_id: sortingResultId,
+            expected_page_count: expectedPageCount,
+            actual_page_count: batch.containers.length,
+            correlation_id: correlationId,
+          });
+          return errorResponse(
+            409,
+            "LABEL_COUNT_MISMATCH",
+            "選果結果とラベル枚数が一致しません。選果対象を再読み込みしてください。",
+            correlationId,
+          );
+        }
+        const labels: SortingLabelData[] = batch.containers.map((row) => ({
+          containerDisplayId: row.display_id,
+          originName: row.origin_name,
+          varietyName: row.variety_name,
+          gradeCode: row.grade_code,
+          netWeightKg: Number(row.weight_kg).toFixed(2),
+          sortedOn: row.sorted_on,
+          workerName: row.worker_name,
+        }));
+        const pdf = await buildSortingLabelsPdf(labels, deps.sortingFontBytes);
+        logEvent({
+          outcome: "ok",
+          sorting_result_id: sortingResultId,
+          page_count: labels.length,
+          correlation_id: correlationId,
+          layout_version: LABEL_LAYOUT_VERSION,
+          pdf_bytes: pdf.byteLength,
+          duration_ms: Math.round(performance.now() - startedAt),
+        });
+        return new Response(pdf.buffer as ArrayBuffer, {
+          headers: {
+            ...CORS_HEADERS,
+            "Content-Type": "application/pdf",
+            "Content-Disposition":
+              `inline; filename="labels.pdf"; filename*=UTF-8''${
+                encodeURIComponent(batch.display_id)
+              }-labels.pdf`,
+            "Cache-Control": "no-store",
+            "X-Label-Layout-Version": String(LABEL_LAYOUT_VERSION),
+            "X-Label-Page-Count": String(labels.length),
+          },
+        });
       }
 
       // Fetch container to detect its origin type (sorting vs. ripening).
@@ -194,8 +364,17 @@ export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Resp
         throw new Error(`container query failed: ${rowError.message}`);
       }
       if (!row) {
-        logEvent({ outcome: "not_found", container_id: containerId, correlation_id: correlationId });
-        return errorResponse(404, "CONTAINER_NOT_FOUND", "対象のコンテナが見つかりません。", correlationId);
+        logEvent({
+          outcome: "not_found",
+          container_id: containerId,
+          correlation_id: correlationId,
+        });
+        return errorResponse(
+          404,
+          "CONTAINER_NOT_FOUND",
+          "対象のコンテナが見つかりません。",
+          correlationId,
+        );
       }
 
       let pdf: Uint8Array;
@@ -210,8 +389,17 @@ export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Resp
           throw new Error(`ripening_label_get failed: ${ripError.message}`);
         }
         if (!ripRow) {
-          logEvent({ outcome: "not_found", container_id: containerId, correlation_id: correlationId });
-          return errorResponse(404, "CONTAINER_NOT_FOUND", "対象の追熟コンテナが見つかりません。", correlationId);
+          logEvent({
+            outcome: "not_found",
+            container_id: containerId,
+            correlation_id: correlationId,
+          });
+          return errorResponse(
+            404,
+            "CONTAINER_NOT_FOUND",
+            "対象の追熟コンテナが見つかりません。",
+            correlationId,
+          );
         }
         const labelData: RipeningLabelData = {
           containerDisplayId: ripRow.display_id,
@@ -229,13 +417,22 @@ export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Resp
             weightKg: Number(a.allocated_weight_kg).toFixed(2),
           })),
         };
-        pdf = await buildRipeningLabelPdf(labelData, deps.fontBytes);
+        pdf = await buildRipeningLabelPdf(labelData, deps.ripeningFontBytes);
         displayId = ripRow.display_id;
       } else {
         // ── Sorting container (S1-08) ───────────────────────────────────────
         if (!row.sorting_result) {
-          logEvent({ outcome: "not_found", container_id: containerId, correlation_id: correlationId });
-          return errorResponse(404, "CONTAINER_NOT_FOUND", "対象のコンテナが見つかりません。", correlationId);
+          logEvent({
+            outcome: "not_found",
+            container_id: containerId,
+            correlation_id: correlationId,
+          });
+          return errorResponse(
+            404,
+            "CONTAINER_NOT_FOUND",
+            "対象のコンテナが見つかりません。",
+            correlationId,
+          );
         }
         const labelData: SortingLabelData = {
           containerDisplayId: row.display_id,
@@ -246,7 +443,7 @@ export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Resp
           sortedOn: row.sorting_result.sorted_on,
           workerName: row.sorting_result.worker?.display_name ?? "",
         };
-        pdf = await buildSortingLabelPdf(labelData, deps.fontBytes);
+        pdf = await buildSortingLabelPdf(labelData, deps.sortingFontBytes);
         displayId = row.display_id;
       }
 
@@ -263,7 +460,9 @@ export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Resp
           ...CORS_HEADERS,
           "Content-Type": "application/pdf",
           "Content-Disposition":
-            `inline; filename="label.pdf"; filename*=UTF-8''${encodeURIComponent(displayId)}.pdf`,
+            `inline; filename="label.pdf"; filename*=UTF-8''${
+              encodeURIComponent(displayId)
+            }.pdf`,
           "Cache-Control": "no-store",
           "X-Label-Layout-Version": String(LABEL_LAYOUT_VERSION),
         },
@@ -272,11 +471,17 @@ export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Resp
       logEvent({
         outcome: "error",
         container_id: containerId,
+        sorting_result_id: sortingResultId,
         correlation_id: correlationId,
         message: cause instanceof Error ? cause.message : String(cause),
         duration_ms: Math.round(performance.now() - startedAt),
       });
-      return errorResponse(500, "UNEXPECTED", "ラベルの生成に失敗しました。再試行してください。", correlationId);
+      return errorResponse(
+        500,
+        "UNEXPECTED",
+        "ラベルの生成に失敗しました。再試行してください。",
+        correlationId,
+      );
     }
   };
 }

@@ -5,16 +5,18 @@ Issue #17（S1-08）の選果後A5ラベルと、Issue #65（S3-08）の追熟�
 ## エンドポイント
 
 - パス: `/functions/v1/label-pdf`
-- メソッド: `GET`（`?container_id=<uuid>`）または `POST`（`{"container_id":"<uuid>","correlation_id":"<任意>"}`）
+- 個別印刷は`container_id`、Issue #114の選果後一括印刷は`sorting_result_id`と`expected_page_count`を指定する。両方または未指定は受け付けない。
+- メソッド: `GET`（`?container_id=<uuid>`）または `POST`（`{"sorting_result_id":"<uuid>","expected_page_count":2,"correlation_id":"<任意>"}`）
 - 認可: 呼び出し元のJWTを`auth.getUser`で検証し、`profiles`をRLS越しに参照して`active`利用者だけへ許可する。`config.toml`の`verify_jwt = false`はゲートウェイ検証を切り、ブラウザのCORSプリフライト（Authorizationなしの`OPTIONS`）を通すための設定で、認可はFunction内で行う。
 - `profiles`参照が**行なし**なら権限なしとして403、参照そのものが**エラー**（PostgREST障害・通信障害）なら再試行可能な500 `UNEXPECTED`として扱い、権限判定と取得障害を区別する。
-- 応答: 成功時`application/pdf`（A5縦1ページ）。失敗時は`{ "error": { "code, message }, "correlation_id" }`のJSON。
-- CORS: `Access-Control-Expose-Headers`へ`Content-Disposition, X-Label-Layout-Version`を露出し、Flutter Web（ブラウザ`fetch`）からファイル名とレイアウト版を読めるようにする。
+- 応答: 成功時`application/pdf`（個別はA5縦1ページ、一括は1コンテナ1ページの複数ページ）。失敗時は`{ "error": { "code, message }, "correlation_id" }`のJSON。
+- CORS: `Access-Control-Expose-Headers`へ`Content-Disposition, X-Label-Layout-Version, X-Label-Page-Count`を露出し、Flutter Webからファイル名・レイアウト版・ページ数を読めるようにする。
 
 | 状況 | HTTP | code |
 |---|---|---|
 | 成功 | 200 | （PDFバイト列） |
 | container_idが不正 | 400 | VALIDATION_FAILED |
+| 選果確定結果とPDF対象件数が不一致 | 409 | LABEL_COUNT_MISMATCH |
 | 未認証・無効セッション | 401 | AUTH_REQUIRED |
 | 認証済みだが非active | 403 | AUTH_FORBIDDEN |
 | コンテナが存在しない／選果未確定 | 404 | CONTAINER_NOT_FOUND |
@@ -34,12 +36,15 @@ Issue #17（S1-08）の選果後A5ラベルと、Issue #65（S3-08）の追熟�
 - `layout.ts`がFND-07試作（`experiments/fnd-07`）のレイアウトを移植する。ページはA5（148×210mm）、安全余白10mm、コンテナIDと正味重量を最優先で大きく表示する。試作のみの100mm確認線は含めない。
 - 同一入力・同一レイアウト版から同一バイト列を再生成できるよう、PDFメタデータの日時を固定し、埋め込みフォントのサブセット名を固定する。レイアウト版は`LABEL_LAYOUT_VERSION`（応答ヘッダー`X-Label-Layout-Version`）で管理する。
 - 選果後ラベルの表示項目（コンテナ表示ID、産地・区画、品種、等級、正味重量、選果日、担当者）を`containers`→`sorting_results`→`workers`/`receiving_lots`から取得する。
+- `sorting_result_id`指定時は`sorting_labels_get`で当該選果結果の追熟前コンテナだけを取得し、等級表示順・コンテナ表示ID順の1つの複数ページPDFを返す。1コンテナをA5の1ページとし、`expected_page_count`と取得件数が一致しなければPDFを生成しない。
+- 選果後ラベルは白地・黒文字・黒罫線だけを使用する。選果サイズと品種を最優先、正味重量とコンテナ表示IDを次点として、人が目視で判別できる階層にする。
+- 日本語の文字欠けを防ぐため、選果後ラベルPDFにはNoto Sans JPを1ファイルにつき1回完全埋め込みする。ファイル容量より現場での可読性を優先する。
 - 追熟ラベルの表示項目（コンテナ表示ID、産地、品種、等級、正味重量、注入日時、抜き予定、出荷可能予定、場所）を`ripening_label_get` RPCから取得する。
 
 ## フォント
 
-- `assets/NotoSansJP-VariableFont_wght.ttf`（SIL OFL 1.1、`assets/OFL.txt`）を同梱し、`config.toml`の`static_files`でランタイムへ配置する。
-- `pdf-lib`＋`@pdf-lib/fontkit`でサブセット埋め込みし、生成PDFは約12KB（全約9.1MBのフォントを丸ごと積まない）。ADR-0002のバンドル制約に対し、ローカルCLIバンドル＋サブセット化で対応する。
+- 選果ラベルには可変フォントから固定ウェイト化した`assets/NotoSansJP-SemiBold.ttf`、追熟ラベルには従来の`assets/NotoSansJP-VariableFont_wght.ttf`を使う。どちらもSIL OFL 1.1（`assets/OFL.txt`）で、`config.toml`の`static_files`から配置する。
+- `pdf-lib`＋`@pdf-lib/fontkit`でフォントをPDFごとに1回完全埋め込みする。選果ラベルはファイル容量より、ブラウザ・プリンター間で日本語が欠けないことを優先する。
 
 ## 監視
 
