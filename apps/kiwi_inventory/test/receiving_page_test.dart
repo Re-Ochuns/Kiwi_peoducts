@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kiwi_inventory/receiving/receiving_page.dart';
 import 'package:kiwi_inventory/receiving/receiving_repository.dart';
+import 'package:kiwi_inventory/label/label_repository.dart';
 
 void main() {
   for (final width in [360.0, 390.0, 430.0]) {
@@ -91,6 +93,20 @@ void main() {
     expect(repository.correctCalls, 1);
     expect(repository.correctionReasons.single, '計量結果を訂正');
     expect(find.text('修正が完了しました'), findsOneWidget);
+  });
+
+  testWidgets('収穫登録完了後に仮ラベルPDFプレビューへ遷移する', (tester) async {
+    final repository = FakeReceivingRepository();
+    final labels = _ReceivingLabelRepository();
+    await _pumpPage(tester, repository, labelRepository: labels);
+    await _completeHarvestForm(tester);
+    await _confirmAndRegister(tester);
+
+    expect(repository.registerCalls, 1);
+    expect(labels.fetchCalls, 1);
+    expect(find.text('仮ラベル確認'), findsOneWidget);
+    expect(find.text('ヘイワード'), findsOneWidget);
+    expect(find.byKey(const Key('receiving-sorting-qr')), findsOneWidget);
   });
 
   testWidgets('仕入れの必須項目を入力して登録できる', (tester) async {
@@ -256,6 +272,7 @@ Future<void> _pumpPage(
   WidgetTester tester,
   ReceivingRepository repository, {
   double width = 390,
+  LabelRepository? labelRepository,
 }) async {
   await tester.binding.setSurfaceSize(Size(width, 900));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -263,6 +280,8 @@ Future<void> _pumpPage(
     MaterialApp(
       home: ReceivingPage(
         repository: repository,
+        labelRepository: labelRepository,
+        appBaseUri: Uri.parse('https://kiwi.example.test'),
         currentDate: DateTime(2028, 5, 1),
       ),
     ),
@@ -318,7 +337,7 @@ class FakeReceivingRepository implements ReceivingRepository {
   final List<String> correctionReasons = [];
 
   static const registerResult = ReceivingResult(
-    receivingLotId: 'lot-1',
+    receivingLotId: 'e6000000-0000-4000-8000-000000000001',
     displayId: '受入-2028-001',
     receivedDate: '2028-05-01',
     sortingDueDate: '2028-05-31',
@@ -353,7 +372,13 @@ class FakeReceivingRepository implements ReceivingRepository {
       ),
     ],
     suppliers: [MasterOption(id: 'supplier-1', label: 'supplier-01　仕入先A')],
-    varieties: [MasterOption(id: 'variety-1', label: 'hayward　ヘイワード')],
+    varieties: [
+      MasterOption(
+        id: 'variety-1',
+        label: 'hayward　ヘイワード',
+        businessName: 'ヘイワード',
+      ),
+    ],
     workers: [MasterOption(id: 'worker-1', label: 'worker-01　作業者A')],
   );
 
@@ -399,4 +424,74 @@ class FakeReceivingRepository implements ReceivingRepository {
       idempotentReplay: false,
     );
   }
+}
+
+class _ReceivingLabelRepository implements LabelRepository {
+  int fetchCalls = 0;
+
+  @override
+  Future<LabelPdf> fetchReceivingBatchPdf({
+    required String receivingLotId,
+    required int expectedPageCount,
+  }) async {
+    fetchCalls++;
+    expect(
+      receivingLotId,
+      FakeReceivingRepository.registerResult.receivingLotId,
+    );
+    expect(expectedPageCount, 2);
+    return LabelPdf(
+      bytes: Uint8List.fromList([1, 2, 3]),
+      filename: 'receiving-labels.pdf',
+    );
+  }
+
+  @override
+  Future<LabelPdf> fetchSortingBatchPdf({
+    required String sortingResultId,
+    required int expectedPageCount,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<LabelLoadData> load({bool completed = false, LabelCursor? after}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<LabelPdf> fetchPdf({required String containerId}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<LabelActionResult> markPrinted({
+    required String labelJobId,
+    required String workerId,
+    required int copies,
+    required String idempotencyKey,
+    String? locationId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<LabelActionResult> markHandwritten({
+    required String labelJobId,
+    required String workerId,
+    required String idempotencyKey,
+    String? notes,
+    String? locationId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<LabelActionResult> reprint({
+    required String labelJobId,
+    required String workerId,
+    required String reason,
+    required int copies,
+    required String idempotencyKey,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<LabelBatchActionResult> markSortingBatchPrinted({
+    required String sortingResultId,
+    required String workerId,
+    required String idempotencyKey,
+    String? locationId,
+  }) => throw UnimplementedError();
 }

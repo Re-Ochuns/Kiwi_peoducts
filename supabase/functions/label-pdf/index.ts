@@ -19,6 +19,7 @@ Deno.serve(
   createHandler({
     sortingFontBytes,
     ripeningFontBytes,
+    appBaseUrl: Deno.env.get("APP_BASE_URL") ?? "",
     createClient: (authHeader) =>
       createClient(
         Deno.env.get("SUPABASE_URL") ?? "",

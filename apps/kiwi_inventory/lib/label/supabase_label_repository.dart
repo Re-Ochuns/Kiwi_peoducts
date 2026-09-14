@@ -240,6 +240,72 @@ class SupabaseLabelRepository implements LabelRepository {
   }
 
   @override
+  Future<LabelPdf> fetchReceivingBatchPdf({
+    required String receivingLotId,
+    required int expectedPageCount,
+  }) async {
+    final session = _client.auth.currentSession;
+    if (session == null) {
+      throw const LabelFailure(
+        message: 'セッションの有効期限が切れています。再ログインしてください。',
+        code: 'AUTH_REQUIRED',
+      );
+    }
+    final correlationId = _uuidV4();
+    try {
+      final response = await _httpClient
+          .post(
+            Uri.parse('$supabaseUrl/functions/v1/label-pdf'),
+            headers: {
+              'Authorization': 'Bearer ${session.accessToken}',
+              'apikey': supabaseKey,
+              'Content-Type': 'application/json',
+              'x-correlation-id': correlationId,
+            },
+            body: jsonEncode({
+              'receiving_lot_id': receivingLotId,
+              'expected_page_count': expectedPageCount,
+              'correlation_id': correlationId,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final pageCount = int.tryParse(
+          response.headers['x-label-page-count'] ?? '',
+        );
+        if (pageCount != expectedPageCount) {
+          throw LabelFailure(
+            message: '登録したコンテナ数とラベル枚数が一致しません。登録結果を確認してください。',
+            code: 'LABEL_COUNT_MISMATCH',
+            correlationId: correlationId,
+          );
+        }
+        return LabelPdf(
+          bytes: Uint8List.fromList(response.bodyBytes),
+          filename: '$receivingLotId-receiving-labels.pdf',
+        );
+      }
+      throw _failureForPdfResponse(response, correlationId);
+    } on TimeoutException {
+      throw LabelFailure(
+        message: '仮ラベルPDFの生成がタイムアウトしました。再試行してください。',
+        code: 'TIMEOUT',
+        correlationId: correlationId,
+        retryable: true,
+      );
+    } on LabelFailure {
+      rethrow;
+    } catch (_) {
+      throw LabelFailure(
+        message: '仮ラベルPDFを取得できませんでした。通信状況を確認してください。',
+        code: 'NETWORK_FAILED',
+        correlationId: correlationId,
+        retryable: true,
+      );
+    }
+  }
+
+  @override
   Future<LabelActionResult> markPrinted({
     required String labelJobId,
     required String workerId,

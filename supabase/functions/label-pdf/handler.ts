@@ -8,6 +8,7 @@
 // Their label data comes from the ripening_label_get RPC instead of the
 // containers join, so the same entry point serves both label types.
 import {
+  buildReceivingLabelsPdf,
   buildRipeningLabelPdf,
   buildSortingLabelPdf,
   buildSortingLabelsPdf,
@@ -85,6 +86,17 @@ export interface SortingLabelBatchRow {
   containers: SortingLabelBatchContainerRow[];
 }
 
+export interface ReceivingLabelRow {
+  id: string;
+  display_id: string;
+  received_on: string;
+  origin_name: string;
+  total_weight_kg: number | string;
+  container_count: number;
+  status: string;
+  variety: { name: string } | null;
+}
+
 export interface QueryResult<T> {
   data: T | null;
   error: { message: string } | null;
@@ -115,7 +127,22 @@ export interface LabelClient {
 export interface HandlerDeps {
   sortingFontBytes: Uint8Array;
   ripeningFontBytes: Uint8Array;
+  appBaseUrl: string;
   createClient(authHeader: string): LabelClient;
+}
+
+export function receivingSortingUrl(
+  appBaseUrl: string,
+  receivingLotId: string,
+): string {
+  const base = new URL(appBaseUrl);
+  if (
+    base.protocol !== "https:" || base.search || base.hash || base.username ||
+    base.password || !UUID_PATTERN.test(receivingLotId)
+  ) {
+    throw new Error("APP_BASE_URL is not a valid HTTPS application URL");
+  }
+  return `${base.toString().replace(/\/$/, "")}/sorting/${receivingLotId}`;
 }
 
 function logEvent(fields: Record<string, unknown>): void {
@@ -151,12 +178,14 @@ export function createHandler(
 
     let containerId = "";
     let sortingResultId = "";
+    let receivingLotId = "";
     let expectedPageCount: number | null = null;
     let correlationId = req.headers.get("x-correlation-id") ?? "";
     if (req.method === "GET") {
       const params = new URL(req.url).searchParams;
       containerId = params.get("container_id") ?? "";
       sortingResultId = params.get("sorting_result_id") ?? "";
+      receivingLotId = params.get("receiving_lot_id") ?? "";
       const rawExpectedPageCount = params.get("expected_page_count");
       if (rawExpectedPageCount !== null) {
         expectedPageCount = Number(rawExpectedPageCount);
@@ -169,6 +198,9 @@ export function createHandler(
           : "";
         sortingResultId = typeof body?.sorting_result_id === "string"
           ? body.sorting_result_id
+          : "";
+        receivingLotId = typeof body?.receiving_lot_id === "string"
+          ? body.receiving_lot_id
           : "";
         if (body?.expected_page_count !== undefined) {
           expectedPageCount = Number(body.expected_page_count);
@@ -195,21 +227,24 @@ export function createHandler(
 
     const hasContainerId = containerId !== "";
     const hasSortingResultId = sortingResultId !== "";
+    const hasReceivingLotId = receivingLotId !== "";
     if (
-      hasContainerId === hasSortingResultId ||
+      Number(hasContainerId) + Number(hasSortingResultId) +
+            Number(hasReceivingLotId) !== 1 ||
       (hasContainerId && !UUID_PATTERN.test(containerId)) ||
-      (hasSortingResultId && !UUID_PATTERN.test(sortingResultId))
+      (hasSortingResultId && !UUID_PATTERN.test(sortingResultId)) ||
+      (hasReceivingLotId && !UUID_PATTERN.test(receivingLotId))
     ) {
       logEvent({ outcome: "invalid_request", correlation_id: correlationId });
       return errorResponse(
         400,
         "VALIDATION_FAILED",
-        "container_id または sorting_result_id のどちらか一方を正しく指定してください。",
+        "container_id、sorting_result_id、receiving_lot_idのいずれか1つを正しく指定してください。",
         correlationId,
       );
     }
     if (
-      hasSortingResultId &&
+      (hasSortingResultId || hasReceivingLotId) &&
       (expectedPageCount === null ||
         !Number.isSafeInteger(expectedPageCount) || expectedPageCount <= 0)
     ) {
@@ -269,6 +304,97 @@ export function createHandler(
           "この操作を行う権限がありません。",
           correlationId,
         );
+      }
+
+      if (hasReceivingLotId) {
+        const { data: lot, error: lotError } = await client
+          .from("receiving_lots")
+          .select(
+            "id, display_id, received_on, origin_name, total_weight_kg, " +
+              "container_count, status, variety:varieties(name)",
+          )
+          .eq("id", receivingLotId)
+          .maybeSingle<ReceivingLabelRow>();
+        if (lotError) {
+          throw new Error(`receiving lot query failed: ${lotError.message}`);
+        }
+        if (!lot) {
+          logEvent({
+            outcome: "not_found",
+            receiving_lot_id: receivingLotId,
+            correlation_id: correlationId,
+          });
+          return errorResponse(
+            404,
+            "RECEIVING_LOT_NOT_FOUND",
+            "対象の受入ロットが見つかりません。",
+            correlationId,
+          );
+        }
+        if (lot.status !== "awaiting_sorting") {
+          logEvent({
+            outcome: "conflict",
+            receiving_lot_id: receivingLotId,
+            status: lot.status,
+            correlation_id: correlationId,
+          });
+          return errorResponse(
+            409,
+            "RECEIVING_LOT_NOT_AVAILABLE",
+            "この受入ロットはすでに選果済みです。選果対象一覧を確認してください。",
+            correlationId,
+          );
+        }
+        if (lot.container_count !== expectedPageCount) {
+          logEvent({
+            outcome: "page_count_mismatch",
+            receiving_lot_id: receivingLotId,
+            expected_page_count: expectedPageCount,
+            actual_page_count: lot.container_count,
+            correlation_id: correlationId,
+          });
+          return errorResponse(
+            409,
+            "LABEL_COUNT_MISMATCH",
+            "登録したコンテナ数とラベル枚数が一致しません。登録結果を確認してください。",
+            correlationId,
+          );
+        }
+        const sortingUrl = receivingSortingUrl(
+          deps.appBaseUrl,
+          receivingLotId,
+        );
+        const pdf = await buildReceivingLabelsPdf({
+          receivingLotDisplayId: lot.display_id,
+          receivedOn: lot.received_on,
+          originName: lot.origin_name,
+          varietyName: lot.variety?.name ?? "",
+          totalWeightKg: Number(lot.total_weight_kg).toFixed(2),
+          containerCount: lot.container_count,
+          sortingUrl,
+        }, deps.sortingFontBytes);
+        logEvent({
+          outcome: "ok",
+          receiving_lot_id: receivingLotId,
+          page_count: lot.container_count,
+          correlation_id: correlationId,
+          layout_version: LABEL_LAYOUT_VERSION,
+          pdf_bytes: pdf.byteLength,
+          duration_ms: Math.round(performance.now() - startedAt),
+        });
+        return new Response(pdf.buffer as ArrayBuffer, {
+          headers: {
+            ...CORS_HEADERS,
+            "Content-Type": "application/pdf",
+            "Content-Disposition":
+              `inline; filename="receiving-labels.pdf"; filename*=UTF-8''${
+                encodeURIComponent(lot.display_id)
+              }-receiving-labels.pdf`,
+            "Cache-Control": "no-store",
+            "X-Label-Layout-Version": String(LABEL_LAYOUT_VERSION),
+            "X-Label-Page-Count": String(lot.container_count),
+          },
+        });
       }
 
       if (hasSortingResultId) {

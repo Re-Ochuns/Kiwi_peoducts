@@ -1,14 +1,25 @@
 import 'package:flutter/material.dart';
 
+import '../core/app_deep_link.dart';
 import '../core/app_theme.dart';
 import '../core/common_state_view.dart';
+import '../label/label_repository.dart';
+import '../label/receiving_label_preview_page.dart';
 import 'receiving_repository.dart';
 import 'supabase_receiving_repository.dart';
 
 class ReceivingPage extends StatefulWidget {
-  const ReceivingPage({required this.repository, this.currentDate, super.key});
+  const ReceivingPage({
+    required this.repository,
+    this.labelRepository,
+    this.appBaseUri,
+    this.currentDate,
+    super.key,
+  });
 
   final ReceivingRepository repository;
+  final LabelRepository? labelRepository;
+  final Uri? appBaseUri;
   final DateTime? currentDate;
 
   @override
@@ -503,34 +514,52 @@ class _ReceivingPageState extends State<ReceivingPage> {
       _pendingSignature = null;
       _unresolvedInput = null;
       _unresolvedReason = null;
-      final edit = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          scrollable: true,
-          title: Text(correction == null ? '登録が完了しました' : '修正が完了しました'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _ConfirmRow(label: '受入ロットID', value: result.displayId),
-              _ConfirmRow(label: '受入日', value: result.receivedDate),
-              _ConfirmRow(label: '選果期限', value: result.sortingDueDate),
-            ],
-          ),
-          actions: [
-            if (correction == null)
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('登録内容を修正'),
+      final labelRepository = widget.labelRepository;
+      final edit = correction == null && labelRepository != null
+          ? await Navigator.of(context).push<bool>(
+              PageRouteBuilder<bool>(
+                pageBuilder: (_, _, _) => ReceivingLabelPreviewPage(
+                  repository: labelRepository,
+                  result: result,
+                  input: input,
+                  varietyName: _nameOf(_masters!.varieties, input.varietyId),
+                  sortingUrl: receivingSortingLink(
+                    widget.appBaseUri ?? Uri.base,
+                    result.receivingLotId,
+                  ),
+                ),
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
               ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('閉じる'),
-            ),
-          ],
-        ),
-      );
+            )
+          : await showDialog<bool>(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => AlertDialog(
+                scrollable: true,
+                title: Text(correction == null ? '登録が完了しました' : '修正が完了しました'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _ConfirmRow(label: '受入ロットID', value: result.displayId),
+                    _ConfirmRow(label: '受入日', value: result.receivedDate),
+                    _ConfirmRow(label: '選果期限', value: result.sortingDueDate),
+                  ],
+                ),
+                actions: [
+                  if (correction == null)
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: const Text('登録内容を修正'),
+                    ),
+                  FilledButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('閉じる'),
+                  ),
+                ],
+              ),
+            );
       if (!mounted) return;
       if (edit == true) {
         setState(() {

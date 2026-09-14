@@ -515,6 +515,12 @@ class FakeLabelRepository implements LabelRepository {
   }) => fetchPdf(containerId: sortingResultId);
 
   @override
+  Future<LabelPdf> fetchReceivingBatchPdf({
+    required String receivingLotId,
+    required int expectedPageCount,
+  }) => fetchPdf(containerId: receivingLotId);
+
+  @override
   Future<LabelActionResult> markPrinted({
     required String labelJobId,
     required String workerId,

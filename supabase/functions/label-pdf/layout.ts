@@ -3,6 +3,9 @@
 // metadata dates and embedded font names are fixed.
 import { PDFDocument, type PDFFont, rgb } from "npm:pdf-lib@1.17.1";
 import fontkit from "npm:@pdf-lib/fontkit@1.1.1";
+// qrcode is used only to produce a PNG data URL from the opaque app link.
+// @ts-ignore: the package does not publish TypeScript declarations.
+import QRCode from "npm:qrcode@1.5.4";
 
 export const LABEL_LAYOUT_VERSION = 2;
 
@@ -170,6 +173,158 @@ export async function buildSortingLabelsPdf(
     drawField("担当者", workerName);
 
     drawText("おおくま農園", MARGIN, MARGIN, 9);
+  }
+
+  return await doc.save({ useObjectStreams: false });
+}
+
+// ── Receiving temporary label (Issue #112) ──────────────────────────────────
+
+export interface ReceivingLabelData {
+  receivingLotDisplayId: string;
+  receivedOn: string;
+  originName: string;
+  varietyName: string;
+  totalWeightKg: string;
+  containerCount: number;
+  sortingUrl: string;
+}
+
+export async function buildReceivingLabelsPdf(
+  data: ReceivingLabelData,
+  fontBytes: Uint8Array,
+): Promise<Uint8Array> {
+  const receivingLotDisplayId = data.receivingLotDisplayId?.trim();
+  const originName = data.originName?.trim();
+  const varietyName = data.varietyName?.trim();
+  if (!receivingLotDisplayId || !originName || !varietyName) {
+    throw new Error("receiving label fields must not be blank");
+  }
+  if (!/^\d+\.\d{2}$/.test(data.totalWeightKg)) {
+    throw new Error("totalWeightKg must have two decimals");
+  }
+  if (!Number.isSafeInteger(data.containerCount) || data.containerCount <= 0) {
+    throw new Error("containerCount must be a positive integer");
+  }
+  const sortingUrl = new URL(data.sortingUrl);
+  if (
+    sortingUrl.protocol !== "https:" || sortingUrl.search || sortingUrl.hash ||
+    sortingUrl.username || sortingUrl.password ||
+    !/^\/sorting\/[0-9a-f-]{36}$/i.test(sortingUrl.pathname)
+  ) {
+    throw new Error("sortingUrl must be an app HTTPS sorting link");
+  }
+  const receivedOn = formatJapaneseDate(data.receivedOn);
+
+  const doc = await PDFDocument.create();
+  doc.registerFontkit(fontkit);
+  const font = await doc.embedFont(fontBytes, {
+    subset: false,
+    customName: "NotoSansJP",
+  });
+  const qrDataUrl = await QRCode.toDataURL(sortingUrl.toString(), {
+    errorCorrectionLevel: "M",
+    margin: 2,
+    width: 512,
+    color: { dark: "#000000", light: "#FFFFFF" },
+  });
+  const qrBytes = Uint8Array.from(
+    atob(qrDataUrl.substring(qrDataUrl.indexOf(",") + 1)),
+    (character) => character.charCodeAt(0),
+  );
+  const qrImage = await doc.embedPng(qrBytes);
+
+  doc.setTitle("収穫・受入コンテナ仮ラベル");
+  doc.setAuthor("おおくま農園 在庫管理システム");
+  doc.setCreator("kiwi-inventory label-pdf");
+  doc.setProducer(`kiwi-inventory label-pdf layout-v${LABEL_LAYOUT_VERSION}`);
+  doc.setCreationDate(FIXED_DATE);
+  doc.setModificationDate(FIXED_DATE);
+
+  for (let index = 0; index < data.containerCount; index++) {
+    const page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+    const drawText = (text: string, x: number, y: number, size: number) =>
+      page.drawText(text, { x, y, size, font, color: BLACK });
+    const drawFittedText = (
+      text: string,
+      x: number,
+      y: number,
+      preferredSize: number,
+      maxWidth: number,
+    ) => drawText(text, x, y, fitTextSize(font, text, preferredSize, maxWidth));
+    const drawRule = (y: number, thickness = 1) =>
+      page.drawLine({
+        start: { x: MARGIN, y },
+        end: { x: PAGE_WIDTH - MARGIN, y },
+        thickness,
+        color: BLACK,
+      });
+
+    const top = PAGE_HEIGHT - MARGIN;
+    drawText("収穫・受入 仮ラベル", MARGIN, top - 5 * MM, 11);
+    drawText(
+      `${index + 1} / ${data.containerCount}`,
+      PAGE_WIDTH - MARGIN - 21 * MM,
+      top - 5 * MM,
+      12,
+    );
+    drawText("品種", MARGIN, top - 16 * MM, 10);
+    drawFittedText(
+      varietyName,
+      MARGIN,
+      top - 30 * MM,
+      31,
+      PAGE_WIDTH - 2 * MARGIN,
+    );
+    drawText("産地・圃場・区画", MARGIN, top - 41 * MM, 10);
+    drawFittedText(
+      originName,
+      MARGIN,
+      top - 53 * MM,
+      23,
+      PAGE_WIDTH - 2 * MARGIN,
+    );
+    drawRule(top - 61 * MM, 2);
+
+    drawText("受入ロットID", MARGIN, top - 72 * MM, 10);
+    drawFittedText(
+      receivingLotDisplayId,
+      MARGIN,
+      top - 84 * MM,
+      22,
+      PAGE_WIDTH - 2 * MARGIN,
+    );
+    drawRule(top - 91 * MM);
+    drawText("収穫・受入日", MARGIN, top - 103 * MM, 10);
+    drawText(receivedOn, MARGIN + 35 * MM, top - 103 * MM, 14);
+    drawText("合計重量", MARGIN, top - 116 * MM, 10);
+    drawText(`${data.totalWeightKg} kg`, MARGIN + 35 * MM, top - 116 * MM, 14);
+    drawRule(top - 123 * MM);
+
+    drawText("コンテナ番号", MARGIN, top - 137 * MM, 10);
+    drawFittedText(
+      `${index + 1} / ${data.containerCount}`,
+      MARGIN,
+      top - 157 * MM,
+      38,
+      53 * MM,
+    );
+    drawText("QRコードが読めない場合は", MARGIN, MARGIN + 20 * MM, 8);
+    drawText("受入ロットIDで選果対象を探す", MARGIN, MARGIN + 15 * MM, 8);
+
+    const qrSize = 48 * MM;
+    page.drawImage(qrImage, {
+      x: PAGE_WIDTH - MARGIN - qrSize,
+      y: MARGIN + 7 * MM,
+      width: qrSize,
+      height: qrSize,
+    });
+    drawText(
+      "選果時に読み取る",
+      PAGE_WIDTH - MARGIN - qrSize,
+      MARGIN + 2 * MM,
+      8,
+    );
   }
 
   return await doc.save({ useObjectStreams: false });

@@ -148,6 +148,11 @@ abstract interface class LabelRepository {
     required int expectedPageCount,
   });
 
+  Future<LabelPdf> fetchReceivingBatchPdf({
+    required String receivingLotId,
+    required int expectedPageCount,
+  });
+
   Future<LabelActionResult> markPrinted({
     required String labelJobId,
     required String workerId,

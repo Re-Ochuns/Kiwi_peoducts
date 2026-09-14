@@ -1,4 +1,5 @@
 import 'package:kiwi_inventory/work_tasks/worker_todo.dart';
+import 'package:kiwi_inventory/core/app_deep_link.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kiwi_inventory/work_tasks/work_task_repository.dart';
 
@@ -26,6 +27,19 @@ void main() {
     expect(
       workTaskInitialRoute(Uri.parse('https://example.test/other')),
       isNull,
+    );
+  });
+  test('QRのURLから選果対象IDを初期ルートとして取得する', () {
+    const id = 'e6000000-0000-4000-8000-000000000001';
+    expect(
+      appInitialRoute(Uri.parse('https://example.test/sorting/$id')),
+      '/sorting/$id',
+    );
+    expect(sortingLotIdFromRoute('/sorting/$id'), id);
+    expect(sortingLotIdFromRoute('/sorting/not-a-uuid'), isNull);
+    expect(
+      receivingSortingLink(Uri.parse('https://example.test/'), id),
+      'https://example.test/sorting/$id',
     );
   });
   test('期限超過・ToDo・今後を優先順に分け、完了済みを除外する', () {

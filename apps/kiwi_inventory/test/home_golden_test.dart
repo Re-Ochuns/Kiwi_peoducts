@@ -501,6 +501,12 @@ class _GoldenLabelRepository implements LabelRepository {
   }) => throw UnimplementedError();
 
   @override
+  Future<LabelPdf> fetchReceivingBatchPdf({
+    required String receivingLotId,
+    required int expectedPageCount,
+  }) => throw UnimplementedError();
+
+  @override
   Future<LabelActionResult> markPrinted({
     required String labelJobId,
     required String workerId,

@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
+import '../core/app_deep_link.dart';
 import '../core/app_config.dart';
 import 'auth_repository.dart';
 
@@ -65,7 +66,7 @@ class SupabaseAuthRepository implements AuthRepository {
 // Preserve task deep links across the full-page OAuth round trip.
 String authRedirectTo(Uri uri) {
   final route = uri.fragment.startsWith('/') ? uri.fragment : uri.path;
-  if (RegExp(r'^/work-tasks/[^/?#]+$').hasMatch(route)) {
+  if (appInitialRoute(uri) != null) {
     return Uri.parse('${uri.origin}/').replace(fragment: route).toString();
   }
   return uri.origin;
