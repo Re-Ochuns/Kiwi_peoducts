@@ -22,15 +22,21 @@
 | Flutter format・analyze | 差分・解析エラーなし | 101ファイル変更なし、解析エラーなし | Pass |
 | Flutter非Goldenテスト | 既存機能とS3画面の回帰なし | 277件成功 | Pass |
 | Web release build | ビルド成功 | 成功 | Pass |
-| Linux Golden | Ubuntu正本と一致 | macOSのため未実施。PRのFlutter CIで確認する | Not Run |
-| DB lint・pgTAP | migration・RLS・RPC・競合が成功 | Docker・Podmanがないため未実施 | Not Run |
-| Edge Functions | 型検査・自動テスト成功 | Denoがないため未実施 | Not Run |
+| Linux Golden | Ubuntu正本と一致 | PR #102のFlutter CIで成功 | Pass |
+| DB lint・pgTAP | migration・RLS・RPC・競合が成功 | PR #102のDatabase CIで成功 | Pass |
+| Edge Functions | 型検査・自動テスト成功 | 対象SHAのStaging配備で型検査・テスト成功 | Pass |
 | Google OAuth往復 | 登録済みGoogleアカウントでログイン | アカウント操作を伴うため未実施 | Not Run |
 | S3業務E2E | 計画から出荷・取消まで成立 | 検証用ログインとダミーデータ操作が必要 | Not Run |
 | 実機・印刷・現場 | 現物と表示・ラベル・重量が一致 | 実施者と設備が必要 | Not Run |
 
 トップ画面と作業URLはブラウザのアクセシビリティツリーでも文字ラベルを確認した。
 ログインボタンは押しておらず、Googleアカウント情報や業務データを変更していない。
+
+CI証跡:
+
+- [PR #102 Flutter CI](https://github.com/Re-Ochuns/Kiwi_peoducts/actions/runs/34803394423)
+- [PR #102 Database CI](https://github.com/Re-Ochuns/Kiwi_peoducts/actions/runs/34803394302)
+- [対象SHAのStaging配備](https://github.com/Re-Ochuns/Kiwi_peoducts/actions/runs/34794046119)
 
 ## シナリオ記録欄
 
@@ -52,6 +58,6 @@
 | 確認待ち | Google OAuthと検証用active/pending/disabledアカウント | アカウント所有者の許可を得て画面確認 |
 | 確認待ち | S3ダミーデータによる業務E2E | 検証環境とデータを特定して実行 |
 | 環境差異 | ローカルNode.js 26.5.0（必須24.19.0） | Node.js 24.19.0の環境またはCIで受入コマンドを再実行 |
-| 環境差異 | Docker・Podman・Denoなし | Database CIとEdge Functions CIで補完し、ローカル実APIは対応端末で再実行 |
+| 環境差異 | Docker・Podman・Denoなし | CIで自動確認を補完済み。ローカル実APIは対応端末で再実行 |
 | 現場作業 | 実機、複数端末、A5印刷、手書き復旧 | 現場確認者が端末・プリンターと実測を記録 |
 | 性能試験 | 20,000件・10セッション | 専用ダミーデータ環境で測定 |

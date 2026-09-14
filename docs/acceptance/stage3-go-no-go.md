@@ -22,7 +22,7 @@
 | 対象SHA | `a3fbf34800bd9d8dbba545eb1807fed102f46527` |
 | 公開Staging | 配備と、staging Environmentの公開キーを使った読み取り専用スモークPass |
 | ブラウザ描画 | トップと未認証作業URLを確認 |
-| 自動回帰 | Flutter format・analyze、277テスト、Web buildはPass。Golden・DB・EdgeはCI待ち |
+| 自動回帰 | Flutter format・analyze、277テスト、Web build、Linux Golden、DB、EdgeがPass |
 | Google OAuth・ロール | 未実施 |
 | S3業務E2E | 未実施 |
 | 実機・複数端末 | 未実施 |
