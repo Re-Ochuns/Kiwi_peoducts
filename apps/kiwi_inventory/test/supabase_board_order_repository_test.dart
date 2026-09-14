@@ -82,6 +82,7 @@ void main() {
               {
                 'id': 'lot',
                 'kind': 'lot',
+                'use_type': 'mixed',
                 'display_id': 'LOT-1',
                 'stage': 'resting',
                 'available_weight_kg': 7.75,
@@ -109,6 +110,7 @@ void main() {
       );
       expect(rows.single.availableHundredths, 775);
       expect(rows.single.stage, ProcessStage.resting);
+      expect(rows.single.item('Hayward', 'L').useType, ProcessUseType.mixed);
       expect(rows.single.containerIds, 'C1、C2');
       await client.dispose();
     },

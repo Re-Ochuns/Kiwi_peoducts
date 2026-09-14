@@ -94,6 +94,9 @@ class SupabaseBoardOrderRepository implements BoardOrderRepository {
             BoardOrderCandidate(
               id: row['id'] as String,
               kind: row['kind'] as String,
+              useType: row['use_type'] == null
+                  ? null
+                  : ProcessUseType.fromValue(row['use_type'] as String),
               displayId: row['display_id'] as String,
               stage: ProcessStage.values.byName(row['stage'] as String),
               availableHundredths: ((row['available_weight_kg'] as num) * 100)

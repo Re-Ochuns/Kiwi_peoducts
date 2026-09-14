@@ -667,15 +667,17 @@ class _UseMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (useType == ProcessUseType.unassigned ||
-        useType == ProcessUseType.order) {
+    if (useType == ProcessUseType.unassigned) {
+      return const SizedBox(width: 14, height: 14);
+    }
+    if (useType == ProcessUseType.order) {
       return SizedBox(
         width: 14,
         height: 14,
         child: Center(
           child: Container(
-            width: useType == ProcessUseType.order ? 7 : 11,
-            height: useType == ProcessUseType.order ? 7 : 11,
+            width: 7,
+            height: 7,
             decoration: BoxDecoration(shape: BoxShape.circle, color: color),
           ),
         ),
