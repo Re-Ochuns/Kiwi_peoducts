@@ -401,7 +401,7 @@ enabled = true
 # requests (OPTIONS without Authorization) can reach the function.
 verify_jwt = false
 # Bundle the embedded Japanese font so Deno.readFile resolves at runtime.
-static_files = ["./functions/label-pdf/assets/NotoSansJP-VariableFont_wght.ttf"]
+static_files = ["./functions/label-pdf/assets/NotoSansJP-SemiBold.ttf", "./functions/label-pdf/assets/NotoSansJP-VariableFont_wght.ttf"]
 
 [analytics]
 enabled = true

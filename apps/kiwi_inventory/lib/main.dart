@@ -532,6 +532,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
           PageRouteBuilder<void>(
             pageBuilder: (_, _, _) => SortingTargetPage(
               repository: repository,
+              labelRepository: labelRepository,
               currentDate: currentDate,
             ),
             transitionDuration: Duration.zero,
@@ -656,6 +657,7 @@ Widget? _buildWorkTaskTargetPage(
 }) => switch (task.type) {
   WorkTaskType.sorting when sortingRepository != null => SortingTargetPage(
     repository: sortingRepository,
+    labelRepository: labelRepository,
     currentDate: currentDate,
   ),
   WorkTaskType.labelPrinting when labelRepository != null => LabelTargetPage(

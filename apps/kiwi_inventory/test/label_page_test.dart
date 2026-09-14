@@ -509,6 +509,12 @@ class FakeLabelRepository implements LabelRepository {
   }
 
   @override
+  Future<LabelPdf> fetchSortingBatchPdf({
+    required String sortingResultId,
+    required int expectedPageCount,
+  }) => fetchPdf(containerId: sortingResultId);
+
+  @override
   Future<LabelActionResult> markPrinted({
     required String labelJobId,
     required String workerId,
@@ -571,6 +577,18 @@ class FakeLabelRepository implements LabelRepository {
       reprintCount: 2,
     );
   }
+
+  @override
+  Future<LabelBatchActionResult> markSortingBatchPrinted({
+    required String sortingResultId,
+    required String workerId,
+    required String idempotencyKey,
+    String? locationId,
+  }) async => LabelBatchActionResult(
+    sortingResultId: sortingResultId,
+    completedCount: data.jobs.length,
+    idempotentReplay: false,
+  );
 }
 
 class PagedLabelRepository extends FakeLabelRepository {

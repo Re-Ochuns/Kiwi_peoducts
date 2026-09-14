@@ -3,17 +3,21 @@ import 'package:flutter/services.dart';
 
 import '../core/app_theme.dart';
 import '../core/common_state_view.dart';
+import '../label/label_repository.dart';
+import '../label/sorting_label_batch_page.dart';
 import 'sorting_repository.dart';
 import 'supabase_sorting_repository.dart';
 
 class SortingTargetPage extends StatefulWidget {
   const SortingTargetPage({
     required this.repository,
+    this.labelRepository,
     this.currentDate,
     super.key,
   });
 
   final SortingRepository repository;
+  final LabelRepository? labelRepository;
   final DateTime? currentDate;
 
   @override
@@ -164,6 +168,7 @@ class _SortingTargetPageState extends State<SortingTargetPage> {
           lot: lot,
           grades: data.grades,
           workers: data.workers,
+          labelRepository: widget.labelRepository,
           currentDate: widget.currentDate,
         ),
         transitionDuration: Duration.zero,
@@ -278,6 +283,7 @@ class SortingInputPage extends StatefulWidget {
     required this.lot,
     required this.grades,
     required this.workers,
+    this.labelRepository,
     this.currentDate,
     super.key,
   });
@@ -286,6 +292,7 @@ class SortingInputPage extends StatefulWidget {
   final SortingLot lot;
   final List<SortingGrade> grades;
   final List<SortingWorker> workers;
+  final LabelRepository? labelRepository;
   final DateTime? currentDate;
 
   @override
@@ -771,6 +778,29 @@ class _SortingInputPageState extends State<SortingInputPage> {
   }
 
   Future<void> _showSuccess(SortingResult result) async {
+    final labelRepository = widget.labelRepository;
+    if (labelRepository != null) {
+      final worker = widget.workers.firstWhere(
+        (worker) => worker.id == _workerId,
+      );
+      final printed = await Navigator.of(context).push<bool>(
+        PageRouteBuilder<bool>(
+          pageBuilder: (_, _, _) => SortingLabelBatchPage(
+            repository: labelRepository,
+            result: result,
+            lot: widget.lot,
+            grades: widget.grades,
+            workerId: worker.id,
+            workerName: worker.displayName,
+            sortedOn: _parseDate(_dateController.text)!,
+          ),
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
+        ),
+      );
+      if (printed == true && mounted) Navigator.pop(context, true);
+      return;
+    }
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
