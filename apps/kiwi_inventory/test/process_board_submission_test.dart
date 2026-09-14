@@ -163,6 +163,11 @@ Future<void> _completeMixedForm(WidgetTester tester) async {
     const Key('ripening-inventory'),
     testRipeningOptions.inventories.single,
   );
+  await tester.enterText(
+    find.byKey(const Key('ripening-harvest-year')),
+    '2026',
+  );
+  await tester.enterText(find.byKey(const Key('ripening-harvest-month')), '9');
   await tester.enterText(find.byKey(const Key('ripening-weight')), '10');
   await _selectValue(
     tester,

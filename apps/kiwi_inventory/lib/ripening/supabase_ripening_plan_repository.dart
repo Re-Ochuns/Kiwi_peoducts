@@ -32,6 +32,12 @@ class SupabaseRipeningPlanRepository implements RipeningPlanRepository {
             .from('workers')
             .select('id, code, display_name')
             .eq('is_active', true),
+        _client
+            .from('ripening_rules')
+            .select(
+              'harvest_year, harvest_month, variety_id, ethylene_hours, rest_days',
+            )
+            .eq('is_active', true),
       ]).timeout(const Duration(seconds: 10));
 
       final varieties = _labels(results[2], nameKey: 'name');
@@ -92,6 +98,16 @@ class SupabaseRipeningPlanRepository implements RipeningPlanRepository {
         orders: orders,
         locations: _options(results[4], nameKey: 'name'),
         workers: _options(results[5], nameKey: 'display_name'),
+        rules: [
+          for (final raw in results[6] as List)
+            RipeningRuleOption(
+              harvestYear: ((raw as Map)['harvest_year'] as num).toInt(),
+              harvestMonth: (raw['harvest_month'] as num).toInt(),
+              varietyId: raw['variety_id'] as String,
+              ethyleneHours: (raw['ethylene_hours'] as num).toDouble(),
+              restDays: (raw['rest_days'] as num).toDouble(),
+            ),
+        ],
       );
     } on TimeoutException {
       throw const RipeningPlanFailure(

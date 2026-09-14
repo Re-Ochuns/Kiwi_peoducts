@@ -8,6 +8,7 @@ enum MasterType {
   worker,
   storageLocation,
   sortingDeadlineRule,
+  ripeningRule,
 }
 
 extension MasterTypeDefinition on MasterType {
@@ -21,6 +22,7 @@ extension MasterTypeDefinition on MasterType {
     MasterType.worker => 'worker',
     MasterType.storageLocation => 'storage_location',
     MasterType.sortingDeadlineRule => 'sorting_deadline_rule',
+    MasterType.ripeningRule => 'ripening_rule',
   };
 
   String get tableName => switch (this) {
@@ -33,6 +35,7 @@ extension MasterTypeDefinition on MasterType {
     MasterType.worker => 'workers',
     MasterType.storageLocation => 'storage_locations',
     MasterType.sortingDeadlineRule => 'sorting_deadline_rules',
+    MasterType.ripeningRule => 'ripening_rules',
   };
 
   String get label => switch (this) {
@@ -45,6 +48,7 @@ extension MasterTypeDefinition on MasterType {
     MasterType.worker => '作業者',
     MasterType.storageLocation => '保管場所',
     MasterType.sortingDeadlineRule => '選果期限ルール',
+    MasterType.ripeningRule => '追熟マスター',
   };
 
   String get selectColumns => switch (this) {
@@ -61,6 +65,7 @@ extension MasterTypeDefinition on MasterType {
     MasterType.storageLocation =>
       'id,code,name,location_type,is_active,version,updated_at',
     MasterType.sortingDeadlineRule => 'id,harvest_year,harvest_month,variety_id,deadline_days,is_active,version,updated_at',
+    MasterType.ripeningRule => 'id,harvest_year,harvest_month,variety_id,ethylene_temperature,ethylene_hours,rest_temperature,rest_days,shippable_days,best_before_days,is_active,version,updated_at',
   };
 
   bool get canRegister => this != MasterType.grade;
@@ -87,7 +92,7 @@ class MasterRecord {
 
   String get primaryText => switch (type) {
     MasterType.supplier => value('management_code'),
-    MasterType.sortingDeadlineRule =>
+    MasterType.sortingDeadlineRule || MasterType.ripeningRule =>
       '${value('harvest_year')}年${value('harvest_month')}月',
     _ => value('code'),
   };
@@ -97,8 +102,15 @@ class MasterRecord {
     MasterType.worker => value('display_name'),
     MasterType.storageLocation => value('name'),
     MasterType.sortingDeadlineRule => '${value('deadline_days')}日',
+    MasterType.ripeningRule =>
+      'エチレン ${_displayNumber(values['ethylene_hours'])}時間・寝かせ ${_displayNumber(values['rest_days'])}日',
     _ => value('name'),
   };
+
+  static String _displayNumber(Object? raw) {
+    if (raw is num && raw == raw.roundToDouble()) return raw.toInt().toString();
+    return raw?.toString() ?? '';
+  }
 
   String get searchText => values.values.join(' ').toLowerCase();
 }

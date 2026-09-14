@@ -122,4 +122,13 @@ final testRipeningOptions = RipeningPlanOptions(
     RipeningReferenceOption(id: 'location-1', label: 'ripening-01　第1追熟庫'),
   ],
   workers: const [RipeningReferenceOption(id: 'worker-1', label: 'W01　岡本')],
+  rules: const [
+    RipeningRuleOption(
+      harvestYear: 2026,
+      harvestMonth: 9,
+      varietyId: 'variety-1',
+      ethyleneHours: 72,
+      restDays: 7,
+    ),
+  ],
 );

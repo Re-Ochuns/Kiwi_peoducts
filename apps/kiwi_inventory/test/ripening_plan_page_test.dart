@@ -148,10 +148,36 @@ void main() {
       repository.lastInput!.plannedCompletionAt.difference(
         repository.lastInput!.plannedEthyleneAt,
       ),
-      const Duration(hours: 168),
+      const Duration(days: 10),
     );
     expect(find.text('登録完了'), findsOneWidget);
     expect(find.text('追熟-2026-001'), findsOneWidget);
+  });
+
+  testWidgets('収穫年度・月に対応する追熟マスターがない場合は確認できない', (tester) async {
+    await _pumpPage(tester);
+    await _selectValue(
+      tester,
+      const Key('ripening-inventory'),
+      testRipeningOptions.inventories.single,
+    );
+    await tester.enterText(
+      find.byKey(const Key('ripening-harvest-year')),
+      '2026',
+    );
+    await tester.enterText(
+      find.byKey(const Key('ripening-harvest-month')),
+      '10',
+    );
+    await tester.pump();
+
+    expect(find.textContaining('有効な追熟マスターがありません'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('ripening-review')))
+          .onPressed,
+      isNull,
+    );
   });
 
   testWidgets('確定失敗後は下書きを再登録せず同じ確定キーで再送する', (tester) async {
@@ -197,6 +223,11 @@ Future<void> _completeMixedForm(WidgetTester tester) async {
     const Key('ripening-inventory'),
     testRipeningOptions.inventories.single,
   );
+  await tester.enterText(
+    find.byKey(const Key('ripening-harvest-year')),
+    '2026',
+  );
+  await tester.enterText(find.byKey(const Key('ripening-harvest-month')), '9');
   await tester.enterText(find.byKey(const Key('ripening-weight')), '10');
   await _selectValue(
     tester,

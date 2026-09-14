@@ -9,6 +9,8 @@ void main() {
     expect(input.toRpcInput(), {
       'variety_id': 'variety-1',
       'grade_id': 'grade-m',
+      'harvest_year': 2026,
+      'harvest_month': 9,
       'total_weight_kg': 10.0,
       'storage_location_id': 'location-1',
       'planned_ethylene_at': '2026-09-12T01:00:00.000Z',
@@ -57,6 +59,8 @@ RipeningPlanInput _input() => RipeningPlanInput(
     availableWeightHundredths: 1000,
   ),
   totalWeightHundredths: 1000,
+  harvestYear: 2026,
+  harvestMonth: 9,
   locationId: 'location-1',
   plannedEthyleneAt: DateTime.utc(2026, 9, 12, 1),
   plannedCompletionAt: DateTime.utc(2026, 9, 19, 1),

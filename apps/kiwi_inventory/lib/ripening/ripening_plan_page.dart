@@ -33,6 +33,8 @@ class RipeningPlanPage extends StatefulWidget {
 
 class _RipeningPlanPageState extends State<RipeningPlanPage> {
   final _weightController = TextEditingController();
+  final _harvestYearController = TextEditingController();
+  final _harvestMonthController = TextEditingController();
   late final TextEditingController _ethyleneController;
   final _allocations = <_AllocationEditor>[];
 
@@ -57,8 +59,6 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
   String? _confirmKey;
   int? _confirmVersion;
 
-  static const _processingHours = 168;
-
   @override
   void initState() {
     super.initState();
@@ -73,6 +73,8 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
       text: _formatInputDate(nextHour),
     );
     _weightController.addListener(_onInputChanged);
+    _harvestYearController.addListener(_onInputChanged);
+    _harvestMonthController.addListener(_onInputChanged);
     _ethyleneController.addListener(_onInputChanged);
     _addAllocation(notify: false);
     _load();
@@ -81,6 +83,8 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
   @override
   void dispose() {
     _weightController.dispose();
+    _harvestYearController.dispose();
+    _harvestMonthController.dispose();
     _ethyleneController.dispose();
     for (final allocation in _allocations) {
       allocation.dispose();
@@ -231,6 +235,30 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
                 ],
                 const SizedBox(height: 16),
                 _LabeledField(
+                  label: '収穫年度',
+                  child: TextField(
+                    key: const Key('ripening-harvest-year'),
+                    controller: _harvestYearController,
+                    enabled: !_busy,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(hintText: '2026'),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _LabeledField(
+                  label: '収穫月',
+                  child: TextField(
+                    key: const Key('ripening-harvest-month'),
+                    controller: _harvestMonthController,
+                    enabled: !_busy,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(hintText: '1〜12'),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _LabeledField(
                   label: '追熟重量（kg）',
                   child: TextField(
                     key: const Key('ripening-weight'),
@@ -353,6 +381,8 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
                 _ScheduleSummary(
                   ethyleneAt: _plannedEthyleneAt,
                   completionAt: _plannedCompletionAt,
+                  ethyleneHours: _matchingRule?.ethyleneHours,
+                  restDays: _matchingRule?.restDays,
                 ),
                 if (_validationMessage != null) ...[
                   const SizedBox(height: 16),
@@ -407,12 +437,47 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
 
   DateTime? get _plannedEthyleneAt => _parseInputDate(_ethyleneController.text);
 
-  DateTime? get _plannedCompletionAt =>
-      _plannedEthyleneAt?.add(const Duration(hours: _processingHours));
+  int? get _harvestYear => int.tryParse(_harvestYearController.text.trim());
+
+  int? get _harvestMonth => int.tryParse(_harvestMonthController.text.trim());
+
+  RipeningRuleOption? get _matchingRule {
+    final inventory = _inventory;
+    final year = _harvestYear;
+    final month = _harvestMonth;
+    if (inventory == null || year == null || month == null) return null;
+    return _options!.rules
+        .where(
+          (rule) =>
+              rule.harvestYear == year &&
+              rule.harvestMonth == month &&
+              rule.varietyId == inventory.varietyId,
+        )
+        .firstOrNull;
+  }
+
+  DateTime? get _plannedCompletionAt {
+    final ethyleneAt = _plannedEthyleneAt;
+    final rule = _matchingRule;
+    if (ethyleneAt == null || rule == null) return null;
+    final minutes = (rule.ethyleneHours * 60 + rule.restDays * 24 * 60).round();
+    return ethyleneAt.add(Duration(minutes: minutes));
+  }
 
   String? get _validationMessage {
     final inventory = _inventory;
     if (inventory == null) return '冷蔵在庫を選択してください。';
+    final year = _harvestYear;
+    if (year == null || year < 2000 || year > 9999) {
+      return '収穫年度を2000〜9999で入力してください。';
+    }
+    final month = _harvestMonth;
+    if (month == null || month < 1 || month > 12) {
+      return '収穫月を1〜12で入力してください。';
+    }
+    if (_matchingRule == null) {
+      return '$year年$month月・${inventory.varietyLabel}の有効な追熟マスターがありません。';
+    }
     final total = _totalWeightHundredths;
     if (total == null || total <= 0) return '追熟重量を0.01kg単位で入力してください。';
     if (total > inventory.availableWeightHundredths) {
@@ -504,6 +569,8 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
       plannedEthyleneAt: _plannedEthyleneAt!,
       plannedCompletionAt: _plannedCompletionAt!,
       workerId: _workerId!,
+      harvestYear: _harvestYear!,
+      harvestMonth: _harvestMonth!,
       allocations: [
         for (final editor in _allocations)
           RipeningAllocationInput(
@@ -856,10 +923,14 @@ class _ScheduleSummary extends StatelessWidget {
   const _ScheduleSummary({
     required this.ethyleneAt,
     required this.completionAt,
+    required this.ethyleneHours,
+    required this.restDays,
   });
 
   final DateTime? ethyleneAt;
   final DateTime? completionAt;
+  final double? ethyleneHours;
+  final double? restDays;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -876,10 +947,17 @@ class _ScheduleSummary extends StatelessWidget {
       children: [
         _ScheduleStep(
           label: 'エチレン処理',
-          value: ethyleneAt == null ? '日時を確認' : '168時間',
+          value: ethyleneAt == null || ethyleneHours == null
+              ? '日時・マスターを確認'
+              : '${_formatRuleNumber(ethyleneHours!)}時間',
         ),
         const Text('→', semanticsLabel: '次の工程'),
-        const _ScheduleStep(label: '寝かせ', value: '追加条件なし'),
+        _ScheduleStep(
+          label: '寝かせ',
+          value: restDays == null
+              ? 'マスターを確認'
+              : '${_formatRuleNumber(restDays!)}日',
+        ),
         const Text('→', semanticsLabel: '次の工程'),
         _ScheduleStep(
           label: '追熟完了予定',
@@ -948,6 +1026,10 @@ class _ConfirmationDialog extends StatelessWidget {
                       label: '品種・等級',
                       value:
                           '${input.inventory.varietyLabel}・${input.inventory.gradeLabel}',
+                    ),
+                    _SummaryRow(
+                      label: '収穫年度・月',
+                      value: '${input.harvestYear}年${input.harvestMonth}月',
                     ),
                     _SummaryRow(
                       label: '追熟重量',
@@ -1122,3 +1204,7 @@ String _formatDisplayDate(DateTime value) {
   return '${local.year}年${local.month}月${local.day}日 '
       '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
 }
+
+String _formatRuleNumber(double value) => value == value.roundToDouble()
+    ? value.toInt().toString()
+    : value.toString();
