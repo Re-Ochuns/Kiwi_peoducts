@@ -40,6 +40,7 @@ class SupabaseProcessBoardRepository implements ProcessBoardRepository {
               location:storage_locations!containers_location_id_fkey(code, name)
             ''')
             .inFilter('status', _boardStatuses)
+            .gt('current_weight_kg', 0)
             .order('display_id'),
         _client.rpc('shipment_inventory_list'),
       ]).timeout(const Duration(seconds: 10));

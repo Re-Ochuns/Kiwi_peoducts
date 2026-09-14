@@ -13,6 +13,8 @@ void main() {
     final client = _client((request) {
       final path = request.url.path;
       if (path.endsWith('/containers')) {
+        // Fully transferred source containers must not return to the board.
+        expect(request.url.queryParameters['current_weight_kg'], 'gt.0');
         return _json([
           _container(
             id: 'container-cold',
