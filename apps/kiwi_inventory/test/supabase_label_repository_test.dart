@@ -7,6 +7,70 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:kiwi_inventory/label/supabase_label_repository.dart';
 
 void main() {
+  test('50件の追熟ラベルを遅延のある1回のRPCで取得し元の順序を維持する', () async {
+    final rows = [for (var i = 50; i > 0; i--) _row(i, 'not_printed')];
+    for (final row in rows) {
+      final container = row['container'] as Map<String, Object>;
+      container.remove('sorting_result');
+      container['ripening_lot_id'] = _id(90);
+    }
+    var calls = 0;
+    final client = _client(
+      rows,
+      delay: const Duration(milliseconds: 1100),
+      onBatch: (ids) {
+        calls++;
+        expect(ids, hasLength(50));
+      },
+    );
+    final repository = SupabaseLabelRepository(
+      client,
+      supabaseUrl: 'https://example.test',
+      supabaseKey: 'test',
+    );
+    final result = await repository.load();
+    expect(calls, 1);
+    expect(result.jobs.map((job) => job.containerId), [
+      for (var i = 50; i > 0; i--) _id(i),
+    ]);
+    await client.dispose();
+  });
+
+  for (final completed in [false, true]) {
+    for (final mixed in [false, true]) {
+      test('追熟対象を取得: 完了=$completed 混在=$mixed', () async {
+        final row = _row(2, completed ? 'printed' : 'not_printed');
+        final container = row['container'] as Map<String, Object>;
+        container.remove('sorting_result');
+        container['ripening_lot_id'] = _id(90);
+        final client = _client([
+          row,
+          if (mixed) _row(1, completed ? 'handwritten' : 'partially_printed'),
+        ]);
+        final repository = SupabaseLabelRepository(
+          client,
+          supabaseUrl: 'https://example.test',
+          supabaseKey: 'test',
+        );
+        final result = await repository.load(completed: completed);
+        expect(result.jobs.length, mixed ? 2 : 1);
+        final job = result.jobs.first;
+        expect(job.id, _id(2));
+        expect(job.containerId, _id(2));
+        expect(job.isRipening, isTrue);
+        expect(job.sortedOn, isNull);
+        expect(job.originName, '農園A・農園B');
+        expect(job.ripeningFields!['割当'], '予備 8.50 kg');
+        expect(job.ripeningFields!['注入日時'], isNot('未設定'));
+        if (mixed) {
+          expect(result.jobs.last.isRipening, isFalse);
+          expect(result.jobs.last.workerName, '担当者');
+        }
+        await client.dispose();
+      });
+    }
+  }
+
   test('対応済み1000件の後にある未対応も状態別に取得する', () async {
     final all = [
       for (var i = 1100; i > 100; i--) _row(i, 'printed'),
@@ -48,11 +112,39 @@ void main() {
   });
 }
 
-SupabaseClient _client(List<Map<String, Object>> rows) {
+SupabaseClient _client(
+  List<Map<String, Object>> rows, {
+  void Function(List<dynamic>)? onBatch,
+  Duration delay = Duration.zero,
+}) {
   return SupabaseClient(
     'https://example.test',
     'test',
     httpClient: MockClient((request) async {
+      if (request.url.path.endsWith('/rpc/ripening_labels_get')) {
+        final ids = jsonDecode(request.body)['container_ids'] as List;
+        onBatch?.call(ids);
+        await Future<void>.delayed(delay);
+        return http.Response(
+          jsonEncode([
+            for (final id in ids.reversed)
+              {
+                'container_id': id,
+                'orchard_names': '農園A・農園B',
+                'location_name': '追熟室',
+                'injection_at': '2026-09-14T00:00:00Z',
+                'planned_removal_at': '2026-09-15T00:00:00Z',
+                'planned_completion_at': '2026-09-20T00:00:00Z',
+                'allocations': [
+                  {'allocation_type': 'reserve', 'allocated_weight_kg': 8.5},
+                ],
+              },
+          ]),
+          200,
+          request: request,
+          headers: {'content-type': 'application/json'},
+        );
+      }
       if (!request.url.path.endsWith('/label_jobs')) {
         return http.Response(
           '[]',

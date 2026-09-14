@@ -17,6 +17,7 @@ class LabelJob {
     required this.weightHundredths,
     required this.sortedOn,
     required this.workerName,
+    this.ripeningFields,
   });
 
   final String id;
@@ -30,8 +31,12 @@ class LabelJob {
   final String varietyName;
   final String gradeCode;
   final int weightHundredths;
-  final DateTime sortedOn;
+  final DateTime? sortedOn;
   final String workerName;
+
+  /// Additional fields from the same RPC used by the ripening PDF.
+  final Map<String, String>? ripeningFields;
+  bool get isRipening => ripeningFields != null;
 
   bool get isPending =>
       status == LabelJobStatus.notPrinted ||

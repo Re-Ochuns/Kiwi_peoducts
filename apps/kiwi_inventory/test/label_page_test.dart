@@ -8,6 +8,55 @@ import 'package:kiwi_inventory/label/label_repository.dart';
 import 'package:kiwi_inventory/main.dart';
 
 void main() {
+  testWidgets('追熟ラベルは追熟情報を表示し手書き確認にも引き継ぐ', (tester) async {
+    final job = LabelJob(
+      id: 'ripening-job',
+      containerId: 'ripening-container',
+      containerDisplayId: '追熟-001',
+      status: LabelJobStatus.notPrinted,
+      requiredCopies: 1,
+      printedCopies: 0,
+      reprintCount: 0,
+      originName: '農園A・農園B',
+      varietyName: 'ヘイワード',
+      gradeCode: 'M',
+      weightHundredths: 850,
+      sortedOn: null,
+      workerName: '',
+      ripeningFields: const {
+        'ラベル種別': '追熟',
+        '追熟場所': '追熟室',
+        '注入日時': '2026/09/14 09:00',
+        '抜き予定': '2026/09/15 09:00',
+        '追熟完了予定': '2026/09/20 09:00',
+        '割当': '予備 8.50 kg',
+      },
+    );
+    final repository = FakeLabelRepository();
+    await _pumpDetail(tester, repository, job);
+    expect(find.text('選果日'), findsNothing);
+    expect(find.text('注入日時'), findsOneWidget);
+    expect(find.text('予備 8.50 kg'), findsOneWidget);
+    await _selectWorker(tester);
+    await tester.ensureVisible(find.byKey(const Key('handwritten-label')));
+    await tester.tap(find.byKey(const Key('handwritten-label')));
+    await tester.pumpAndSettle();
+    final dialog = find.byType(AlertDialog);
+    expect(
+      find.descendant(of: dialog, matching: find.text('追熟-001')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: dialog, matching: find.text('予備 8.50 kg')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: dialog, matching: find.text('選果担当者')),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   group('ラベル対象', () {
     testWidgets('続きを追加し表示切替でカーソルをリセットする', (tester) async {
       final repository = PagedLabelRepository();

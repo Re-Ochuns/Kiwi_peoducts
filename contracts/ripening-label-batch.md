@@ -1,0 +1,11 @@
+# 追熟ラベル一覧の一括取得
+
+## ripening_labels_get(container_ids uuid[]) → setof jsonb
+
+認証済みクライアントから、現在の一覧ページにある追熟コンテナIDを渡す。最大50要素。空配列は空結果、nullまたは51要素以上はSQLSTATE 22023。重複IDは一度だけ返す。応答順序は保証しない。
+
+各要素は既存のripening_label_getと同じJSONで、container_idで対応付ける。選果・存在しない・RLSで参照不可のコンテナは返さない。呼び出しはauthenticated/service_roleのみ。security invokerで既存のRLSを維持する。
+
+アプリは1ページにつき追加RPCを最大1回だけ実行する。選果のみのページは呼ばない。要求した追熟コンテナが結果に存在しない場合はLABEL_DATA_UNAVAILABLEを表示し、誤ったラベルや架空の選果情報を生成しない。
+
+旧版との互換性：ripening_label_getは変更しない。新しいmigrationをアプリより先に適用する。PDF・ラベル状態更新APIは変更しない。

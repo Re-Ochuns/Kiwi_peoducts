@@ -223,5 +223,26 @@ select is(
   )) -> 'error' ->> 'code', 'AUTH_FORBIDDEN', 'pending user is rejected by label_mark_printed');
 reset role;
 
+-- Batch read: same payload as single read, deduplicated, RLS protected.
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '19100000-0000-0000-0000-000000000002', true);
+select is((select count(*)::integer from public.ripening_labels_get(array[
+  '19500000-0000-0000-0000-000000000001'::uuid,
+  '19500000-0000-0000-0000-000000000002'::uuid,
+  '19500000-0000-0000-0000-000000000001'::uuid])), 2, 'batch returns each accessible container once');
+select ok((select bool_and(value = public.ripening_label_get((value->>'container_id')::uuid))
+  from public.ripening_labels_get(array['19500000-0000-0000-0000-000000000001'::uuid]) value),
+  'batch payload matches PDF contract');
+select is((select count(*)::integer from public.ripening_labels_get('{}'::uuid[])), 0, 'empty batch');
+select throws_ok($$select * from public.ripening_labels_get(array_fill(
+  '19500000-0000-0000-0000-000000000001'::uuid, array[51]))$$,
+  '22023', 'container_ids must contain at most 50 IDs', 'batch input is bounded');
+select set_config('request.jwt.claim.sub', '19100000-0000-0000-0000-000000000001', true);
+select is((select count(*)::integer from public.ripening_labels_get(array[
+  '19500000-0000-0000-0000-000000000001'::uuid])), 0, 'pending user cannot read batch');
+reset role;
+select ok(not has_function_privilege('anon', 'public.ripening_labels_get(uuid[])', 'execute'),
+  'anonymous cannot execute batch');
+
 select * from finish();
 rollback;
