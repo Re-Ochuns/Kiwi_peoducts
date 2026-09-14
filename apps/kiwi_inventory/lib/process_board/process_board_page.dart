@@ -141,11 +141,13 @@ class _ProcessBoardPageState extends State<ProcessBoardPage> {
   @override
   void didUpdateWidget(covariant ProcessBoardPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.inventoryOnly != widget.inventoryOnly && _selected == null) {
-      _selectedId = null;
-      _selectedPlanId = null;
-      _shippingOrderId = null;
+    if (oldWidget.inventoryOnly != widget.inventoryOnly) {
       _panelMode = _PanelMode.details;
+      if (_selected == null) {
+        _selectedId = null;
+        _selectedPlanId = null;
+        _shippingOrderId = null;
+      }
     }
   }
 
