@@ -436,3 +436,7 @@ enabled = true
 [functions.calendar-sync]
 # Scheduler shared-token authentication is performed inside the handler.
 verify_jwt = false
+
+[functions.todo-notify]
+# JWT or scheduler shared token is verified inside the handler.
+verify_jwt = false
