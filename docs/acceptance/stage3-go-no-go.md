@@ -19,10 +19,12 @@
 |---|---|
 | 判定 | **No-Go（受入確認を継続）** |
 | 判定日 | 2026-09-14 |
-| 対象SHA | `a3fbf34800bd9d8dbba545eb1807fed102f46527` |
+| Staging対象SHA | `576cce74ceb3c93c92821bb14c79bd7c79d23d1d`（PR #104反映済み） |
+| ローカル確認基点SHA | `2cbca7a802a96297258f1871c94c62f22a071b21`（PR #102＋最新develop） |
 | 公開Staging | 配備と、staging Environmentの公開キーを使った読み取り専用スモークPass |
-| ブラウザ描画 | トップと未認証作業URLを確認 |
-| 自動回帰 | Flutter format・analyze、277テスト、Web build、Linux Golden、DB、EdgeがPass |
+| ブラウザ描画 | PR #104反映後のトップと未認証作業URLを再確認 |
+| 自動回帰 | 最新develop追従後にFlutter format・analyze、282テスト、Web buildがPass。Linux Golden、DB、Edgeは既存CIでPass |
+| 手動報告不具合 | 管理メニュー遷移・在庫一覧取得はPR #104で修正済み。ログイン後のStaging確認待ち |
 | Google OAuth・ロール | 未実施 |
 | S3業務E2E | 未実施 |
 | 実機・複数端末 | 未実施 |
