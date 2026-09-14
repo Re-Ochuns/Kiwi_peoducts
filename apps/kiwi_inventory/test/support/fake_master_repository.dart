@@ -198,7 +198,6 @@ MasterCatalog sampleMasterCatalog({required bool canManage}) {
       ],
       MasterType.ripeningRule: [
         record(MasterType.ripeningRule, 'ripening-rule-1', {
-          'harvest_year': 2026,
           'harvest_month': 9,
           'variety_id': 'variety-1',
           'ethylene_temperature': 20.0,

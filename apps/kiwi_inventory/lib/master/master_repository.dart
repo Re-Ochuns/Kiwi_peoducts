@@ -65,7 +65,7 @@ extension MasterTypeDefinition on MasterType {
     MasterType.storageLocation =>
       'id,code,name,location_type,is_active,version,updated_at',
     MasterType.sortingDeadlineRule => 'id,harvest_year,harvest_month,variety_id,deadline_days,is_active,version,updated_at',
-    MasterType.ripeningRule => 'id,harvest_year,harvest_month,variety_id,ethylene_temperature,ethylene_hours,rest_temperature,rest_days,shippable_days,best_before_days,is_active,version,updated_at',
+    MasterType.ripeningRule => 'id,harvest_month,variety_id,ethylene_temperature,ethylene_hours,rest_temperature,rest_days,shippable_days,best_before_days,is_active,version,updated_at',
   };
 
   bool get canRegister => this != MasterType.grade;
@@ -92,8 +92,9 @@ class MasterRecord {
 
   String get primaryText => switch (type) {
     MasterType.supplier => value('management_code'),
-    MasterType.sortingDeadlineRule || MasterType.ripeningRule =>
+    MasterType.sortingDeadlineRule =>
       '${value('harvest_year')}年${value('harvest_month')}月',
+    MasterType.ripeningRule => '${value('harvest_month')}月',
     _ => value('code'),
   };
 

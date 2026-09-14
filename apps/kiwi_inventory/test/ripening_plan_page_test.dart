@@ -154,20 +154,35 @@ void main() {
     expect(find.text('追熟-2026-001'), findsOneWidget);
   });
 
-  testWidgets('収穫年度・月に対応する追熟マスターがない場合は確認できない', (tester) async {
-    await _pumpPage(tester);
+  testWidgets('品種・収穫月に対応する追熟マスターがない場合は確認できない', (tester) async {
+    final source = testRipeningOptions;
+    final options = RipeningPlanOptions(
+      inventories: [
+        RipeningInventoryOption(
+          id: source.inventories.single.id,
+          displayId: source.inventories.single.displayId,
+          varietyId: source.inventories.single.varietyId,
+          varietyLabel: source.inventories.single.varietyLabel,
+          gradeId: source.inventories.single.gradeId,
+          gradeLabel: source.inventories.single.gradeLabel,
+          harvestMonth: 10,
+          availableWeightHundredths:
+              source.inventories.single.availableWeightHundredths,
+        ),
+      ],
+      orders: source.orders,
+      locations: source.locations,
+      workers: source.workers,
+      rules: source.rules,
+    );
+    await _pumpPage(
+      tester,
+      repository: FakeRipeningPlanRepository(options: options),
+    );
     await _selectValue(
       tester,
       const Key('ripening-inventory'),
-      testRipeningOptions.inventories.single,
-    );
-    await tester.enterText(
-      find.byKey(const Key('ripening-harvest-year')),
-      '2026',
-    );
-    await tester.enterText(
-      find.byKey(const Key('ripening-harvest-month')),
-      '10',
+      options.inventories.single,
     );
     await tester.pump();
 
@@ -223,11 +238,6 @@ Future<void> _completeMixedForm(WidgetTester tester) async {
     const Key('ripening-inventory'),
     testRipeningOptions.inventories.single,
   );
-  await tester.enterText(
-    find.byKey(const Key('ripening-harvest-year')),
-    '2026',
-  );
-  await tester.enterText(find.byKey(const Key('ripening-harvest-month')), '9');
   await tester.enterText(find.byKey(const Key('ripening-weight')), '10');
   await _selectValue(
     tester,

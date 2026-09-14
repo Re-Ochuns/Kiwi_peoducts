@@ -40,15 +40,15 @@ select is((pg_temp.export('history','{"entity_id":"96000000-0000-4000-8000-00000
 select set_config('request.jwt.claim.sub','96000000-0000-4000-8000-000000000002',true);
 insert into results values('masters',pg_temp.export('masters','{"master_type":"ripening_rule","active":"all","search":"CSV96品種"}'));
 select is((select data->>'ok' from results where name='masters'),'true','member can export ripening master without SQL exception');
-select is((select (data->'data'->>'row_count')::int from results where name='masters'),2,'variety-name search finds both harvest years');
+select is((select (data->'data'->>'row_count')::int from results where name='masters'),2,'variety-name search finds both rules');
 select alike((select data->'data'->>'csv' from results where name='masters'),'%"エチレン処理温度","エチレン処理時間","寝かせ温度","寝かせ日数","出荷可能日数","賞味期限日数"%','master header includes all calculation fields');
-select alike((select data->'data'->>'csv' from results where name='masters'),'%"2026","11","96000000-0000-4000-8000-000000000010","20","48","15","3","5","7","true"%','master row retains exact calculation inputs');
+select alike((select data->'data'->>'csv' from results where name='masters'),'%"11","96000000-0000-4000-8000-000000000010","20","48","15","3","5","7","true"%','master row retains exact calculation inputs');
 select alike(split_part((select data->'data'->>'csv' from results where name='masters'),E'\r\n',2),
-  '%"2025","10"%','rows sort by harvest year rather than absent code');
-select is(cardinality(string_to_array(split_part((select data->'data'->>'csv' from results where name='masters'),E'\r\n',1),',')),13,'master header has thirteen columns');
-select is(cardinality(string_to_array(split_part((select data->'data'->>'csv' from results where name='masters'),E'\r\n',2),',')),13,'master row matches header column count');
+  '%"10"%','rows include the harvest month without a year column');
+select is(cardinality(string_to_array(split_part((select data->'data'->>'csv' from results where name='masters'),E'\r\n',1),',')),12,'master header has twelve columns');
+select is(cardinality(string_to_array(split_part((select data->'data'->>'csv' from results where name='masters'),E'\r\n',2),',')),12,'master row matches header column count');
 select is((pg_temp.export('masters','{"master_type":"ripening_rule","search":"CSV96-KIWI"}')->'data'->>'row_count')::int,1,'default active filter and variety-code search');
-select is((pg_temp.export('masters','{"master_type":"ripening_rule","active":"inactive","search":"2025"}')->'data'->>'row_count')::int,1,'inactive and harvest-year filters');
+select is((pg_temp.export('masters','{"master_type":"ripening_rule","active":"inactive","search":"10"}')->'data'->>'row_count')::int,1,'inactive and harvest-month filters');
 select is((pg_temp.export('masters','{"master_type":"ripening_rule","search":"no-match"}')->'data'->>'row_count')::int,0,'empty result remains valid CSV');
 select is(pg_temp.export('history','{}')->'error'->>'code','AUTH_FORBIDDEN','member still cannot export history');
 select is(pg_temp.export('masters','{"master_type":"unknown"}')->'error'->>'code','VALIDATION_FAILED','unknown master retains business error');

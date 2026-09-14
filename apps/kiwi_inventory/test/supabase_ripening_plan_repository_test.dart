@@ -18,6 +18,7 @@ void main() {
             'display_id': '在庫-1',
             'variety_id': 'variety-1',
             'grade_id': 'grade-m',
+            'harvest_month': 9,
             'available_weight_kg': 8.25,
           },
           {
@@ -25,6 +26,7 @@ void main() {
             'display_id': '在庫-2',
             'variety_id': 'variety-1',
             'grade_id': 'grade-m',
+            'harvest_month': 9,
             'available_weight_kg': 0,
           },
         ], request);
@@ -78,7 +80,6 @@ void main() {
       if (path.endsWith('/ripening_rules')) {
         return _json([
           {
-            'harvest_year': 2026,
             'harvest_month': 9,
             'variety_id': 'variety-1',
             'ethylene_hours': 72,
@@ -98,7 +99,7 @@ void main() {
     expect(options.orders.single.availableWeightHundredths, 650);
     expect(options.locations.single.label, 'ripening-01　第1追熟庫');
     expect(options.workers.single.label, 'W01　岡本');
-    expect(options.rules.single.harvestYear, 2026);
+    expect(options.inventories.single.harvestMonth, 9);
     expect(options.rules.single.harvestMonth, 9);
     expect(options.rules.single.ethyleneHours, 72);
     expect(options.rules.single.restDays, 7);
@@ -135,8 +136,14 @@ void main() {
     expect(meta['idempotency_key'], '00000000-0000-4000-8000-000000000001');
     expect(meta['correlation_id'], matches(RegExp(r'^[0-9a-f-]{36}$')));
     expect((request['input'] as Map<String, dynamic>)['total_weight_kg'], 10);
-    expect((request['input'] as Map<String, dynamic>)['harvest_year'], 2026);
-    expect((request['input'] as Map<String, dynamic>)['harvest_month'], 9);
+    expect(
+      (request['input'] as Map<String, dynamic>),
+      isNot(contains('harvest_year')),
+    );
+    expect(
+      (request['input'] as Map<String, dynamic>),
+      isNot(contains('harvest_month')),
+    );
     expect(result.displayId, '追熟-2026-001');
     expect(result.version, 1);
     await client.dispose();
@@ -201,11 +208,10 @@ RipeningPlanInput _input() => RipeningPlanInput(
     varietyLabel: 'ヘイワード',
     gradeId: 'grade-m',
     gradeLabel: 'M',
+    harvestMonth: 9,
     availableWeightHundredths: 1000,
   ),
   totalWeightHundredths: 1000,
-  harvestYear: 2026,
-  harvestMonth: 9,
   locationId: 'location-1',
   plannedEthyleneAt: DateTime.utc(2026, 9, 12, 1),
   plannedCompletionAt: DateTime.utc(2026, 9, 19, 1),

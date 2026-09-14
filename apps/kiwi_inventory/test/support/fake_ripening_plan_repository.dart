@@ -104,6 +104,7 @@ final testRipeningOptions = RipeningPlanOptions(
       varietyLabel: 'hayward　ヘイワード',
       gradeId: 'grade-m',
       gradeLabel: 'M',
+      harvestMonth: 9,
       availableWeightHundredths: 1000,
     ),
   ],
@@ -124,7 +125,6 @@ final testRipeningOptions = RipeningPlanOptions(
   workers: const [RipeningReferenceOption(id: 'worker-1', label: 'W01　岡本')],
   rules: const [
     RipeningRuleOption(
-      harvestYear: 2026,
       harvestMonth: 9,
       varietyId: 'variety-1',
       ethyleneHours: 72,

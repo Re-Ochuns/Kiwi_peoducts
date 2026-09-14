@@ -314,8 +314,6 @@ void main() {
     final input = RipeningPlanInput(
       inventory: stock,
       totalWeightHundredths: 600,
-      harvestYear: 2027,
-      harvestMonth: 5,
       locationId: options.locations.first.id,
       workerId: options.workers.first.id,
       plannedEthyleneAt: DateTime.utc(2027, 5, 10),

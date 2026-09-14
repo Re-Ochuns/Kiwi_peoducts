@@ -15,6 +15,7 @@ class RipeningInventoryOption {
     required this.varietyLabel,
     required this.gradeId,
     required this.gradeLabel,
+    required this.harvestMonth,
     required this.availableWeightHundredths,
   });
 
@@ -24,6 +25,7 @@ class RipeningInventoryOption {
   final String varietyLabel;
   final String gradeId;
   final String gradeLabel;
+  final int harvestMonth;
   final int availableWeightHundredths;
 }
 
@@ -49,14 +51,12 @@ class RipeningOrderOption {
 
 class RipeningRuleOption {
   const RipeningRuleOption({
-    required this.harvestYear,
     required this.harvestMonth,
     required this.varietyId,
     required this.ethyleneHours,
     required this.restDays,
   });
 
-  final int harvestYear;
   final int harvestMonth;
   final String varietyId;
   final double ethyleneHours;
@@ -110,8 +110,6 @@ class RipeningPlanInput {
     required this.plannedCompletionAt,
     required this.workerId,
     required this.allocations,
-    required this.harvestYear,
-    required this.harvestMonth,
     this.notes,
   });
 
@@ -122,8 +120,6 @@ class RipeningPlanInput {
   final DateTime plannedCompletionAt;
   final String workerId;
   final List<RipeningAllocationInput> allocations;
-  final int harvestYear;
-  final int harvestMonth;
   final String? notes;
 
   Map<String, Object?> toRpcInput() => {
@@ -134,8 +130,6 @@ class RipeningPlanInput {
     'planned_ethylene_at': plannedEthyleneAt.toUtc().toIso8601String(),
     'planned_completion_at': plannedCompletionAt.toUtc().toIso8601String(),
     'assigned_worker_id': workerId,
-    'harvest_year': harvestYear,
-    'harvest_month': harvestMonth,
     'notes': notes?.trim().isEmpty == true ? null : notes?.trim(),
     'allocations': [
       for (final allocation in allocations) allocation.toRpcInput(),

@@ -237,7 +237,6 @@ void main() {
       await tester.pumpAndSettle();
 
       for (final entry in {
-        'harvest_year': '2027',
         'harvest_month': '10',
         'ethylene_temperature': '20',
         'ethylene_hours': '72',
@@ -261,7 +260,7 @@ void main() {
 
       expect(repository.registerCalls, 1);
       expect(repository.lastType, MasterType.ripeningRule);
-      expect(repository.lastValues?['harvest_year'], 2027);
+      expect(repository.lastValues, isNot(contains('harvest_year')));
       expect(repository.lastValues?['ethylene_hours'], 72.0);
       expect(repository.lastValues?['variety_id'], 'variety-1');
     });

@@ -898,7 +898,6 @@ class _MasterFormDialogState extends State<MasterFormDialog> {
     ],
     MasterType.ripeningRule => [
       if (_editing) ...[
-        _fixedValue('収穫年', widget.record!.value('harvest_year')),
         _fixedValue('収穫月', widget.record!.value('harvest_month')),
         _fixedValue(
           '品種',
@@ -908,7 +907,6 @@ class _MasterFormDialogState extends State<MasterFormDialog> {
           ),
         ),
       ] else ...[
-        _numberField('harvest_year', '収穫年', min: 2000, max: 9999),
         _numberField('harvest_month', '収穫月', min: 1, max: 12),
         _optionField(
           label: '品種',
@@ -1163,7 +1161,6 @@ class _MasterFormDialogState extends State<MasterFormDialog> {
     },
     MasterType.ripeningRule => {
       if (!_editing) ...{
-        'harvest_year': int.parse(_controllers['harvest_year']!.text.trim()),
         'harvest_month': int.parse(_controllers['harvest_month']!.text.trim()),
         'variety_id': _varietyId!,
       },
@@ -1446,7 +1443,6 @@ List<(String, String)> _detailRows(
     ('版', record.version.toString()),
   ],
   MasterType.ripeningRule => [
-    ('収穫年', record.value('harvest_year')),
     ('収穫月', record.value('harvest_month')),
     (
       '品種',

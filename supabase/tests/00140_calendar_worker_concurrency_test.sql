@@ -5,6 +5,9 @@ insert into auth.users(id,email,raw_user_meta_data) values
  ('58000000-0000-0000-0000-000000000003','task-concurrent-admin@example.com','{}');
 select private.set_user_access('58000000-0000-0000-0000-000000000001','active',array['member']);
 select private.set_user_access('58000000-0000-0000-0000-000000000003','active',array['administrator']);
+insert into public.ripening_rules(harvest_year,harvest_month,variety_id,ethylene_temperature,
+ ethylene_hours,rest_temperature,rest_days,shippable_days,best_before_days)
+values(2000,5,'a1000000-0000-0000-0000-000000000001',20,168,15,3,5,7);
 insert into public.customers(id,customer_code,name,postal_code,address)
 values('58100000-0000-0000-0000-000000000001','TASK57','Dummy','000','Dummy');
 insert into public.shipping_destinations(id,customer_id,destination_name,recipient_name,postal_code,address)

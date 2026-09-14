@@ -34,9 +34,7 @@ class SupabaseRipeningPlanRepository implements RipeningPlanRepository {
             .eq('is_active', true),
         _client
             .from('ripening_rules')
-            .select(
-              'harvest_year, harvest_month, variety_id, ethylene_hours, rest_days',
-            )
+            .select('harvest_month, variety_id, ethylene_hours, rest_days')
             .eq('is_active', true),
       ]).timeout(const Duration(seconds: 10));
 
@@ -57,6 +55,7 @@ class SupabaseRipeningPlanRepository implements RipeningPlanRepository {
             varietyLabel: varieties[varietyId] ?? '不明',
             gradeId: gradeId,
             gradeLabel: grades[gradeId] ?? '不明',
+            harvestMonth: (row['harvest_month'] as num).toInt(),
             availableWeightHundredths: available,
           ),
         );
@@ -101,8 +100,7 @@ class SupabaseRipeningPlanRepository implements RipeningPlanRepository {
         rules: [
           for (final raw in results[6] as List)
             RipeningRuleOption(
-              harvestYear: ((raw as Map)['harvest_year'] as num).toInt(),
-              harvestMonth: (raw['harvest_month'] as num).toInt(),
+              harvestMonth: ((raw as Map)['harvest_month'] as num).toInt(),
               varietyId: raw['variety_id'] as String,
               ethyleneHours: (raw['ethylene_hours'] as num).toDouble(),
               restDays: (raw['rest_days'] as num).toDouble(),

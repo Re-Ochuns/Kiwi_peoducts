@@ -263,12 +263,18 @@ int _compareRecords(MasterRecord left, MasterRecord right) {
     return int.parse(left.value('display_order'))
         .compareTo(int.parse(right.value('display_order')));
   }
-  if (left.type == MasterType.sortingDeadlineRule ||
-      left.type == MasterType.ripeningRule) {
+  if (left.type == MasterType.sortingDeadlineRule) {
     final leftValue =
         '${left.value('harvest_year')}-${left.value('harvest_month').padLeft(2, '0')}-${left.value('variety_id')}';
     final rightValue =
         '${right.value('harvest_year')}-${right.value('harvest_month').padLeft(2, '0')}-${right.value('variety_id')}';
+    return leftValue.compareTo(rightValue);
+  }
+  if (left.type == MasterType.ripeningRule) {
+    final leftValue =
+        '${left.value('harvest_month').padLeft(2, '0')}-${left.value('variety_id')}';
+    final rightValue =
+        '${right.value('harvest_month').padLeft(2, '0')}-${right.value('variety_id')}';
     return leftValue.compareTo(rightValue);
   }
   return left.primaryText.compareTo(right.primaryText);

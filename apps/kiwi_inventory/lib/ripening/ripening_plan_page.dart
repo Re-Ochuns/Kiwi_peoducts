@@ -33,8 +33,6 @@ class RipeningPlanPage extends StatefulWidget {
 
 class _RipeningPlanPageState extends State<RipeningPlanPage> {
   final _weightController = TextEditingController();
-  final _harvestYearController = TextEditingController();
-  final _harvestMonthController = TextEditingController();
   late final TextEditingController _ethyleneController;
   final _allocations = <_AllocationEditor>[];
 
@@ -73,8 +71,6 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
       text: _formatInputDate(nextHour),
     );
     _weightController.addListener(_onInputChanged);
-    _harvestYearController.addListener(_onInputChanged);
-    _harvestMonthController.addListener(_onInputChanged);
     _ethyleneController.addListener(_onInputChanged);
     _addAllocation(notify: false);
     _load();
@@ -83,8 +79,6 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
   @override
   void dispose() {
     _weightController.dispose();
-    _harvestYearController.dispose();
-    _harvestMonthController.dispose();
     _ethyleneController.dispose();
     for (final allocation in _allocations) {
       allocation.dispose();
@@ -233,30 +227,6 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
                   const SizedBox(height: 12),
                   _InventorySummary(inventory: _inventory!),
                 ],
-                const SizedBox(height: 16),
-                _LabeledField(
-                  label: '収穫年度',
-                  child: TextField(
-                    key: const Key('ripening-harvest-year'),
-                    controller: _harvestYearController,
-                    enabled: !_busy,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(hintText: '2026'),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _LabeledField(
-                  label: '収穫月',
-                  child: TextField(
-                    key: const Key('ripening-harvest-month'),
-                    controller: _harvestMonthController,
-                    enabled: !_busy,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(hintText: '1〜12'),
-                  ),
-                ),
                 const SizedBox(height: 16),
                 _LabeledField(
                   label: '追熟重量（kg）',
@@ -437,20 +407,13 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
 
   DateTime? get _plannedEthyleneAt => _parseInputDate(_ethyleneController.text);
 
-  int? get _harvestYear => int.tryParse(_harvestYearController.text.trim());
-
-  int? get _harvestMonth => int.tryParse(_harvestMonthController.text.trim());
-
   RipeningRuleOption? get _matchingRule {
     final inventory = _inventory;
-    final year = _harvestYear;
-    final month = _harvestMonth;
-    if (inventory == null || year == null || month == null) return null;
+    if (inventory == null) return null;
     return _options!.rules
         .where(
           (rule) =>
-              rule.harvestYear == year &&
-              rule.harvestMonth == month &&
+              rule.harvestMonth == inventory.harvestMonth &&
               rule.varietyId == inventory.varietyId,
         )
         .firstOrNull;
@@ -467,16 +430,8 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
   String? get _validationMessage {
     final inventory = _inventory;
     if (inventory == null) return '冷蔵在庫を選択してください。';
-    final year = _harvestYear;
-    if (year == null || year < 2000 || year > 9999) {
-      return '収穫年度を2000〜9999で入力してください。';
-    }
-    final month = _harvestMonth;
-    if (month == null || month < 1 || month > 12) {
-      return '収穫月を1〜12で入力してください。';
-    }
     if (_matchingRule == null) {
-      return '$year年$month月・${inventory.varietyLabel}の有効な追熟マスターがありません。';
+      return '${inventory.harvestMonth}月・${inventory.varietyLabel}の有効な追熟マスターがありません。';
     }
     final total = _totalWeightHundredths;
     if (total == null || total <= 0) return '追熟重量を0.01kg単位で入力してください。';
@@ -569,8 +524,6 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
       plannedEthyleneAt: _plannedEthyleneAt!,
       plannedCompletionAt: _plannedCompletionAt!,
       workerId: _workerId!,
-      harvestYear: _harvestYear!,
-      harvestMonth: _harvestMonth!,
       allocations: [
         for (final editor in _allocations)
           RipeningAllocationInput(
@@ -1028,8 +981,8 @@ class _ConfirmationDialog extends StatelessWidget {
                           '${input.inventory.varietyLabel}・${input.inventory.gradeLabel}',
                     ),
                     _SummaryRow(
-                      label: '収穫年度・月',
-                      value: '${input.harvestYear}年${input.harvestMonth}月',
+                      label: '収穫月',
+                      value: '${input.inventory.harvestMonth}月',
                     ),
                     _SummaryRow(
                       label: '追熟重量',
