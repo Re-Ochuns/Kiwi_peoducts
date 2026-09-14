@@ -36,6 +36,6 @@ jobs:
         with:
           deno-version: v2.x
       - name: Type-check edge functions
-        run: deno check label-pdf/index.ts calendar-sync/index.ts
+        run: deno check label-pdf/index.ts calendar-sync/index.ts todo-notify/index.ts
       - name: Run edge function tests
         run: deno test --allow-read tests/

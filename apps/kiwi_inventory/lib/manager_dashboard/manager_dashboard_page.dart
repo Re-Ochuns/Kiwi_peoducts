@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/common_state_view.dart';
+import '../notifications/todo_notification_button.dart';
 import '../orders/order_management_repository.dart';
 import '../work_tasks/work_task_repository.dart';
 import 'manager_dashboard_repository.dart';
@@ -604,6 +605,7 @@ class _ScheduleSection extends StatelessWidget {
           ),
         ],
       ),
+      if (title == 'ToDo') const TodoNotificationButton(),
       const SizedBox(height: 10),
       if (tasks.isEmpty)
         _EmptyLine(emptyMessage)
