@@ -33,7 +33,7 @@ jobs:
       - name: Check and test Edge Functions
         working-directory: supabase/functions
         run: |
-          deno check label-pdf/index.ts calendar-sync/index.ts
+          deno check label-pdf/index.ts calendar-sync/index.ts todo-notify/index.ts
           deno test --allow-read tests/
 
   deploy:
@@ -115,6 +115,8 @@ jobs:
         run: supabase functions deploy label-pdf --project-ref "$SUPABASE_PROJECT_REF"
       - name: Deploy calendar synchronization function
         run: supabase functions deploy calendar-sync --project-ref "$SUPABASE_PROJECT_REF"
+      - name: Deploy Discord ToDo notification function
+        run: supabase functions deploy todo-notify --project-ref "$SUPABASE_PROJECT_REF"
       - name: Deploy Firebase Hosting staging project
         uses: FirebaseExtended/action-hosting-deploy@500ac625ca2dd40cbd15f7659af953801858032a # v0
         with:

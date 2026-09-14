@@ -242,8 +242,8 @@ class _BoardOrderWorkspaceState extends State<BoardOrderWorkspace> {
                                         (double.tryParse(value!.trim()) ?? 0) >
                                             0 &&
                                         (double.tryParse(value.trim()) ??
-                                                double.infinity)
-                                            .isFinite
+                                                double.infinity) <=
+                                            9999999999.99
                                     ? null
                                     : '正の重量を入力',
                               ),

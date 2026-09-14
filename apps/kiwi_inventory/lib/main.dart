@@ -4,6 +4,11 @@ import 'package:provider/provider.dart';
 import 'board_order/board_order_repository.dart';
 import 'board_order/supabase_board_order_repository.dart';
 import 'board_order/board_order_workspace.dart';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'notifications/todo_notification_repository.dart';
+import 'notifications/todo_notification_button.dart';
 import 'auth/auth_controller.dart';
 import 'auth/auth_gate.dart';
 import 'auth/auth_repository.dart';
@@ -70,6 +75,9 @@ Future<void> main() async {
     runApp(
       KiwiInventoryApp(
         authRepository: repository,
+        todoNotificationRepository: SupabaseTodoNotificationRepository(
+          Supabase.instance.client,
+        ),
         csvExportRepository:
             SupabaseCsvExportRepository.fromInitializedClient(),
         masterRepository: SupabaseMasterRepository.fromInitializedClient(),
@@ -105,6 +113,7 @@ Future<void> main() async {
 class KiwiInventoryApp extends StatelessWidget {
   const KiwiInventoryApp({
     this.authRepository,
+    this.todoNotificationRepository,
     this.startupError,
     this.currentDate,
     this.csvExportRepository,
@@ -125,6 +134,7 @@ class KiwiInventoryApp extends StatelessWidget {
   });
 
   final AuthRepository? authRepository;
+  final TodoNotificationRepository? todoNotificationRepository;
   final String? startupError;
   final DateTime? currentDate;
   final CsvExportRepository? csvExportRepository;
@@ -144,17 +154,20 @@ class KiwiInventoryApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DisplayModeShell(
-      appBuilder: (navigatorKey, frameBuilder) => MaterialApp(
-        navigatorKey: navigatorKey,
-        builder: frameBuilder,
-        title: 'キウイ在庫管理',
-        debugShowCheckedModeBanner: false,
-        theme: theme ?? buildAppTheme(),
-        home: _buildHome(),
-        initialRoute: appInitialRoute(Uri.base),
-        onGenerateRoute: _onGenerateRoute,
-        navigatorObservers: [managerDashboardRouteObserver],
+    return Provider<TodoNotificationRepository?>.value(
+      value: todoNotificationRepository,
+      child: DisplayModeShell(
+        appBuilder: (navigatorKey, frameBuilder) => MaterialApp(
+          navigatorKey: navigatorKey,
+          builder: frameBuilder,
+          title: 'キウイ在庫管理',
+          debugShowCheckedModeBanner: false,
+          theme: theme ?? buildAppTheme(),
+          home: _buildHome(),
+          initialRoute: appInitialRoute(Uri.base),
+          onGenerateRoute: _onGenerateRoute,
+          navigatorObservers: [managerDashboardRouteObserver],
+        ),
       ),
     );
   }
@@ -462,6 +475,7 @@ class _WorkerHomePageState extends State<WorkerHomePage> {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
+                    const TodoNotificationButton(),
                     const SizedBox(height: 24),
                     const SectionTitle('作業を始める'),
                     const SizedBox(height: 12),
