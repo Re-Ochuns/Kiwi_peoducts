@@ -1,6 +1,6 @@
 # Issue #99 Staging検証記録
 
-状態: **準備中。実環境未作成・未デプロイ。Issueは未完了。**
+状態: **準備中。プロジェクト作成済み・未デプロイ。Issueは未完了。**
 
 ## 調査（2026-09-14）
 
@@ -10,10 +10,10 @@
 - Environment required reviewer: 未設定。手動実行者がStagingの配備責任者。
 - GitHub Variables / Secrets: 初期調査時未設定。
 - Staging Deploymentの実行履歴: 初期調査時なし。
-- Firebase / Supabaseプロジェクト: ユーザー確認により未作成。
-- 管理アカウント: Googleのみ用意済み。Supabase登録が必要。
+- Firebase / Supabaseプロジェクト: ユーザーが作成済み（下表）。
+- 管理アカウント: Google・Supabaseともユーザーが登録済み。
 - 費用方針: 無料枠優先。課金有効化・有料契約は実施していない。
-- ブラウザ操作: 実行環境の初期化エラーにより接続不可。クラウド登録・設定は未実施。
+- ブラウザ操作: 実行環境の初期化エラーにより接続不可。クラウド画面の設定はユーザーが実施。
 - 既存作業用DB/Docker: 変更なし。
 
 ## 環境と実測結果（実施後に記入）
@@ -22,10 +22,10 @@
 | --- | --- |
 | Google/Firebase所有者・プロジェクトID・Spark確認 | 未実施 |
 | Supabase所有者・Free組織・project ref・region | 未実施 |
-| 公開HTTPS URL | 未確定 |
-| Google OAuth / Site URL / Redirect URLs | 未設定 |
-| GitHub Variables / Secrets（値は記載しない） | 未設定 |
-| Edge Secrets / Vault / cron / 共有カレンダー | 未設定 |
+| 公開HTTPS URL | https://kiwi-staging-603b3.web.app （予定、未配備） |
+| Google OAuth / Site URL / Redirect URLs | ユーザー設定完了報告。公開Auth settings APIでgoogle=trueを確認。URL設定値・実ログインは未検証 |
+| GitHub Variables / Secrets（値は記載しない） | Variables 4件・Secrets 3件の登録名を確認。Secret値の妥当性は配備前検査で確認予定 |
+| Edge Secrets / Vault / cron / 共有カレンダー | Edge Secrets・共有カレンダーはユーザー設定完了報告。登録名・値・権限は未検証。Vault・cronは配備後に設定・確認 |
 | 配備SHA / Actions run URL / Hosting release ID | 未実施 |
 | PC直接URL・再読込 | 未実施 |
 | スマートフォン直接URL・再読込 | 未実施 |
@@ -41,3 +41,13 @@
 
 実機検証には端末・OS・ブラウザ・実施日時・期待値・実結果を記録する。
 Secret、実アカウントのメール、顧客情報をこのファイルへ記載しない。
+
+## 設定進捗（2026-09-14）
+
+- Firebase project ID: `kiwi-staging-603b3`
+- Supabase project ref: `mhxtmqhavytcklszbvtk`
+- Supabase URL: https://mhxtmqhavytcklszbvtk.supabase.co
+- Variables: FIREBASE_PROJECT_ID、SUPABASE_PROJECT_REF、SUPABASE_URL、SUPABASE_PUBLISHABLE_KEY
+- Secrets: FIREBASE_SERVICE_ACCOUNT_STAGING、SUPABASE_ACCESS_TOKEN、SUPABASE_DB_PASSWORD
+- 所有者・リージョン・料金プランは管理画面による確認が残る。
+- Google Providerの有効状態の確認は、OAuth往復・利用承認境界の検証を代替しない。

@@ -2,10 +2,11 @@
 
 ## 方針と現在地
 
-2026-09-14時点の調査では、クラウドプロジェクトは未作成。
-利用者の方針は無料枠を優先し、Google管理アカウントは用意済み。
+2026-09-14時点でFirebase・SupabaseのStagingプロジェクトを作成済み。
+利用者の方針は無料枠を優先する。
 GitHubにはstaging Environmentを作成し、deployment branch policyでdevelopだけを許可した。
-Variables / Secrets / 配備履歴 / 公開URL / 実機検証は未設定・未実施。
+GitHub Variables / Secretsは登録済み。Google Providerの有効状態をAPIで確認済み。
+カレンダー設定はユーザー完了報告済み。配備・実機検証は未実施。詳細は検証記録を参照。
 これは準備手順であり、Issue #99の完了記録ではない。
 
 Firebase HostingはSpark、SupabaseはFree組織を使用する。
@@ -31,7 +32,7 @@ Supabase Freeは低稼働が7日続くと休止対象になるため、リハー
    日本から利用するため利用可能ならTokyoを選ぶ。DBパスワードはパスワード管理ツールへ保存する。
    project ref、Project URL、publishable keyを控える。Service Role / secret keyはアプリへ入れない。
 4. Firebase用デプロイサービスアカウントをGoogle Cloud側に作り、Stagingプロジェクトだけに
-   Firebase Hosting Adminを付与する。JSON鍵をリポジトリ外へ保存し、後述のEnvironment Secretへ登録する。
+   Firebase Hosting AdminとAPI Keys Viewerを付与する。JSON鍵をリポジトリ外へ保存し、後述のEnvironment Secretへ登録する。
    サービスアカウントをOwner/Editorにしない。組織ポリシーで鍵作成が禁止される場合は無理に緩和せず、
    Workload Identity Federationへの変更を別途設計する。
 5. 以下のOAuth・カレンダー設定を完了し、GitHubのVariables/Secretsを設定する。
