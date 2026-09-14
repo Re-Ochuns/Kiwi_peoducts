@@ -21,30 +21,31 @@ void main() {
     'phone can select PC and switch back at the same header position',
     (tester) async {
       await start(tester, 390);
-      final button = find.byKey(const ValueKey('display-mode-desktop'));
+      final button = find.byKey(const ValueKey('display-mode-toggle'));
       final position = tester.getTopLeft(button);
+      expect(find.text('PC画面へ'), findsOneWidget);
       expect(find.byType(WorkerHomePage), findsOneWidget);
       await tester.tap(button);
       await tester.pumpAndSettle();
       expect(find.byType(ManagerHomePage), findsOneWidget);
       expect(tester.getTopLeft(button), position);
+      expect(find.text('スマホ画面へ'), findsOneWidget);
       expect(tester.takeException(), isNull);
-      await tester.tap(find.byKey(const ValueKey('display-mode-mobile')));
+      await tester.tap(find.byKey(const ValueKey('display-mode-toggle')));
       await tester.pumpAndSettle();
       expect(find.byType(WorkerHomePage), findsOneWidget);
       expect(tester.getTopLeft(button), position);
     },
   );
 
-  testWidgets('desktop can select phone then restore automatic layout', (
-    tester,
-  ) async {
+  testWidgets('desktop can switch to phone and back', (tester) async {
     await start(tester, 1280);
-    await tester.tap(find.byKey(const ValueKey('display-mode-mobile')));
+    await tester.tap(find.byKey(const ValueKey('display-mode-toggle')));
     await tester.pumpAndSettle();
     expect(find.byType(WorkerHomePage), findsOneWidget);
     expect(tester.getSize(find.byType(WorkerHomePage)).width, 430);
-    await tester.tap(find.byKey(const ValueKey('display-mode-automatic')));
+    expect(find.text('PC画面へ'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('display-mode-toggle')));
     await tester.pumpAndSettle();
     expect(find.byType(ManagerHomePage), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -57,7 +58,7 @@ void main() {
     await tester.tap(find.text('LOT-2026-0142'));
     await tester.pumpAndSettle();
     expect(find.text('対象ID'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('display-mode-desktop')));
+    await tester.tap(find.byKey(const ValueKey('display-mode-toggle')));
     await tester.pumpAndSettle();
     expect(find.byType(ManagerHomePage), findsOneWidget);
     expect(find.text('対象ID'), findsNothing);
@@ -92,7 +93,7 @@ void main() {
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('display-mode-desktop')));
+    await tester.tap(find.byKey(const ValueKey('display-mode-toggle')));
     await tester.pumpAndSettle();
     expect(find.text('unsaved'), findsOneWidget);
     expect(tester.takeException(), isNull);

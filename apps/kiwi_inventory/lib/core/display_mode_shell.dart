@@ -49,88 +49,94 @@ class _DisplayModeShellState extends State<DisplayModeShell> {
   Widget build(BuildContext context) =>
       widget.appBuilder(_navigatorKey, _buildFrame);
 
-  Widget _buildFrame(BuildContext context, Widget? child) => Material(
-    color: Theme.of(context).scaffoldBackgroundColor,
-    child: SafeArea(
-      child: Column(
-        children: [
-          Container(
-            key: const ValueKey('display-mode-header'),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              border: Border(
-                bottom: BorderSide(color: Theme.of(context).dividerColor),
+  Widget _buildFrame(BuildContext context, Widget? child) {
+    final isDesktop = switch (_mode) {
+      DisplayMode.desktop => true,
+      DisplayMode.mobile => false,
+      DisplayMode.automatic =>
+        MediaQuery.sizeOf(context).width >= AppBreakpoints.manager,
+    };
+    return Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              key: const ValueKey('display-mode-header'),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                border: Border(
+                  bottom: BorderSide(color: Theme.of(context).dividerColor),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '表示切替',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 144,
+                    child: TextButton(
+                      key: const ValueKey('display-mode-toggle'),
+                      onPressed: _switching
+                          ? null
+                          : () => _select(
+                              isDesktop
+                                  ? DisplayMode.mobile
+                                  : DisplayMode.desktop,
+                            ),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(144, 48),
+                        backgroundColor: Theme.of(context)
+                            .colorScheme
+                            .secondaryContainer,
+                      ),
+                      child: Text(isDesktop ? 'スマホ画面へ' : 'PC画面へ'),
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    '表示切替',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                for (final option in const [
-                  (DisplayMode.desktop, 'PC'),
-                  (DisplayMode.mobile, 'スマホ'),
-                  (DisplayMode.automatic, '自動'),
-                ])
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4),
-                    child: Semantics(
-                      selected: _mode == option.$1,
-                      child: TextButton(
-                        key: ValueKey('display-mode-${option.$1.name}'),
-                        onPressed: _switching ? null : () => _select(option.$1),
-                        style: TextButton.styleFrom(
-                          minimumSize: const Size(48, 48),
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          backgroundColor: _mode == option.$1
-                              ? Theme.of(context).colorScheme.secondaryContainer
-                              : null,
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = switch (_mode) {
+                    DisplayMode.automatic => constraints.maxWidth,
+                    DisplayMode.desktop => math.max(
+                      constraints.maxWidth,
+                      AppBreakpoints.desktop,
+                    ),
+                    DisplayMode.mobile => math.min(
+                      constraints.maxWidth,
+                      AppBreakpoints.compact,
+                    ),
+                  };
+                  return Align(
+                    alignment: Alignment.topCenter,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SizedBox(
+                        width: width,
+                        height: constraints.maxHeight,
+                        child: MediaQuery(
+                          data: MediaQuery.of(
+                            context,
+                          ).copyWith(size: Size(width, constraints.maxHeight)),
+                          child: child ?? const SizedBox.shrink(),
                         ),
-                        child: Text(option.$2),
                       ),
                     ),
-                  ),
-              ],
+                  );
+                },
+              ),
             ),
-          ),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final width = switch (_mode) {
-                  DisplayMode.automatic => constraints.maxWidth,
-                  DisplayMode.desktop => math.max(
-                    constraints.maxWidth,
-                    AppBreakpoints.desktop,
-                  ),
-                  DisplayMode.mobile => math.min(
-                    constraints.maxWidth,
-                    AppBreakpoints.compact,
-                  ),
-                };
-                return Align(
-                  alignment: Alignment.topCenter,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: SizedBox(
-                      width: width,
-                      height: constraints.maxHeight,
-                      child: MediaQuery(
-                        data: MediaQuery.of(context)
-                            .copyWith(size: Size(width, constraints.maxHeight)),
-                        child: child ?? const SizedBox.shrink(),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
