@@ -7,6 +7,35 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:kiwi_inventory/label/supabase_label_repository.dart';
 
 void main() {
+  test('50件の追熟ラベルを遅延のある1回のRPCで取得し元の順序を維持する', () async {
+    final rows = [for (var i = 50; i > 0; i--) _row(i, 'not_printed')];
+    for (final row in rows) {
+      final container = row['container'] as Map<String, Object>;
+      container.remove('sorting_result');
+      container['ripening_lot_id'] = _id(90);
+    }
+    var calls = 0;
+    final client = _client(
+      rows,
+      delay: const Duration(milliseconds: 1100),
+      onBatch: (ids) {
+        calls++;
+        expect(ids, hasLength(50));
+      },
+    );
+    final repository = SupabaseLabelRepository(
+      client,
+      supabaseUrl: 'https://example.test',
+      supabaseKey: 'test',
+    );
+    final result = await repository.load();
+    expect(calls, 1);
+    expect(result.jobs.map((job) => job.containerId), [
+      for (var i = 50; i > 0; i--) _id(i),
+    ]);
+    await client.dispose();
+  });
+
   for (final completed in [false, true]) {
     for (final mixed in [false, true]) {
       test('追熟対象を取得: 完了=$completed 混在=$mixed', () async {
@@ -83,25 +112,34 @@ void main() {
   });
 }
 
-SupabaseClient _client(List<Map<String, Object>> rows) {
+SupabaseClient _client(
+  List<Map<String, Object>> rows, {
+  void Function(List<dynamic>)? onBatch,
+  Duration delay = Duration.zero,
+}) {
   return SupabaseClient(
     'https://example.test',
     'test',
     httpClient: MockClient((request) async {
-      if (request.url.path.endsWith('/rpc/ripening_label_get')) {
-        final id = jsonDecode(request.body)['container_id_value'];
+      if (request.url.path.endsWith('/rpc/ripening_labels_get')) {
+        final ids = jsonDecode(request.body)['container_ids'] as List;
+        onBatch?.call(ids);
+        await Future<void>.delayed(delay);
         return http.Response(
-          jsonEncode({
-            'container_id': id,
-            'orchard_names': '農園A・農園B',
-            'location_name': '追熟室',
-            'injection_at': '2026-09-14T00:00:00Z',
-            'planned_removal_at': '2026-09-15T00:00:00Z',
-            'planned_completion_at': '2026-09-20T00:00:00Z',
-            'allocations': [
-              {'allocation_type': 'reserve', 'allocated_weight_kg': 8.5},
-            ],
-          }),
+          jsonEncode([
+            for (final id in ids.reversed)
+              {
+                'container_id': id,
+                'orchard_names': '農園A・農園B',
+                'location_name': '追熟室',
+                'injection_at': '2026-09-14T00:00:00Z',
+                'planned_removal_at': '2026-09-15T00:00:00Z',
+                'planned_completion_at': '2026-09-20T00:00:00Z',
+                'allocations': [
+                  {'allocation_type': 'reserve', 'allocated_weight_kg': 8.5},
+                ],
+              },
+          ]),
           200,
           request: request,
           headers: {'content-type': 'application/json'},

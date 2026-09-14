@@ -307,35 +307,45 @@ class SupabaseLabelRepository implements LabelRepository {
   }
 
   Future<List<LabelJob>> _loadJobs(List<dynamic> rows) async {
-    final jobs = <LabelJob>[];
-    // Bound concurrent RPCs; preserve the label cursor order.
-    for (var start = 0; start < rows.length; start += 5) {
-      jobs.addAll(
-        await Future.wait(
-          rows.skip(start).take(5).map((value) async {
-            final row = Map<String, dynamic>.from(value as Map);
-            final container = Map<String, dynamic>.from(
-              row['container'] as Map,
-            );
-            if (container['ripening_lot_id'] == null) return _jobFromRow(row);
-            final raw = await _client.rpc(
-              'ripening_label_get',
-              params: {'container_id_value': container['id']},
-            );
-            if (raw is! Map || raw['container_id'] != container['id']) {
-              throw const LabelFailure(
-                message: '追熟ラベルの情報を取得できませんでした。再読み込みしてください。',
-                code: 'LABEL_DATA_UNAVAILABLE',
-                retryable: true,
-              );
-            }
-            return _jobFromRow(row, ripening: Map<String, dynamic>.from(raw));
-          }),
-        ),
+    final containers = [
+      for (final row in rows)
+        Map<String, dynamic>.from((row as Map)['container'] as Map),
+    ];
+    final ids = containers
+        .where((container) => container['ripening_lot_id'] != null)
+        .map((container) => container['id'] as String)
+        .toSet();
+    final details = <String, Map<String, dynamic>>{};
+    if (ids.isNotEmpty) {
+      final raw = await _client.rpc(
+        'ripening_labels_get',
+        params: {'container_ids': ids.toList()},
       );
+      if (raw is! List) throw _missingLabelData;
+      for (final value in raw) {
+        if (value is! Map || value['container_id'] is! String) {
+          throw _missingLabelData;
+        }
+        final detail = Map<String, dynamic>.from(value);
+        details[detail['container_id'] as String] = detail;
+      }
     }
-    return jobs;
+    return [
+      for (var i = 0; i < rows.length; i++)
+        _jobFromRow(
+          Map<String, dynamic>.from(rows[i] as Map),
+          ripening: containers[i]['ripening_lot_id'] == null
+              ? null
+              : details[containers[i]['id']] ?? (throw _missingLabelData),
+        ),
+    ];
   }
+
+  static const _missingLabelData = LabelFailure(
+    message: '追熟ラベルの情報を取得できませんでした。再読み込みしてください。',
+    code: 'LABEL_DATA_UNAVAILABLE',
+    retryable: true,
+  );
 
   String _labelDate(dynamic value) {
     if (value == null) return '未設定';
