@@ -9,6 +9,7 @@ import 'core/app_breakpoints.dart';
 import 'core/app_config.dart';
 import 'core/app_theme.dart';
 import 'core/common_state_view.dart';
+import 'core/display_mode_shell.dart';
 import 'csv_export/csv_export_repository.dart';
 import 'csv_export/supabase_csv_export_repository.dart';
 import 'inventory/inventory_page.dart';
@@ -135,14 +136,18 @@ class KiwiInventoryApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'キウイ在庫管理',
-      debugShowCheckedModeBanner: false,
-      theme: theme ?? buildAppTheme(),
-      home: _buildHome(),
-      initialRoute: workTaskInitialRoute(Uri.base),
-      onGenerateRoute: _onGenerateRoute,
-      navigatorObservers: [managerDashboardRouteObserver],
+    return DisplayModeShell(
+      appBuilder: (navigatorKey, frameBuilder) => MaterialApp(
+        navigatorKey: navigatorKey,
+        builder: frameBuilder,
+        title: 'キウイ在庫管理',
+        debugShowCheckedModeBanner: false,
+        theme: theme ?? buildAppTheme(),
+        home: _buildHome(),
+        initialRoute: workTaskInitialRoute(Uri.base),
+        onGenerateRoute: _onGenerateRoute,
+        navigatorObservers: [managerDashboardRouteObserver],
+      ),
     );
   }
 
