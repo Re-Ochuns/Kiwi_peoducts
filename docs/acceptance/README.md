@@ -1,6 +1,8 @@
-# 段階1受入
+# 段階別受入
 
-Issue #20（S1-11）の統合テストと現場リハーサルに使用する文書を管理する。
+統合テストと現場リハーサルに使用する文書を段階別に管理する。
+
+## 段階1（Issue #20）
 
 - [E2Eシナリオと受入基準](stage1-e2e-plan.md)
 - [実行・現場リハーサル記録](stage1-rehearsal-record.md)
@@ -30,3 +32,27 @@ Issue #32のmacOS描画差は段階1のGo/No-Go判定対象外とする。
 Dockerを利用できない端末やPDF検証環境を分離する場合だけ、
 `STAGE1_SKIP_DATABASE=1`または`STAGE1_SKIP_PDF=1`を指定する。
 スキップした項目は合格として扱わず、別の実行証跡を記録する。
+
+## 段階3（Issue #68）
+
+- [E2Eシナリオと受入基準](stage3-e2e-plan.md)
+- [実行・現場リハーサル記録](stage3-rehearsal-record.md)
+- [Go/No-Go判定](stage3-go-no-go.md)
+
+自動確認はリポジトリルートで次を実行する。
+
+```bash
+make FLUTTER="fvm flutter" DART="fvm dart" stage3-acceptance
+```
+
+通常実行はFlutter回帰、Webビルド、Edge Functions、Stagingの読み取り専用疎通を
+可能な範囲で確認する。ローカルDBの再構築はデータを消去するため自動では実行せず、
+専用のダミーデータ環境を確認した場合だけ次を指定する。
+
+```bash
+STAGE3_RUN_DATABASE=1 \
+  make FLUTTER="fvm flutter" DART="fvm dart" stage3-acceptance
+```
+
+DB、Linux Golden、Staging、Edge Functionsのいずれかを実行できない場合はNot Runとする。
+Not RunをPassとして扱わず、GitHub CIまたは別の検証記録で補完する。

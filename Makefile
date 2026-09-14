@@ -5,7 +5,7 @@ NPM ?= npm
 DEVICE ?= chrome
 PDF_PYTHON ?= python3
 
-.PHONY: setup doctor app-run format format-check analyze test golden-test golden-update build-web codegen check stage1-acceptance db-start db-stop db-status db-reset db-test pdf-label-prototype pdf-label-verify
+.PHONY: setup doctor app-run format format-check analyze test golden-test golden-update build-web codegen check stage1-acceptance stage3-acceptance db-start db-stop db-status db-reset db-test pdf-label-prototype pdf-label-verify
 
 setup:
 	$(NPM) ci
@@ -45,6 +45,9 @@ check: doctor format-check analyze test
 
 stage1-acceptance:
 	FLUTTER_CMD="$(FLUTTER)" DART_CMD="$(DART)" NPM_CMD="$(NPM)" PDF_PYTHON="$(PDF_PYTHON)" bash scripts/run_stage1_acceptance.sh
+
+stage3-acceptance:
+	FLUTTER_CMD="$(FLUTTER)" DART_CMD="$(DART)" NPM_CMD="$(NPM)" bash scripts/run_stage3_acceptance.sh
 
 db-start:
 	$(NPM) run db:start
