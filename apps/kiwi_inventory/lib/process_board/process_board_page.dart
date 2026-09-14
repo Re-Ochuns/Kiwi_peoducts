@@ -292,15 +292,25 @@ class _BoardHeader extends StatelessWidget {
   Widget build(BuildContext context) => ColoredBox(
     color: Colors.white,
     child: Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            '工程ボード',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  '工程ボード',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                ),
+              ),
+              OutlinedButton(
+                onPressed: refreshing ? null : onRefresh,
+                child: Text(refreshing ? '更新中' : '最新状態を読み込む'),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           const Wrap(
             spacing: 16,
             runSpacing: 6,
@@ -309,14 +319,6 @@ class _BoardHeader extends StatelessWidget {
               _LegendItem(useType: ProcessUseType.order),
               _LegendItem(useType: ProcessUseType.mixed),
             ],
-          ),
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
-            child: OutlinedButton(
-              onPressed: refreshing ? null : onRefresh,
-              child: Text(refreshing ? '更新中' : '最新状態を読み込む'),
-            ),
           ),
         ],
       ),
@@ -330,9 +332,16 @@ class _LegendItem extends StatelessWidget {
   final ProcessUseType useType;
 
   @override
-  Widget build(BuildContext context) => Text(
-    '${useType.symbol} ${useType.label}',
-    style: const TextStyle(fontSize: 14, color: AppColors.mutedText),
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      _UseMark(useType: useType, color: AppColors.mutedText),
+      const SizedBox(width: 5),
+      Text(
+        useType.label,
+        style: const TextStyle(fontSize: 13, color: AppColors.mutedText),
+      ),
+    ],
   );
 }
 
@@ -352,55 +361,100 @@ class _BoardColumn extends StatelessWidget {
   final ValueChanged<ProcessBoardItem> onSelected;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Container(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(bottom: BorderSide(color: AppColors.line)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              stage.label,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${items.length}件　${formatProcessBoardWeight(totalWeightHundredths)}',
-              style: const TextStyle(color: AppColors.mutedText),
-            ),
-          ],
-        ),
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(6),
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF6F8FA),
+        border: Border(top: BorderSide(color: _stageColor(stage), width: 3)),
       ),
-      const SizedBox(height: 8),
-      Expanded(
-        child: items.isEmpty
-            ? const Padding(
-                padding: EdgeInsets.all(12),
-                child: Text(
-                  '該当するコンテナはありません',
-                  style: TextStyle(color: AppColors.mutedText),
-                ),
-              )
-            : ListView.separated(
-                padding: EdgeInsets.zero,
-                itemCount: items.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 8),
-                itemBuilder: (context, index) {
-                  final item = items[index];
-                  return _BoardItem(
-                    item: item,
-                    selected: item.id == selectedId,
-                    onTap: () => onSelected(item),
-                  );
-                },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            constraints: const BoxConstraints(minHeight: 50),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppColors.line)),
+            ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                children: [
+                  Container(
+                    width: 11,
+                    height: 11,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _stageColor(stage),
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                  Text(
+                    stage.label,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEAECEF),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${items.length}コンテナ',
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    formatProcessBoardWeight(totalWeightHundredths),
+                    style: const TextStyle(
+                      color: AppColors.mutedText,
+                      fontSize: 12,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
               ),
+            ),
+          ),
+          Expanded(
+            child: items.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Text(
+                      '該当するコンテナはありません',
+                      style: TextStyle(
+                        color: AppColors.mutedText,
+                        fontSize: 13,
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.all(8),
+                    itemCount: items.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 7),
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return _BoardItem(
+                        item: item,
+                        selected: item.id == selectedId,
+                        onTap: () => onSelected(item),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
-    ],
+    ),
   );
 }
 
@@ -425,12 +479,23 @@ class _BoardItem extends StatelessWidget {
     child: InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(10, 9, 10, 8),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFEAF2ED) : Colors.white,
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: selected ? AppColors.green : AppColors.line,
+            color: selected ? const Color(0xFF0969DA) : AppColors.line,
+            width: selected ? 2 : 1,
           ),
+          boxShadow: selected
+              ? const [
+                  BoxShadow(
+                    color: Color(0x260969DA),
+                    blurRadius: 4,
+                    offset: Offset(0, 1),
+                  ),
+                ]
+              : null,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -445,43 +510,68 @@ class _BoardItem extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 16,
+                      color: Color(0xFF0969DA),
+                      fontSize: 13,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text(item.grade, style: const TextStyle(fontSize: 16)),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF6F8FA),
+                    border: Border.all(color: AppColors.line),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    item.grade,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 9),
-            Text(item.variety, style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 3),
-            Text(
-              formatProcessBoardWeight(item.weightHundredths),
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                fontFeatures: [FontFeature.tabularFigures()],
-              ),
-            ),
             const SizedBox(height: 7),
-            Text(
-              '${item.stage.dateLabel} ${_formatBoardDate(item.date)}',
-              style: TextStyle(
-                color: item.needsReview ? AppColors.error : AppColors.mutedText,
-                fontSize: 14,
-                fontWeight: item.needsReview
-                    ? FontWeight.w700
-                    : FontWeight.w400,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(item.useType.label, style: const TextStyle(fontSize: 14)),
-            const SizedBox(height: 8),
-            const Align(
-              alignment: Alignment.centerRight,
-              child: Text('詳細を見る →'),
+            Text(item.variety, style: const TextStyle(fontSize: 14)),
+            const SizedBox(height: 7),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Text(
+                    formatProcessBoardWeight(item.weightHundredths),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    '${item.stage.dateLabel} ${_formatBoardDate(item.date)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      color: item.needsReview
+                          ? AppColors.error
+                          : AppColors.mutedText,
+                      fontSize: 12,
+                      fontWeight: item.needsReview
+                          ? FontWeight.w700
+                          : FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -495,43 +585,72 @@ class _ProcessIcon extends StatelessWidget {
 
   final ProcessBoardItem item;
 
-  Color get _color => switch (item.stage) {
-    ProcessStage.sorted => const Color(0xFF616965),
-    ProcessStage.ripening => const Color(0xFF9A5B00),
-    ProcessStage.resting => const Color(0xFF6B4C8A),
-    ProcessStage.shippable => AppColors.green,
-  };
-
   @override
   Widget build(BuildContext context) => Semantics(
     key: Key('process-icon-${item.id}'),
     label: '${item.stage.label}・${item.useType.label}・${item.displayId}',
     image: true,
     child: ExcludeSemantics(
-      child: SizedBox(
-        width: 18,
-        height: 18,
-        child: item.useType == ProcessUseType.unassigned
-            ? Center(
-                child: ColoredBox(
-                  color: _color,
-                  child: const SizedBox(width: 12, height: 12),
-                ),
-              )
-            : Text(
-                item.useType.symbol,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: _color,
-                  fontSize: 18,
-                  height: 1,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-      ),
+      child: _UseMark(useType: item.useType, color: _stageColor(item.stage)),
     ),
   );
 }
+
+class _UseMark extends StatelessWidget {
+  const _UseMark({required this.useType, required this.color});
+
+  final ProcessUseType useType;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    if (useType == ProcessUseType.unassigned ||
+        useType == ProcessUseType.order) {
+      return SizedBox(
+        width: 14,
+        height: 14,
+        child: Center(
+          child: Container(
+            width: useType == ProcessUseType.order ? 7 : 11,
+            height: useType == ProcessUseType.order ? 7 : 11,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: 14,
+      height: 14,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: color, width: 1.5),
+            ),
+          ),
+          if (useType == ProcessUseType.mixed)
+            Container(
+              width: 5,
+              height: 5,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+Color _stageColor(ProcessStage stage) => switch (stage) {
+  ProcessStage.sorted => const Color(0xFF57606A),
+  ProcessStage.ripening => const Color(0xFFBF8700),
+  ProcessStage.resting => const Color(0xFF8250DF),
+  ProcessStage.shippable => const Color(0xFF1A7F37),
+};
 
 class _DetailPanel extends StatelessWidget {
   const _DetailPanel({
@@ -700,7 +819,9 @@ class _Details extends StatelessWidget {
             onChanged: onPlanChanged,
           ),
         ],
-        _DetailRow(label: '工程', value: item.stage.label),
+        const SizedBox(height: 18),
+        _ProcessProgress(current: item.stage),
+        const SizedBox(height: 8),
         _DetailRow(label: '用途', value: item.useType.label),
         _DetailRow(label: '品種・等級', value: item.productLabel),
         _DetailRow(
@@ -796,6 +917,87 @@ class _Details extends StatelessWidget {
   }
 }
 
+class _ProcessProgress extends StatelessWidget {
+  const _ProcessProgress({required this.current});
+
+  final ProcessStage current;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentIndex = ProcessStage.values.indexOf(current);
+    return Semantics(
+      label: '現在の工程 ${current.label}',
+      child: ExcludeSemantics(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '工程',
+              style: TextStyle(fontSize: 13, color: AppColors.mutedText),
+            ),
+            const SizedBox(height: 7),
+            Row(
+              children: [
+                for (var index = 0; index < ProcessStage.values.length; index++)
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        right: index == ProcessStage.values.length - 1 ? 0 : 4,
+                      ),
+                      child: _ProgressStep(
+                        stage: ProcessStage.values[index],
+                        completed: index < currentIndex,
+                        current: index == currentIndex,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProgressStep extends StatelessWidget {
+  const _ProgressStep({
+    required this.stage,
+    required this.completed,
+    required this.current,
+  });
+
+  final ProcessStage stage;
+  final bool completed;
+  final bool current;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      Container(
+        height: 5,
+        decoration: BoxDecoration(
+          color: completed || current
+              ? _stageColor(stage)
+              : const Color(0xFFD8DEE4),
+          borderRadius: BorderRadius.circular(3),
+        ),
+      ),
+      const SizedBox(height: 5),
+      Text(
+        stage.label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 11,
+          color: current ? _stageColor(stage) : AppColors.mutedText,
+          fontWeight: current ? FontWeight.w700 : FontWeight.w400,
+        ),
+      ),
+    ],
+  );
+}
+
 class _BoardNotice extends StatelessWidget {
   const _BoardNotice({required this.message});
 
@@ -863,5 +1065,5 @@ String _formatBoardDate(DateTime? value) {
   final time = value.hour == 0 && value.minute == 0
       ? ''
       : ' ${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
-  return '${value.year}年${value.month}月${value.day}日$time';
+  return '${value.month}/${value.day}$time';
 }
