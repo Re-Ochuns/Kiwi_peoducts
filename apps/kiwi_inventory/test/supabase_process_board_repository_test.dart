@@ -95,6 +95,7 @@ void main() {
           {
             'ripening_lot_id': 'lot-4',
             'allocation_type': 'order',
+            'allocated_weight_kg': 3.75,
             'order_id': 'order-2',
           },
         ], request);
@@ -127,6 +128,17 @@ void main() {
           {
             'id': 'order-2',
             'order_number': 'ORD-2',
+            'shipments': [
+              {
+                'status': 'confirmed',
+                'shipment_lines': [
+                  {
+                    'shipped_weight_kg': 1,
+                    'container': {'ripening_lot_id': 'lot-4'},
+                  },
+                ],
+              },
+            ],
             'scheduled_ship_on': '2026-09-20',
             'status': 'confirmed',
           },
@@ -155,6 +167,12 @@ void main() {
     expect(shippable.useType, ProcessUseType.mixed);
     expect(shippable.orderNumbers, ['ORD-2']);
     expect(shippable.date, DateTime(2026, 9, 20));
+    final inventory = data.inventoryItems!.singleWhere(
+      (item) => item.ripeningLotId == 'lot-4',
+    );
+    expect(inventory.weightHundredths, 200);
+    expect(inventory.inventoryBalance!.orderHundredths, 275);
+    expect(inventory.inventoryBalance!.totalHundredths, 475);
     await client.dispose();
   });
 

@@ -13,6 +13,7 @@ import 'process_board_repository.dart';
 class ProcessBoardPage extends StatefulWidget {
   const ProcessBoardPage({
     required this.repository,
+    this.inventoryOnly = false,
     this.ripeningPlanRepository,
     this.ripeningWorkRepository,
     this.shippingRepository,
@@ -22,6 +23,7 @@ class ProcessBoardPage extends StatefulWidget {
   });
 
   final ProcessBoardRepository repository;
+  final bool inventoryOnly;
   final RipeningPlanRepository? ripeningPlanRepository;
   final RipeningWorkRepository? ripeningWorkRepository;
   final ShippingRepository? shippingRepository;
@@ -120,8 +122,35 @@ class _ProcessBoardPageState extends State<ProcessBoardPage> {
     }
   }
 
-  ProcessBoardItem? get _selected {
+  ProcessBoardData? get _visibleData {
     final data = _data;
+    if (data == null || !widget.inventoryOnly) return data;
+    return ProcessBoardData(
+      items:
+          data.inventoryItems ??
+          data.items
+              .where(
+                (item) =>
+                    item.useType == ProcessUseType.reserve ||
+                    item.useType == ProcessUseType.unassigned,
+              )
+              .toList(growable: false),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant ProcessBoardPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.inventoryOnly != widget.inventoryOnly && _selected == null) {
+      _selectedId = null;
+      _selectedPlanId = null;
+      _shippingOrderId = null;
+      _panelMode = _PanelMode.details;
+    }
+  }
+
+  ProcessBoardItem? get _selected {
+    final data = _visibleData;
     if (data == null || _selectedId == null) return null;
     return data.items
         .where((item) => item.id == _selectedId)
@@ -152,7 +181,7 @@ class _ProcessBoardPageState extends State<ProcessBoardPage> {
             onAction: _failure!.retryable ? _load : null,
           );
         }
-        final data = _data!;
+        final data = _visibleData!;
         return Material(
           color: AppColors.background,
           child: Column(
@@ -409,7 +438,9 @@ class _BoardColumn extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      '${items.length}コンテナ',
+                      items.any((item) => item.inventoryBalance?.isLot == true)
+                          ? '${items.length}件（ロット・コンテナ）'
+                          : '${items.length}コンテナ',
                       style: const TextStyle(fontSize: 11),
                     ),
                   ),
@@ -539,6 +570,14 @@ class _BoardItem extends StatelessWidget {
             ),
             const SizedBox(height: 7),
             Text(item.variety, style: const TextStyle(fontSize: 14)),
+            if (item.inventoryBalance != null)
+              Text(
+                item.inventoryBalance!.isLot ? '在庫残量（ロット合計）' : '用途未確定の残量',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.mutedText,
+                ),
+              ),
             const SizedBox(height: 7),
             Wrap(
               alignment: WrapAlignment.spaceBetween,
@@ -717,9 +756,11 @@ class _DetailPanel extends StatelessWidget {
                     child: const Text('← 詳細へ戻る'),
                   )
                 else
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'コンテナ詳細',
+                      item.inventoryBalance?.isLot == true
+                          ? 'ロット在庫詳細'
+                          : 'コンテナ詳細',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
@@ -809,7 +850,11 @@ class _Details extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _DetailRow(label: 'コンテナID', value: item.displayId, prominent: true),
+        _DetailRow(
+          label: item.inventoryBalance?.isLot == true ? 'ロットID' : 'コンテナID',
+          value: item.displayId,
+          prominent: true,
+        ),
         if (item.plans.length > 1) ...[
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
@@ -835,10 +880,26 @@ class _Details extends StatelessWidget {
         _DetailRow(label: '用途', value: item.useType.label),
         _DetailRow(label: '品種・等級', value: item.productLabel),
         _DetailRow(
-          label: '現在重量',
+          label: item.inventoryBalance != null ? '在庫残量' : '現在重量',
           value: formatProcessBoardWeight(item.weightHundredths),
           prominent: true,
         ),
+        if (item.inventoryBalance case final balance?) ...[
+          _DetailRow(
+            label: balance.isLot ? 'ロット総重量' : '未引当重量',
+            value: formatProcessBoardWeight(balance.totalHundredths),
+          ),
+          _DetailRow(
+            label: '受注向け残量',
+            value: formatProcessBoardWeight(balance.orderHundredths),
+          ),
+          _DetailRow(
+            label: '対象コンテナ',
+            value: balance.containerDisplayIds.join('、'),
+          ),
+          if (balance.isLot)
+            const Text('ロット総重量から未出荷の受注割当量を差し引いた残量です。コンテナ別の按分は行いません。'),
+        ],
         _DetailRow(
           label: item.stage.dateLabel,
           value: _formatBoardDate(item.date),
@@ -864,6 +925,9 @@ class _Details extends StatelessWidget {
   );
 
   List<Widget> _action() {
+    if (item.inventoryBalance != null) {
+      return const [Text('工程操作は「一覧」タブから行ってください。')];
+    }
     if (item.needsReview) {
       return const [Text('要確認を解消すると工程操作を開始できます。')];
     }

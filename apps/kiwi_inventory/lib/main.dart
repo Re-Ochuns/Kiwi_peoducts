@@ -1396,6 +1396,7 @@ class ManagerProcessBoardPage extends StatefulWidget {
 
 class _ManagerProcessBoardPageState extends State<ManagerProcessBoardPage> {
   bool _busy = false;
+  bool _showInventory = false;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -1422,13 +1423,47 @@ class _ManagerProcessBoardPageState extends State<ManagerProcessBoardPage> {
         ),
         const VerticalDivider(width: 1),
         Expanded(
-          child: ProcessBoardPage(
-            onBusyChanged: (value) => setState(() => _busy = value),
-            repository: widget.repository,
-            ripeningPlanRepository: widget.ripeningPlanRepository,
-            ripeningWorkRepository: widget.ripeningWorkRepository,
-            shippingRepository: widget.shippingRepository,
-            currentDate: widget.currentDate,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: SegmentedButton<bool>(
+                    key: const Key('process-board-view-switch'),
+                    segments: const [
+                      ButtonSegment(
+                        value: false,
+                        icon: Icon(Icons.view_kanban_outlined),
+                        label: Text('一覧'),
+                      ),
+                      ButtonSegment(
+                        value: true,
+                        icon: Icon(Icons.inventory_2_outlined),
+                        label: Text('在庫'),
+                      ),
+                    ],
+                    selected: {_showInventory},
+                    onSelectionChanged: _busy
+                        ? null
+                        : (selection) =>
+                              setState(() => _showInventory = selection.single),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: ProcessBoardPage(
+                  inventoryOnly: _showInventory,
+                  onBusyChanged: (value) => setState(() => _busy = value),
+                  repository: widget.repository,
+                  ripeningPlanRepository: widget.ripeningPlanRepository,
+                  ripeningWorkRepository: widget.ripeningWorkRepository,
+                  shippingRepository: widget.shippingRepository,
+                  currentDate: widget.currentDate,
+                ),
+              ),
+            ],
           ),
         ),
       ],
