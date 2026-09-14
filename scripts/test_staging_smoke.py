@@ -1,5 +1,7 @@
 import json
 import unittest
+from urllib.parse import urlparse, parse_qs
+from uuid import UUID
 from unittest.mock import patch
 import staging_smoke
 
@@ -19,6 +21,9 @@ class SmokeTest(unittest.TestCase):
     def test_success(self):
         with patch.object(staging_smoke, "get", side_effect=self.responses) as get:
             staging_smoke.run(self.env)
+        pdf_url = get.call_args_list[3].args[0]
+        query = parse_qs(urlparse(pdf_url).query)
+        self.assertEqual(UUID(query["container_id"][0]).version, 4)
         self.assertEqual(get.call_args_list[4].kwargs.get("method"), "POST")
 
     def test_wrong_commit_and_public_endpoints_fail(self):

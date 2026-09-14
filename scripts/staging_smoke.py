@@ -24,7 +24,8 @@ def run(env):
         if status != 200 or b"flutter_bootstrap.js" not in data:
             raise ValueError("Hosting SPA fallback failed")
     api = env["STAGING_SUPABASE_URL"]
-    status, _ = get(api + "/functions/v1/label-pdf")
+    # The handler validates container_id before checking authentication.
+    status, _ = get(api + "/functions/v1/label-pdf?container_id=00000000-0000-4000-8000-000000000000")
     if status != 401:
         raise ValueError("Unauthenticated PDF request must be rejected")
     status, _ = get(api + "/functions/v1/calendar-sync", {"Content-Type": "application/json"}, method="POST")
