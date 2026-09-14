@@ -38,10 +38,11 @@ void main() {
           },
         ], request);
       }
-      if (path.endsWith('/orders'))
+      if (path.endsWith('/orders')) {
         return _json([
           {'id': 'order-1'},
         ], request);
+      }
       if (path.endsWith('/rpc/order_list')) {
         return _json([
           {

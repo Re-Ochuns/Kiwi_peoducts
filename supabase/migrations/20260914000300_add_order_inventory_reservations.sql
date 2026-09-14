@@ -733,4 +733,83 @@ $$;
 
 
 create unique index inventory_reservations_legacy_source_key on public.inventory_reservations(ripening_lot_id,container_id) where owner_order_id is null;
+create or replace function private.apply_inventory_event()
+returns trigger language plpgsql set search_path = '' as $$
+declare
+  c public.containers%rowtype;
+  original public.inventory_events%rowtype;
+  line public.shipment_lines%rowtype;
+  shipment public.shipments%rowtype;
+  target_order public.orders%rowtype;
+begin
+  if new.shipment_line_id is not null then
+    select * into strict line from public.shipment_lines where id = new.shipment_line_id;
+    select * into strict shipment from public.shipments where id = line.shipment_id for update;
+    select * into strict target_order from public.orders where id = shipment.order_id for no key update;
+  end if;
+  select * into strict c from public.containers where id = new.container_id for no key update;
+  if c.current_weight_kg <> new.before_weight_kg then
+    raise exception 'inventory event balance is stale' using errcode = '23514';
+  end if;
+  if new.after_weight_kg < c.reserved_weight_kg or new.after_weight_kg > c.original_weight_kg then
+    raise exception 'inventory event exceeds available weight or capacity' using errcode = '23514';
+  end if;
+  if new.event_type in ('shipment', 'shipment_cancel') then
+    if line.container_id <> c.id or line.shipped_weight_kg <> abs(new.quantity_delta_kg) then
+      raise exception 'shipment event does not match line' using errcode = '23514';
+    end if;
+    if c.ripening_lot_id is null or
+        row(c.variety_id, c.grade_id) is distinct from row(target_order.variety_id, target_order.grade_id) then
+      raise exception 'shipment container product does not match order' using errcode = '23514';
+    end if;
+  end if;
+  if new.event_type = 'shipment' then
+    if shipment.status <> 'confirmed' or target_order.status in ('draft', 'cancelled')
+        or c.status <> 'shippable' or c.best_before_at is null or c.shippable_until is null
+        or least(c.best_before_at, c.shippable_until) <= greatest(clock_timestamp(), shipment.shipped_at) then
+      raise exception 'container is not available for shipment' using errcode = '23514';
+    end if;
+    if (select coalesce(sum(l.shipped_weight_kg), 0)
+        from public.shipment_lines l join public.shipments s on s.id = l.shipment_id
+        where s.order_id = shipment.order_id and s.status = 'confirmed') > target_order.ordered_weight_kg then
+      raise exception 'shipment exceeds ordered weight' using errcode = '23514';
+    end if;
+  elsif new.event_type = 'shipment_cancel' then
+    select * into strict original from public.inventory_events where id = new.reverses_event_id;
+    if shipment.status <> 'cancelled' or original.event_type <> 'shipment'
+        or original.container_id <> c.id or original.shipment_line_id <> new.shipment_line_id
+        or original.quantity_delta_kg <> -new.quantity_delta_kg
+        or new.occurred_at < original.occurred_at then
+      raise exception 'invalid shipment reversal' using errcode = '23514';
+    end if;
+  elsif new.event_type = 'ripening_in' then
+    if c.ripening_lot_id is distinct from new.ripening_lot_id then
+      raise exception 'ripening input does not match output container' using errcode = '23514';
+    end if;
+  elsif new.event_type = 'ripening_out' then
+    if (select coalesce(sum(r.reserved_weight_kg),0) from public.inventory_reservations r
+      where r.container_id = c.id and r.ripening_lot_id = new.ripening_lot_id
+      and r.status = 'consumed') <> -new.quantity_delta_kg then
+      raise exception 'ripening output requires consumed reservation' using errcode = '23514';
+    end if;
+  end if;
+  update public.containers set
+    current_weight_kg = new.after_weight_kg,
+    version = version + 1,
+    status = case
+      when new.event_type = 'shipment' and new.after_weight_kg = 0 then 'shipped'
+      when new.event_type = 'shipment_cancel' and c.status in ('shipped','shippable') then
+        case when c.best_before_at <= statement_timestamp() then 'expired' else 'shippable' end
+      else status end,
+    expired_at = case when new.event_type = 'shipment_cancel' and c.status in ('shipped','shippable')
+      and c.best_before_at <= statement_timestamp() then statement_timestamp() else expired_at end
+  where id = c.id;
+  insert into public.change_history (
+    entity_type, entity_id, operation, before_data, after_data, reason, changed_by, correlation_id
+  ) select 'container', c.id, 'update', to_jsonb(c), to_jsonb(updated),
+    new.reason, new.created_by, coalesce(new.correlation_id,new.operation_id)
+    from public.containers updated where updated.id = c.id;
+  return new;
+end;
+$$;
 commit;
