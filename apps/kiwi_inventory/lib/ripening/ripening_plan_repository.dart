@@ -16,6 +16,7 @@ class RipeningInventoryOption {
     required this.gradeId,
     required this.gradeLabel,
     required this.availableWeightHundredths,
+    this.orderReservations = const {},
   });
 
   final String id;
@@ -25,6 +26,10 @@ class RipeningInventoryOption {
   final String gradeId;
   final String gradeLabel;
   final int availableWeightHundredths;
+  final Map<String, int> orderReservations;
+  int get selectableWeightHundredths =>
+      availableWeightHundredths +
+      orderReservations.values.fold<int>(0, (n, w) => n + w);
 }
 
 class RipeningOrderOption {
@@ -36,6 +41,7 @@ class RipeningOrderOption {
     required this.gradeId,
     required this.availableWeightHundredths,
     required this.scheduledShipDate,
+    this.requiresReservation = false,
   });
 
   final String id;
@@ -45,6 +51,7 @@ class RipeningOrderOption {
   final String gradeId;
   final int availableWeightHundredths;
   final DateTime scheduledShipDate;
+  final bool requiresReservation;
 }
 
 class RipeningPlanOptions {

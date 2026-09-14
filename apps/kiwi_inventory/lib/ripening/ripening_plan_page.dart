@@ -217,7 +217,7 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
                         DropdownMenuItem(
                           value: inventory,
                           child: Text(
-                            '${inventory.displayId}　使用可能 ${formatRipeningWeight(inventory.availableWeightHundredths)} kg',
+                            '${inventory.displayId}　使用可能 ${formatRipeningWeight(inventory.availableWeightHundredths)} kg / 受注予約 ${formatRipeningWeight(inventory.selectableWeightHundredths - inventory.availableWeightHundredths)} kg',
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -228,6 +228,10 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
                 if (_inventory != null) ...[
                   const SizedBox(height: 12),
                   _InventorySummary(inventory: _inventory!),
+                  for (final entry in _inventory!.orderReservations.entries)
+                    Text(
+                      '受注 ${options.orders.where((o) => o.id == entry.key).firstOrNull?.orderNumber ?? entry.key} の予約 ${formatRipeningWeight(entry.value)} kg',
+                    ),
                 ],
                 const SizedBox(height: 16),
                 _LabeledField(
@@ -392,7 +396,9 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
         .where(
           (order) =>
               order.varietyId == inventory.varietyId &&
-              order.gradeId == inventory.gradeId,
+              order.gradeId == inventory.gradeId &&
+              (!order.requiresReservation ||
+                  inventory.orderReservations.containsKey(order.id)),
         )
         .toList();
   }
@@ -415,12 +421,13 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
     if (inventory == null) return '冷蔵在庫を選択してください。';
     final total = _totalWeightHundredths;
     if (total == null || total <= 0) return '追熟重量を0.01kg単位で入力してください。';
-    if (total > inventory.availableWeightHundredths) {
+    if (total > inventory.selectableWeightHundredths) {
       return '追熟重量が使用可能量を超えています。';
     }
     if (_allocations.isEmpty) return '追熟内訳を1行以上入力してください。';
     final seenOrders = <String>{};
     var reserveCount = 0;
+    var freeRequired = 0;
     for (final allocation in _allocations) {
       final weight = _parseWeight(allocation.weightController.text);
       if (weight == null || weight <= 0) return '各内訳の重量を0.01kg単位で入力してください。';
@@ -431,13 +438,20 @@ class _RipeningPlanPageState extends State<RipeningPlanPage> {
         final order = _eligibleOrders
             .where((value) => value.id == orderId)
             .firstOrNull;
+        final owned = inventory.orderReservations[orderId];
+        if (owned != null && weight > owned) return '受注内訳がこのコンテナの受注予約量を超えています。';
+        if (owned == null) freeRequired += weight;
         if (order == null || weight > order.availableWeightHundredths) {
           return '受注内訳が受注の未割当量を超えています。';
         }
       } else {
+        freeRequired += weight;
         reserveCount++;
         if (reserveCount > 1) return '予備内訳は1行だけ指定してください。';
       }
+    }
+    if (freeRequired > inventory.availableWeightHundredths) {
+      return '予備・未予約受注の内訳が利用可能量を超えています。';
     }
     if (_allocatedWeightHundredths != total) return '内訳合計を追熟重量と一致させてください。';
     if (_locationId == null) return '追熟場所を選択してください。';

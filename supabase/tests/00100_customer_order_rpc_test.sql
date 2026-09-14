@@ -119,6 +119,11 @@ select is((select shipping_destination_snapshot->>'address' from public.orders
   where id=(current_setting('test.order')::jsonb->'data'->>'id')::uuid),'旧住所',
   'destination update does not rewrite order snapshot');
 
+-- Exercise the migrated legacy order path; new inventory-first orders are covered in 00230.
+reset role;
+update public.orders set inventory_first=false where id=(current_setting('test.order')::jsonb->'data'->>'id')::uuid;
+set local role authenticated;
+
 select set_config('test.confirmed',public.order_confirm(public.test_s2_req(
   '82000000-0000-4000-8000-000000000011','83000000-0000-4000-8000-000000000011',
   jsonb_build_object('order_id',current_setting('test.order')::jsonb->'data'->>'id',
@@ -326,6 +331,10 @@ select set_config('test.snapshot_order',public.order_register(public.test_s2_req
     'variety_id',current_setting('test.order')::jsonb->'data'->>'variety_id',
     'grade_id',current_setting('test.order')::jsonb->'data'->>'grade_id',
     'ordered_weight_kg',2)))::text,true);
+-- A migrated legacy draft preserves the original destination-edit contract.
+reset role;
+update public.orders set inventory_first=false where id=(current_setting('test.snapshot_order')::jsonb->'data'->>'id')::uuid;
+set local role authenticated;
 select set_config('test.destination_change_req',public.test_s2_req(
   '82000000-0000-4000-8000-000000000021','83000000-0000-4000-8000-000000000021',
   jsonb_build_object('order_id',current_setting('test.snapshot_order')::jsonb->'data'->>'id',

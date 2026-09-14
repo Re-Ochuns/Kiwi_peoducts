@@ -29,6 +29,19 @@ void main() {
           },
         ], request);
       }
+      if (path.endsWith('/rpc/ripening_order_inventory')) {
+        return _json([
+          {
+            'container_id': 'container-1',
+            'order_id': 'order-1',
+            'weight_kg': 2.5,
+          },
+        ], request);
+      }
+      if (path.endsWith('/orders'))
+        return _json([
+          {'id': 'order-1'},
+        ], request);
       if (path.endsWith('/rpc/order_list')) {
         return _json([
           {
@@ -82,6 +95,8 @@ void main() {
 
     expect(options.inventories, hasLength(1));
     expect(options.inventories.single.availableWeightHundredths, 825);
+    expect(options.inventories.single.orderReservations, {'order-1': 250});
+    expect(options.inventories.single.selectableWeightHundredths, 1075);
     expect(options.inventories.single.varietyLabel, 'hayward　ヘイワード');
     expect(options.orders, hasLength(1));
     expect(options.orders.single.availableWeightHundredths, 650);

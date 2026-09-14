@@ -5,11 +5,61 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'order_management_repository.dart';
 
-class SupabaseOrderManagementRepository implements OrderManagementRepository {
+class SupabaseOrderManagementRepository
+    implements OrderManagementRepository, OrderInventoryRepository {
   SupabaseOrderManagementRepository(this._client, {this.currentUserId});
 
   factory SupabaseOrderManagementRepository.fromInitializedClient() =>
       SupabaseOrderManagementRepository(Supabase.instance.client);
+
+  @override
+  Future<List<OrderStock>> loadInventory({
+    String search = '',
+    String? varietyId,
+    String? gradeId,
+    int offset = 0,
+    String? orderId,
+  }) async {
+    try {
+      final rows = await _client
+          .rpc(
+            'order_inventory_available',
+            params: {
+              'search_value': search.trim(),
+              'variety_value': varietyId,
+              'grade_value': gradeId,
+              'offset_value': offset,
+              'order_value': orderId,
+            },
+          )
+          .timeout(const Duration(seconds: 10));
+      int weight(dynamic value) =>
+          (((value as num?)?.toDouble() ?? 0) * 100).round();
+      return [
+        for (final raw in rows as List)
+          OrderStock(
+            id: raw['id'] as String,
+            displayId: raw['display_id'] as String,
+            varietyId: raw['variety_id'] as String,
+            gradeId: raw['grade_id'] as String,
+            varietyLabel: raw['variety_label'] as String? ?? '',
+            gradeLabel: raw['grade_label'] as String? ?? '',
+            current: weight(raw['current_weight_kg']),
+            reserved: weight(raw['reserved_weight_kg']),
+            available: weight(raw['available_weight_kg']),
+            ownReserved: weight(raw['own_reserved_weight_kg']),
+            origin: raw['origin_label'] as String? ?? '',
+            sortedOn: raw['sorted_on'] as String? ?? '',
+            location: raw['location_label'] as String? ?? '',
+          ),
+      ];
+    } catch (_) {
+      throw const OrderManagementFailure(
+        message: '受注用在庫を読み込めませんでした。再試行してください。',
+        retryable: true,
+      );
+    }
+  }
 
   final SupabaseClient _client;
   final String? currentUserId;
@@ -333,6 +383,8 @@ class SupabaseOrderManagementRepository implements OrderManagementRepository {
     'variety_id': input.varietyId,
     'grade_id': input.gradeId,
     'ordered_weight_kg': input.orderedWeight,
+    if (input.reservations != null)
+      'reservations': [for (final r in input.reservations!) r.toJson()],
     if (input.notes.trim().isNotEmpty) 'notes': input.notes.trim(),
   };
 
@@ -525,6 +577,7 @@ OrderDetail _orderDetailFromMap(Map<String, dynamic> row) {
       ? row['ripening_allocations'] as List
       : const [];
   return OrderDetail(
+    reservations: _stockReservations(row['reservations']),
     item: _orderFromMap(row),
     shippingDestinationId: row['shipping_destination_id'] as String,
     destinationName: snapshot['destination_name'] as String? ?? '',
@@ -544,3 +597,27 @@ OrderDetail _orderDetailFromMap(Map<String, dynamic> row) {
 
 String _date(DateTime value) =>
     '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
+List<OrderStockReservation> _stockReservations(dynamic raw) {
+  final totals = <String, int>{}, planned = <String, int>{};
+  final labels = <String, String>{};
+  for (final row in raw as List? ?? const []) {
+    final id = row['container_id'] as String;
+    final weight = ((row['reserved_weight_kg'] as num).toDouble() * 100)
+        .round();
+    totals[id] = (totals[id] ?? 0) + weight;
+    labels[id] = row['display_id'] as String? ?? id;
+    if (row['ripening_lot_id'] != null) {
+      planned[id] = (planned[id] ?? 0) + weight;
+    }
+  }
+  return [
+    for (final entry in totals.entries)
+      OrderStockReservation(
+        containerId: entry.key,
+        displayId: labels[entry.key]!,
+        weightHundredths: entry.value,
+        plannedHundredths: planned[entry.key] ?? 0,
+      ),
+  ];
+}

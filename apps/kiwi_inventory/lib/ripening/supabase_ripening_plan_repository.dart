@@ -32,15 +32,26 @@ class SupabaseRipeningPlanRepository implements RipeningPlanRepository {
             .from('workers')
             .select('id, code, display_name')
             .eq('is_active', true),
+        _client.rpc('ripening_order_inventory'),
+        _client.from('orders').select('id').eq('inventory_first', true),
       ]).timeout(const Duration(seconds: 10));
 
       final varieties = _labels(results[2], nameKey: 'name');
       final grades = _labels(results[3], nameKey: 'code', includeCode: false);
+      final owned = <String, Map<String, int>>{};
+      for (final row in results[6] as List) {
+        (owned[row['container_id'] as String] ??= {})[row['order_id']
+            as String] = _toHundredths(
+          row['weight_kg'],
+        );
+      }
       final inventories = <RipeningInventoryOption>[];
       for (final raw in results[0] as List) {
         final row = Map<String, dynamic>.from(raw as Map);
         final available = _toHundredths(row['available_weight_kg']);
-        if (available <= 0) continue;
+        if (available <= 0 && (owned[row['container_id']]?.isEmpty ?? true)) {
+          continue;
+        }
         final varietyId = row['variety_id'] as String;
         final gradeId = row['grade_id'] as String;
         inventories.add(
@@ -52,10 +63,14 @@ class SupabaseRipeningPlanRepository implements RipeningPlanRepository {
             gradeId: gradeId,
             gradeLabel: grades[gradeId] ?? '不明',
             availableWeightHundredths: available,
+            orderReservations: owned[row['container_id']] ?? const {},
           ),
         );
       }
 
+      final inventoryFirst = {
+        for (final r in results[7] as List) r['id'] as String,
+      };
       final orders = <RipeningOrderOption>[];
       for (final raw in results[1] as List) {
         final row = Map<String, dynamic>.from(raw as Map);
@@ -73,6 +88,7 @@ class SupabaseRipeningPlanRepository implements RipeningPlanRepository {
           RipeningOrderOption(
             id: row['order_id'] as String,
             orderNumber: row['order_number'] as String,
+            requiresReservation: inventoryFirst.contains(row['order_id']),
             customerLabel:
                 (row['customer_nickname'] as String?)?.trim().isNotEmpty == true
                 ? row['customer_nickname'] as String

@@ -1,3 +1,5 @@
+import 'order_inventory_picker.dart';
+
 import 'package:flutter/material.dart';
 
 import '../core/app_theme.dart';
@@ -126,7 +128,7 @@ class _OrderManagementPageState extends State<OrderManagementPage> {
                     ),
                     onPressed: _loading ? null : _openRegister,
                     child: Text(
-                      _view == _ManagementView.orders ? '受注を登録' : '顧客を登録',
+                      _view == _ManagementView.orders ? '在庫を確認して受注登録' : '顧客を登録',
                     ),
                   ),
               ],
@@ -766,6 +768,16 @@ class _OrderDetailPanelState extends State<_OrderDetailPanel> {
             '${detail.destinationName}\n${detail.recipientName}\n〒${detail.postalCode}\n${detail.address}',
             style: const TextStyle(fontSize: 15, height: 1.6),
           ),
+          if (detail.reservations.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            const Text('確保した在庫', style: TextStyle(fontWeight: FontWeight.bold)),
+            for (final r in detail.reservations)
+              _DetailRow(
+                label: r.displayId,
+                value:
+                    '未計画 ${((r.weightHundredths - r.plannedHundredths) / 100).toStringAsFixed(2)} kg / 計画済み ${(r.plannedHundredths / 100).toStringAsFixed(2)} kg',
+              ),
+          ],
           if (detail.allocations.isNotEmpty) ...[
             const SizedBox(height: 20),
             const Text(
@@ -1541,6 +1553,49 @@ class OrderFormDialog extends StatefulWidget {
 }
 
 class _OrderFormDialogState extends State<OrderFormDialog> {
+  bool _selectingStock = false;
+  List<OrderStockReservation> _reservations = [];
+  final Map<String, TextEditingController> _stockWeights = {};
+  bool get _usesInventory => widget.repository is OrderInventoryRepository;
+  void _setReservations(
+    List<OrderStockReservation> rows,
+    String variety,
+    String grade,
+  ) {
+    setState(() {
+      _reservations = rows;
+      _varietyId = variety;
+      _gradeId = grade;
+      for (final row in rows) {
+        _stockWeights.putIfAbsent(
+          row.containerId,
+          () => TextEditingController(
+            text: (row.weightHundredths / 100).toStringAsFixed(2),
+          ),
+        );
+      }
+      if (_weight.text.isEmpty) {
+        _weight.text =
+            (rows.fold<int>(0, (n, r) => n + r.weightHundredths) / 100)
+                .toStringAsFixed(2);
+      }
+      _selectingStock = false;
+    });
+  }
+
+  List<OrderStockReservation> get _reservationInput => [
+    for (final row in _reservations)
+      OrderStockReservation(
+        containerId: row.containerId,
+        displayId: row.displayId,
+        weightHundredths:
+            ((double.tryParse(_stockWeights[row.containerId]?.text ?? '') ??
+                        0) *
+                    100)
+                .round(),
+        plannedHundredths: row.plannedHundredths,
+      ),
+  ];
   final _formKey = GlobalKey<FormState>();
   final _weight = TextEditingController();
   final _notes = TextEditingController();
@@ -1564,6 +1619,13 @@ class _OrderFormDialogState extends State<OrderFormDialog> {
   void initState() {
     super.initState();
     final existing = widget.existing;
+    _selectingStock = _usesInventory && existing == null;
+    _reservations = existing?.reservations ?? [];
+    for (final row in _reservations) {
+      _stockWeights[row.containerId] = TextEditingController(
+        text: (row.weightHundredths / 100).toStringAsFixed(2),
+      );
+    }
     final now = DateTime.now();
     _customerId =
         existing?.item.customerId ??
@@ -1582,6 +1644,9 @@ class _OrderFormDialogState extends State<OrderFormDialog> {
 
   @override
   void dispose() {
+    for (final controller in _stockWeights.values) {
+      controller.dispose();
+    }
     _weight.dispose();
     _notes.dispose();
     _reason.dispose();
@@ -1623,6 +1688,8 @@ class _OrderFormDialogState extends State<OrderFormDialog> {
     title: Text(
       _completed
           ? '登録完了'
+          : _selectingStock
+          ? '受注用在庫を選択'
           : widget.existing == null
           ? '受注を登録'
           : '受注を編集',
@@ -1633,6 +1700,16 @@ class _OrderFormDialogState extends State<OrderFormDialog> {
           ? Text(
               '${_resultNumber ?? widget.existing?.item.number ?? ''} を保存しました。',
             )
+          : _selectingStock
+          ? OrderInventoryPicker(
+              repository: widget.repository as OrderInventoryRepository,
+              data: widget.data,
+              initial: _reservationInput,
+              orderId: widget.existing?.item.id,
+              varietyId: _reservations.isEmpty ? null : _varietyId,
+              gradeId: _reservations.isEmpty ? null : _gradeId,
+              onSelected: _setReservations,
+            )
           : _confirming
           ? _confirmation()
           : _form(),
@@ -1642,6 +1719,19 @@ class _OrderFormDialogState extends State<OrderFormDialog> {
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
               child: const Text('閉じる'),
+            ),
+          ]
+        : _selectingStock
+        ? [
+            TextButton(
+              onPressed: () {
+                if (_reservations.isNotEmpty) {
+                  setState(() => _selectingStock = false);
+                } else {
+                  Navigator.of(context).pop(false);
+                }
+              },
+              child: const Text('戻る'),
             ),
           ]
         : _confirming
@@ -1655,7 +1745,13 @@ class _OrderFormDialogState extends State<OrderFormDialog> {
             FilledButton(
               key: const Key('order-save'),
               onPressed: _saving ? null : _save,
-              child: Text(_saving ? '保存中' : 'この内容で保存'),
+              child: Text(
+                _saving
+                    ? '保存中'
+                    : _usesInventory
+                    ? '受注・在庫予約を確定'
+                    : 'この内容で保存',
+              ),
             ),
           ]
         : [
@@ -1678,6 +1774,20 @@ class _OrderFormDialogState extends State<OrderFormDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (_usesInventory) ...[
+            const Text('予約する在庫', style: TextStyle(fontWeight: FontWeight.bold)),
+            for (final row in _reservations)
+              _Field(
+                label: '${row.displayId} 使用量（kg）',
+                controller: _stockWeights[row.containerId]!,
+                keyValue: 'order-stock-${row.containerId}',
+                number: true,
+              ),
+            TextButton(
+              onPressed: () => setState(() => _selectingStock = true),
+              child: const Text('在庫を再選択'),
+            ),
+          ],
           const Text(
             '顧客',
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
@@ -1756,7 +1866,9 @@ class _OrderFormDialogState extends State<OrderFormDialog> {
                   keyValue: 'order-variety',
                   value: _varietyId,
                   values: widget.data.varieties,
-                  onChanged: (value) => setState(() => _varietyId = value),
+                  onChanged: _usesInventory
+                      ? null
+                      : (value) => setState(() => _varietyId = value),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1766,7 +1878,9 @@ class _OrderFormDialogState extends State<OrderFormDialog> {
                   keyValue: 'order-grade',
                   value: _gradeId,
                   values: widget.data.grades,
-                  onChanged: (value) => setState(() => _gradeId = value),
+                  onChanged: _usesInventory
+                      ? null
+                      : (value) => setState(() => _gradeId = value),
                 ),
               ),
             ],
@@ -1809,6 +1923,14 @@ class _OrderFormDialogState extends State<OrderFormDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (_usesInventory) ...[
+            const Text('確定時に次の在庫を確保します。'),
+            for (final row in _reservationInput)
+              _DetailRow(
+                label: row.displayId,
+                value: '${(row.weightHundredths / 100).toStringAsFixed(2)} kg',
+              ),
+          ],
           _DetailRow(label: '顧客', value: customer?.displayName ?? ''),
           _DetailRow(label: '配送先', value: destination?.name ?? ''),
           _DetailRow(label: '注文日', value: _displayDate(_orderedOn)),
@@ -1844,6 +1966,21 @@ class _OrderFormDialogState extends State<OrderFormDialog> {
       setState(() => _error = '注文量は0より大きい0.01kg単位で入力してください。');
       return;
     }
+    if (_usesInventory) {
+      final rows = _reservationInput;
+      if (rows.isEmpty ||
+          rows.any(
+            (r) =>
+                r.weightHundredths <= 0 ||
+                !RegExp(r'^\d+(?:\.\d{1,2})?$')
+                    .hasMatch(_stockWeights[r.containerId]!.text.trim()),
+          ) ||
+          rows.fold<int>(0, (n, r) => n + r.weightHundredths) !=
+              (weight * 100).round()) {
+        setState(() => _error = '在庫ごとの使用量を0.01kg単位で入力し、合計を注文量に合わせてください。');
+        return;
+      }
+    }
     setState(() => _confirming = true);
     _operationKey = createOrderIdempotencyKey();
   }
@@ -1862,6 +1999,7 @@ class _OrderFormDialogState extends State<OrderFormDialog> {
       gradeId: _gradeId!,
       orderedWeight: double.parse(_weight.text),
       notes: _notes.text,
+      reservations: _usesInventory ? _reservationInput : null,
     );
     try {
       final result = widget.existing == null
@@ -2045,7 +2183,7 @@ class _ReferenceSelect extends StatelessWidget {
   final String keyValue;
   final String? value;
   final List<OrderReference> values;
-  final ValueChanged<String?> onChanged;
+  final ValueChanged<String?>? onChanged;
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
