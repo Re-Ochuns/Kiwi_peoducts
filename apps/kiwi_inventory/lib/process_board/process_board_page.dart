@@ -540,36 +540,46 @@ class _BoardItem extends StatelessWidget {
             const SizedBox(height: 7),
             Text(item.variety, style: const TextStyle(fontSize: 14)),
             const SizedBox(height: 7),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.end,
+              spacing: 6,
+              runSpacing: 4,
               children: [
-                Expanded(
-                  child: Text(
-                    formatProcessBoardWeight(item.weightHundredths),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
+                Text(
+                  formatProcessBoardWeight(item.weightHundredths),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: [FontFeature.tabularFigures()],
                   ),
                 ),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    '${item.stage.dateLabel} ${_formatBoardDate(item.date)}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      color: item.needsReview
-                          ? AppColors.error
-                          : AppColors.mutedText,
-                      fontSize: 12,
-                      fontWeight: item.needsReview
-                          ? FontWeight.w700
-                          : FontWeight.w400,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      item.stage.dateLabel,
+                      style: TextStyle(
+                        color: item.needsReview
+                            ? AppColors.error
+                            : AppColors.mutedText,
+                        fontSize: 11,
+                      ),
                     ),
-                  ),
+                    Text(
+                      _formatBoardDate(item.date),
+                      style: TextStyle(
+                        color: item.needsReview
+                            ? AppColors.error
+                            : AppColors.mutedText,
+                        fontSize: 12,
+                        fontWeight: item.needsReview
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

@@ -5,6 +5,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../work_tasks/work_task_repository.dart';
 import 'process_board_repository.dart';
 
+// Initial production rule until a dedicated cold-storage master is introduced.
+const _defaultColdStoragePeriod = Duration(days: 30);
+
 class SupabaseProcessBoardRepository implements ProcessBoardRepository {
   SupabaseProcessBoardRepository(this._client);
 
@@ -30,6 +33,7 @@ class SupabaseProcessBoardRepository implements ProcessBoardRepository {
             .select('''
               id, display_id, current_weight_kg, status, needs_review,
               ripening_lot_id, shippable_from, shippable_until,
+              sorting_result:sorting_results!containers_sorting_result_id_fkey(sorted_on),
               variety:varieties!containers_variety_id_fkey(name),
               grade:grades!containers_grade_id_fkey(code),
               location:storage_locations!containers_location_id_fkey(code, name)
@@ -395,7 +399,9 @@ DateTime? _dateFor(
   required Map<String, dynamic>? lot,
   required List<Map<String, dynamic>> orders,
 }) => switch (stage) {
-  ProcessStage.sorted => null,
+  ProcessStage.sorted => _tryDate(
+    (row['sorting_result'] as Map<String, dynamic>?)?['sorted_on'],
+  )?.add(_defaultColdStoragePeriod),
   ProcessStage.ripening => _tryDate(
     lot?['calculated_removal_at'] ?? lot?['planned_completion_at'],
   ),

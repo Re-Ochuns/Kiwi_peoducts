@@ -29,7 +29,10 @@ void main() {
       expect(find.text('CONT-2026-0101'), findsOneWidget);
       expect(find.text('ヘイワード'), findsWidgets);
       expect(find.text('M'), findsWidgets);
-      expect(find.text('保管期限 未設定'), findsOneWidget);
+      expect(find.text('保管期限'), findsOneWidget);
+      expect(find.text('未設定'), findsOneWidget);
+      expect(find.text('9/18 10:00'), findsOneWidget);
+      expect(find.text('9/19 14:00'), findsOneWidget);
       expect(find.text('用途未確定'), findsNothing);
       expect(find.text('予備'), findsOneWidget);
       expect(find.text('受注'), findsOneWidget);
