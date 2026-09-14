@@ -712,6 +712,7 @@ class _UseMark extends StatelessWidget {
 
 Color _stageColor(ProcessStage stage) => switch (stage) {
   ProcessStage.sorted => const Color(0xFF57606A),
+  ProcessStage.waiting => const Color(0xFF0969DA),
   ProcessStage.ripening => const Color(0xFFBF8700),
   ProcessStage.resting => const Color(0xFF8250DF),
   ProcessStage.shippable => const Color(0xFF1A7F37),

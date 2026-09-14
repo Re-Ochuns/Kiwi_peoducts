@@ -2,6 +2,7 @@ import '../work_tasks/work_task_repository.dart';
 
 enum ProcessStage {
   sorted('選果済み', '保管期限'),
+  waiting('追熟待ち', '開始予定'),
   ripening('追熟', '終了予定'),
   resting('寝かせ', '終了予定'),
   shippable('出荷可能', '出荷日時');
@@ -46,6 +47,7 @@ class ProcessBoardItem {
     required this.orderIds,
     required this.orderNumbers,
     this.date,
+    this.coldStorageUntil,
     this.ripeningLotId,
     this.ripeningDisplayId,
     this.nextTask,
@@ -64,6 +66,7 @@ class ProcessBoardItem {
   final String location;
   final bool needsReview;
   final DateTime? date;
+  final DateTime? coldStorageUntil;
   final String? ripeningLotId;
   final String? ripeningDisplayId;
   final List<String> orderIds;
@@ -89,6 +92,7 @@ class ProcessBoardItem {
       location: location,
       needsReview: needsReview,
       date: date,
+      coldStorageUntil: coldStorageUntil,
       ripeningLotId: plan.id,
       ripeningDisplayId: plan.displayId,
       orderIds: plan.orderIds,

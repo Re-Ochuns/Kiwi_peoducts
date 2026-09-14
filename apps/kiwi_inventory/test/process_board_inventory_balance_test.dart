@@ -19,7 +19,9 @@ ProcessBoardItem container(
   variety: 'Kiwi',
   grade: 'M',
   weightHundredths: weight,
-  status: stage == ProcessStage.sorted ? 'cold_storage' : 'shippable',
+  status: stage == ProcessStage.sorted || stage == ProcessStage.waiting
+      ? 'cold_storage'
+      : 'shippable',
   location: 'A',
   needsReview: false,
   orderIds: const ['order'],
@@ -117,8 +119,8 @@ void main() {
     () {
       final rows = inventory(
         items: [
-          container('CONT-1', 1000, stage: ProcessStage.sorted),
-          container('CONT-2', 1000, stage: ProcessStage.sorted),
+          container('CONT-1', 1000, stage: ProcessStage.waiting),
+          container('CONT-2', 1000, stage: ProcessStage.waiting),
         ],
         reservations: [
           {
@@ -134,6 +136,14 @@ void main() {
         ],
       );
       expect(rows, hasLength(3));
+      expect(
+        rows.where((item) => item.stage == ProcessStage.sorted),
+        hasLength(2),
+      );
+      expect(
+        rows.where((item) => item.stage == ProcessStage.waiting),
+        hasLength(1),
+      );
       expect(
         rows
             .where((item) => item.inventoryBalance!.isLot)

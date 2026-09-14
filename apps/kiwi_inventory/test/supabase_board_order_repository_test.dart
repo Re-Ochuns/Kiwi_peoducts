@@ -84,7 +84,7 @@ void main() {
                 'kind': 'lot',
                 'use_type': 'mixed',
                 'display_id': 'LOT-1',
-                'stage': 'resting',
+                'stage': 'waiting',
                 'available_weight_kg': 7.75,
                 'planned_ethylene_at': '2027-05-20T00:00:00Z',
                 'planned_completion_at': '2027-05-30T00:00:00Z',
@@ -109,7 +109,8 @@ void main() {
         ),
       );
       expect(rows.single.availableHundredths, 775);
-      expect(rows.single.stage, ProcessStage.resting);
+      expect(rows.single.stage, ProcessStage.waiting);
+      expect(rows.single.item('Hayward', 'L').date, rows.single.start);
       expect(rows.single.item('Hayward', 'L').useType, ProcessUseType.mixed);
       expect(rows.single.containerIds, 'C1、C2');
       await client.dispose();

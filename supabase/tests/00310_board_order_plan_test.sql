@@ -122,6 +122,7 @@ select is(current_setting('test.board')::jsonb->'data'->>'ripening_lot_id',curre
 select is((select sum(allocated_weight_kg)::numeric from public.ripening_allocations
  where ripening_lot_id=current_setting('test.lot')::uuid and allocation_type='reserve'),4::numeric,'reserve reduced by order weight');
 select is((select status from public.ripening_lots where id=current_setting('test.lot')::uuid),'confirmed','lot state preserved');
+select is((select value->>'stage' from jsonb_array_elements(public.board_order_candidates(pg_temp.criteria())) where value->>'id'=current_setting('test.lot')),'waiting','confirmed plan appears in waiting column');
 select is((select value->>'use_type' from jsonb_array_elements(public.board_order_candidates(pg_temp.criteria())) where value->>'id'=current_setting('test.lot')),'mixed','sorted mixed lot keeps its order status in candidates');
 select is((select count(*) from private.board_order_transfer),0::bigint,'transfer gate cleaned up');
 select throws_ok(format('update public.ripening_allocations set allocated_weight_kg=1 where ripening_lot_id=%L and allocation_type=%L',current_setting('test.lot'),'reserve'),

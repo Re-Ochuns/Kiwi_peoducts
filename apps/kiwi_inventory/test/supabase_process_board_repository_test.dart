@@ -220,7 +220,8 @@ void main() {
     addTearDown(client.dispose);
     final data = await SupabaseProcessBoardRepository(client).load();
     final item = data.items.single;
-    expect(data.weightFor(ProcessStage.sorted), 1000);
+    expect(data.weightFor(ProcessStage.waiting), 1000);
+    expect(data.itemsFor(ProcessStage.sorted), isEmpty);
     expect(item.useType, ProcessUseType.mixed);
     expect(item.plans.map((plan) => plan.id), ['lot-1', 'lot-2']);
     expect(item.orderNumbers, ['ORD-1']);

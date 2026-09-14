@@ -70,7 +70,7 @@ class BoardOrderCandidate {
     needsReview: false,
     orderIds: const [],
     orderNumbers: const [],
-    date: completion,
+    date: stage == ProcessStage.waiting ? start : completion,
   );
 }
 
