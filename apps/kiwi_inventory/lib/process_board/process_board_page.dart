@@ -14,6 +14,8 @@ class ProcessBoardPage extends StatefulWidget {
   const ProcessBoardPage({
     required this.repository,
     this.inventoryOnly = false,
+    this.inventoryItemsOverride,
+    this.onCandidateSelected,
     this.ripeningPlanRepository,
     this.ripeningWorkRepository,
     this.shippingRepository,
@@ -24,6 +26,8 @@ class ProcessBoardPage extends StatefulWidget {
 
   final ProcessBoardRepository repository;
   final bool inventoryOnly;
+  final List<ProcessBoardItem>? inventoryItemsOverride;
+  final ValueChanged<ProcessBoardItem>? onCandidateSelected;
   final RipeningPlanRepository? ripeningPlanRepository;
   final RipeningWorkRepository? ripeningWorkRepository;
   final ShippingRepository? shippingRepository;
@@ -123,6 +127,9 @@ class _ProcessBoardPageState extends State<ProcessBoardPage> {
   }
 
   ProcessBoardData? get _visibleData {
+    if (widget.inventoryOnly && widget.inventoryItemsOverride != null) {
+      return ProcessBoardData(items: widget.inventoryItemsOverride!);
+    }
     final data = _data;
     if (data == null || !widget.inventoryOnly) return data;
     return ProcessBoardData(
@@ -141,7 +148,8 @@ class _ProcessBoardPageState extends State<ProcessBoardPage> {
   @override
   void didUpdateWidget(covariant ProcessBoardPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.inventoryOnly != widget.inventoryOnly) {
+    if (oldWidget.inventoryOnly != widget.inventoryOnly ||
+        oldWidget.inventoryItemsOverride != widget.inventoryItemsOverride) {
       _panelMode = _PanelMode.details;
       if (_selected == null) {
         _selectedId = null;
@@ -291,6 +299,10 @@ class _ProcessBoardPageState extends State<ProcessBoardPage> {
 
   void _select(ProcessBoardItem item) {
     if (_panelBusy) return;
+    if (widget.onCandidateSelected != null) {
+      widget.onCandidateSelected!(item);
+      return;
+    }
     setState(() {
       _selectedId = item.id;
       _selectedPlanId = item.plans.firstOrNull?.id;
