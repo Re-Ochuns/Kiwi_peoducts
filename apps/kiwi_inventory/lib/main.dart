@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'board_order/board_order_repository.dart';
+import 'board_order/supabase_board_order_repository.dart';
+import 'board_order/board_order_workspace.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'notifications/todo_notification_repository.dart';
@@ -92,6 +96,8 @@ Future<void> main() async {
             SupabaseRipeningWorkRepository.fromInitializedClient(),
         processBoardRepository:
             SupabaseProcessBoardRepository.fromInitializedClient(),
+        boardOrderRepository:
+            SupabaseBoardOrderRepository.fromInitializedClient(),
         workTaskRepository: SupabaseWorkTaskRepository.fromInitializedClient(),
       ),
     );
@@ -120,6 +126,7 @@ class KiwiInventoryApp extends StatelessWidget {
     this.shippingRepository,
     this.ripeningWorkRepository,
     this.processBoardRepository,
+    this.boardOrderRepository,
     this.workTaskRepository,
     this.orderManagementRepository,
     this.theme,
@@ -139,6 +146,7 @@ class KiwiInventoryApp extends StatelessWidget {
   final ShippingRepository? shippingRepository;
   final RipeningWorkRepository? ripeningWorkRepository;
   final ProcessBoardRepository? processBoardRepository;
+  final BoardOrderRepository? boardOrderRepository;
   final WorkTaskRepository? workTaskRepository;
   final OrderManagementRepository? orderManagementRepository;
   final SortingRepository? sortingRepository;
@@ -243,6 +251,7 @@ class KiwiInventoryApp extends StatelessWidget {
           shippingRepository: shippingRepository,
           ripeningWorkRepository: ripeningWorkRepository,
           processBoardRepository: processBoardRepository,
+          boardOrderRepository: boardOrderRepository,
           workTaskRepository: workTaskRepository,
           orderManagementRepository: orderManagementRepository,
         ),
@@ -265,6 +274,7 @@ class ResponsiveHomePage extends StatelessWidget {
     this.shippingRepository,
     this.ripeningWorkRepository,
     this.processBoardRepository,
+    this.boardOrderRepository,
     this.workTaskRepository,
     this.orderManagementRepository,
     super.key,
@@ -279,6 +289,7 @@ class ResponsiveHomePage extends StatelessWidget {
   final ShippingRepository? shippingRepository;
   final RipeningWorkRepository? ripeningWorkRepository;
   final ProcessBoardRepository? processBoardRepository;
+  final BoardOrderRepository? boardOrderRepository;
   final WorkTaskRepository? workTaskRepository;
   final OrderManagementRepository? orderManagementRepository;
   final SortingRepository? sortingRepository;
@@ -300,6 +311,7 @@ class ResponsiveHomePage extends StatelessWidget {
               shippingRepository: shippingRepository,
               ripeningWorkRepository: ripeningWorkRepository,
               processBoardRepository: processBoardRepository,
+              boardOrderRepository: boardOrderRepository,
               workTaskRepository: workTaskRepository,
               orderManagementRepository: orderManagementRepository,
             )
@@ -724,6 +736,7 @@ class ManagerHomePage extends StatefulWidget {
     this.shippingRepository,
     this.ripeningWorkRepository,
     this.processBoardRepository,
+    this.boardOrderRepository,
     this.workTaskRepository,
     this.orderManagementRepository,
     super.key,
@@ -736,6 +749,7 @@ class ManagerHomePage extends StatefulWidget {
   final ShippingRepository? shippingRepository;
   final RipeningWorkRepository? ripeningWorkRepository;
   final ProcessBoardRepository? processBoardRepository;
+  final BoardOrderRepository? boardOrderRepository;
   final WorkTaskRepository? workTaskRepository;
   final OrderManagementRepository? orderManagementRepository;
 
@@ -784,6 +798,8 @@ class _ManagerHomePageState extends State<ManagerHomePage> with RouteAware {
   ShippingRepository? get shippingRepository => widget.shippingRepository;
   RipeningWorkRepository? get ripeningWorkRepository =>
       widget.ripeningWorkRepository;
+  BoardOrderRepository? get boardOrderRepository => widget.boardOrderRepository;
+
   ProcessBoardRepository? get processBoardRepository =>
       widget.processBoardRepository;
   WorkTaskRepository? get workTaskRepository => widget.workTaskRepository;
@@ -907,6 +923,7 @@ class _ManagerHomePageState extends State<ManagerHomePage> with RouteAware {
       ),
       '工程ボード' when processBoardRepository != null => ManagerProcessBoardPage(
         repository: processBoardRepository!,
+        boardOrderRepository: boardOrderRepository,
         ripeningPlanRepository: ripeningPlanRepository,
         ripeningWorkRepository: ripeningWorkRepository,
         shippingRepository: shippingRepository,
@@ -1408,6 +1425,7 @@ class ManagerOrderPage extends StatelessWidget {
 class ManagerProcessBoardPage extends StatefulWidget {
   const ManagerProcessBoardPage({
     required this.repository,
+    this.boardOrderRepository,
     this.ripeningPlanRepository,
     this.ripeningWorkRepository,
     this.shippingRepository,
@@ -1418,6 +1436,7 @@ class ManagerProcessBoardPage extends StatefulWidget {
   });
 
   final ProcessBoardRepository repository;
+  final BoardOrderRepository? boardOrderRepository;
   final RipeningPlanRepository? ripeningPlanRepository;
   final RipeningWorkRepository? ripeningWorkRepository;
   final ShippingRepository? shippingRepository;
@@ -1489,15 +1508,26 @@ class _ManagerProcessBoardPageState extends State<ManagerProcessBoardPage> {
                 ),
               ),
               Expanded(
-                child: ProcessBoardPage(
-                  inventoryOnly: _showInventory,
-                  onBusyChanged: (value) => setState(() => _busy = value),
-                  repository: widget.repository,
-                  ripeningPlanRepository: widget.ripeningPlanRepository,
-                  ripeningWorkRepository: widget.ripeningWorkRepository,
-                  shippingRepository: widget.shippingRepository,
-                  currentDate: widget.currentDate,
-                ),
+                child: widget.boardOrderRepository != null
+                    ? BoardOrderWorkspace(
+                        repository: widget.boardOrderRepository!,
+                        boardRepository: widget.repository,
+                        inventoryOnly: _showInventory,
+                        onBusyChanged: (value) => setState(() => _busy = value),
+                        ripeningPlanRepository: widget.ripeningPlanRepository,
+                        ripeningWorkRepository: widget.ripeningWorkRepository,
+                        shippingRepository: widget.shippingRepository,
+                        currentDate: widget.currentDate,
+                      )
+                    : ProcessBoardPage(
+                        inventoryOnly: _showInventory,
+                        onBusyChanged: (value) => setState(() => _busy = value),
+                        repository: widget.repository,
+                        ripeningPlanRepository: widget.ripeningPlanRepository,
+                        ripeningWorkRepository: widget.ripeningWorkRepository,
+                        shippingRepository: widget.shippingRepository,
+                        currentDate: widget.currentDate,
+                      ),
               ),
             ],
           ),
