@@ -153,7 +153,7 @@ class _ReceivingLabelPreviewPageState extends State<ReceivingLabelPreviewPage> {
                           ? null
                           : _pdf == null
                           ? _preparePdf
-                          : _openPdf,
+                          : _openPdfAndConfirm,
                       child: Text(
                         _opening
                             ? 'PDFを表示しています'
@@ -205,9 +205,10 @@ class _ReceivingLabelPreviewPageState extends State<ReceivingLabelPreviewPage> {
     }
   }
 
-  Future<void> _openPdf() async {
+  Future<void> _openPdfAndConfirm() async {
     final pdf = _pdf;
     if (pdf == null) return;
+    final pageCount = widget.input.containerCount;
     setState(() {
       _opening = true;
       _error = null;
@@ -217,9 +218,49 @@ class _ReceivingLabelPreviewPageState extends State<ReceivingLabelPreviewPage> {
         pdf.bytes,
         '${widget.result.displayId}-receiving-labels.pdf',
       );
-      if (mounted && !opened) {
+      if (!mounted) return;
+      if (!opened) {
         setState(() => _error = 'PDFを開けませんでした。ポップアップの許可を確認してください。');
+        return;
       }
+      final printed = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text('印刷結果を確認'),
+          content: Text(
+            '$pageCount枚すべてを正しく印刷できましたか。'
+            '\n中断や失敗の場合はPDFから印刷をやり直してください。',
+          ),
+          actions: [
+            OutlinedButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('印刷できなかった'),
+            ),
+            FilledButton(
+              key: const Key('confirm-receiving-batch-printed'),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('すべて印刷完了'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || printed != true) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text('仮ラベルの印刷を確認しました'),
+          content: Text('$pageCount枚すべての印刷を確認しました。'),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('ToDoへ戻る'),
+            ),
+          ],
+        ),
+      );
+      if (mounted) Navigator.pop(context, false);
     } catch (_) {
       if (mounted) {
         setState(() => _error = '仮ラベルPDFを表示できませんでした。再試行してください。');

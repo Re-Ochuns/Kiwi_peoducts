@@ -43,7 +43,7 @@ void main() {
     );
   });
 
-  testWidgets('結合PDFを一度だけ開き、受入登録を再実行しない', (tester) async {
+  testWidgets('印刷失敗時は同じPDFを再表示でき、受入登録を再実行しない', (tester) async {
     final repository = _ReceivingLabelRepository();
     var openCalls = 0;
     await _pump(
@@ -62,7 +62,90 @@ void main() {
     );
     expect(openCalls, 1);
     expect(repository.fetchCalls, 1);
+    expect(find.text('印刷結果を確認'), findsOneWidget);
+    expect(find.textContaining('2枚すべてを正しく印刷できましたか'), findsOneWidget);
+    await tester.tap(find.text('印刷できなかった'));
+    await tester.pumpAndSettle();
     expect(find.text('仮ラベル確認'), findsOneWidget);
+    expect(find.text('2枚を表示して印刷'), findsOneWidget);
+    await _tapVisible(
+      tester,
+      find.byKey(const Key('open-receiving-label-pdf')),
+    );
+    expect(openCalls, 2);
+    expect(find.text('印刷結果を確認'), findsOneWidget);
+  });
+
+  testWidgets('全件印刷を確認した場合だけ完了案内を表示する', (tester) async {
+    final repository = _ReceivingLabelRepository();
+    await _pump(tester, repository, opener: (_, _) async => true);
+
+    await _tapVisible(
+      tester,
+      find.byKey(const Key('open-receiving-label-pdf')),
+    );
+    await tester.tap(find.byKey(const Key('confirm-receiving-batch-printed')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('仮ラベルの印刷を確認しました'), findsOneWidget);
+    expect(find.text('2枚すべての印刷を確認しました。'), findsOneWidget);
+    expect(repository.fetchCalls, 1);
+  });
+
+  testWidgets('全件印刷確認後に元の作業画面へ戻る', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: FilledButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => ReceivingLabelPreviewPage(
+                    repository: _ReceivingLabelRepository(),
+                    result: _result,
+                    input: _input,
+                    varietyName: 'ヘイワード',
+                    sortingUrl: _sortingUrl,
+                    pdfOpener: (_, _) async => true,
+                  ),
+                ),
+              ),
+              child: const Text('ToDo'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('ToDo'));
+    await tester.pumpAndSettle();
+    await _tapVisible(
+      tester,
+      find.byKey(const Key('open-receiving-label-pdf')),
+    );
+    await tester.tap(find.byKey(const Key('confirm-receiving-batch-printed')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ToDoへ戻る'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ToDo'), findsOneWidget);
+    expect(find.text('仮ラベル確認'), findsNothing);
+  });
+
+  testWidgets('PDFを開けないときは印刷結果を確認しない', (tester) async {
+    await _pump(
+      tester,
+      _ReceivingLabelRepository(),
+      opener: (_, _) async => false,
+    );
+
+    await _tapVisible(
+      tester,
+      find.byKey(const Key('open-receiving-label-pdf')),
+    );
+    expect(find.text('印刷結果を確認'), findsNothing);
+    expect(find.textContaining('PDFを開けませんでした'), findsOneWidget);
   });
 
   testWidgets('PDF取得失敗後に同じ登録結果から再取得できる', (tester) async {
