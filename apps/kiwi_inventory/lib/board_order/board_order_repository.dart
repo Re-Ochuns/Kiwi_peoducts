@@ -46,18 +46,22 @@ class BoardOrderCandidate {
     required this.version,
     required this.containerIds,
     this.locationId,
+    this.useType,
   });
   final String id, kind, displayId, version, containerIds;
   final ProcessStage stage;
   final int availableHundredths;
   final DateTime start, completion;
   final String? locationId;
+  final ProcessUseType? useType;
   String get key => '$kind:$id';
   ProcessBoardItem item(String variety, String grade) => ProcessBoardItem(
     id: key,
     displayId: displayId,
     stage: stage,
-    useType: kind == 'lot' ? ProcessUseType.reserve : ProcessUseType.unassigned,
+    useType:
+        useType ??
+        (kind == 'lot' ? ProcessUseType.reserve : ProcessUseType.unassigned),
     variety: variety,
     grade: grade,
     weightHundredths: availableHundredths,
@@ -66,7 +70,7 @@ class BoardOrderCandidate {
     needsReview: false,
     orderIds: const [],
     orderNumbers: const [],
-    date: completion,
+    date: stage == ProcessStage.waiting ? start : completion,
   );
 }
 

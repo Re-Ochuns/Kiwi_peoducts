@@ -11,7 +11,8 @@ List<ProcessBoardItem> buildProcessBoardInventory({
   final groups = <String, List<ProcessBoardItem>>{};
   final reservedByLot = <String, int>{};
   for (final item in items) {
-    if (item.stage != ProcessStage.sorted) {
+    if (item.stage != ProcessStage.sorted &&
+        item.stage != ProcessStage.waiting) {
       final lotId = item.ripeningLotId;
       if (lotId != null) {
         groups.putIfAbsent(lotId, () => []).add(item);
@@ -125,7 +126,9 @@ ProcessBoardItem _inventoryItem(
 }) => ProcessBoardItem(
   id: id,
   displayId: displayId,
-  stage: source.stage,
+  stage: !lot
+      ? ProcessStage.sorted
+      : (source.status == 'cold_storage' ? ProcessStage.waiting : source.stage),
   useType: lot
       ? (order > 0 ? ProcessUseType.mixed : ProcessUseType.reserve)
       : ProcessUseType.unassigned,
@@ -135,7 +138,8 @@ ProcessBoardItem _inventoryItem(
   status: source.status,
   location: location ?? source.location,
   needsReview: needsReview ?? source.needsReview,
-  date: source.date,
+  date: lot ? source.date : (source.coldStorageUntil ?? source.date),
+  coldStorageUntil: source.coldStorageUntil,
   ripeningLotId: lot ? source.ripeningLotId : null,
   ripeningDisplayId: lot ? source.ripeningDisplayId : null,
   orderIds: const [],

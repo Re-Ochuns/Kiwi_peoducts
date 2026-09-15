@@ -40,6 +40,7 @@ class SupabaseProcessBoardRepository implements ProcessBoardRepository {
               location:storage_locations!containers_location_id_fkey(code, name)
             ''')
             .inFilter('status', _boardStatuses)
+            .gt('current_weight_kg', 0)
             .order('display_id'),
         _client.rpc('shipment_inventory_list'),
       ]).timeout(const Duration(seconds: 10));
@@ -81,7 +82,7 @@ class SupabaseProcessBoardRepository implements ProcessBoardRepository {
           _client
               .from('ripening_lots')
               .select('''
-                id, display_id, use_type, planned_completion_at,
+                id, display_id, use_type, planned_ethylene_at, planned_completion_at,
                 calculated_removal_at, calculated_rest_end_at
               ''')
               .inFilter('id', lotIds),
@@ -285,6 +286,7 @@ ProcessBoardItem _containerItem(
     location: first.location,
     needsReview: first.needsReview,
     date: first.date,
+    coldStorageUntil: first.coldStorageUntil,
     ripeningLotId: first.ripeningLotId,
     ripeningDisplayId: first.ripeningDisplayId,
     nextTask: first.nextTask,
@@ -313,7 +315,9 @@ ProcessBoardItem _item(
   required Map<String, List<Map<String, dynamic>>> tasksByLot,
   required Map<String, String?> remainingUse,
 }) {
-  final stage = _stage(row['status'] as String);
+  final stage = row['status'] == 'cold_storage' && lotId != null
+      ? ProcessStage.waiting
+      : _stage(row['status'] as String);
   final lot = lotId == null ? null : lots[lotId];
   final orderRows = allocations
       .where(
@@ -334,7 +338,7 @@ ProcessBoardItem _item(
     ),
   );
   final taskType = switch (stage) {
-    ProcessStage.sorted when lotId != null => 'ethylene_injection',
+    ProcessStage.waiting => 'ethylene_injection',
     ProcessStage.ripening => 'ethylene_removal_check',
     ProcessStage.resting => 'ripeness_check',
     _ => null,
@@ -367,6 +371,9 @@ ProcessBoardItem _item(
         : '${location['code']}　${location['name']}',
     needsReview: row['needs_review'] == true,
     date: _dateFor(stage, row: row, lot: lot, orders: orderRows),
+    coldStorageUntil: row['status'] == 'cold_storage'
+        ? _dateFor(ProcessStage.sorted, row: row, lot: lot, orders: orderRows)
+        : null,
     ripeningLotId: lotId,
     ripeningDisplayId: lot?['display_id'] as String?,
     orderIds: [for (final order in orderRows) order['id'] as String],
@@ -420,6 +427,7 @@ DateTime? _dateFor(
   ProcessStage.sorted => _tryDate(
     (row['sorting_result'] as Map<String, dynamic>?)?['sorted_on'],
   )?.add(_defaultColdStoragePeriod),
+  ProcessStage.waiting => _tryDate(lot?['planned_ethylene_at']),
   ProcessStage.ripening => _tryDate(
     lot?['calculated_removal_at'] ?? lot?['planned_completion_at'],
   ),

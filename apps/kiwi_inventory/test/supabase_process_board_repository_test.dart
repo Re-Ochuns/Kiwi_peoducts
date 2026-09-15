@@ -13,6 +13,8 @@ void main() {
     final client = _client((request) {
       final path = request.url.path;
       if (path.endsWith('/containers')) {
+        // Fully transferred source containers must not return to the board.
+        expect(request.url.queryParameters['current_weight_kg'], 'gt.0');
         return _json([
           _container(
             id: 'container-cold',
@@ -218,7 +220,8 @@ void main() {
     addTearDown(client.dispose);
     final data = await SupabaseProcessBoardRepository(client).load();
     final item = data.items.single;
-    expect(data.weightFor(ProcessStage.sorted), 1000);
+    expect(data.weightFor(ProcessStage.waiting), 1000);
+    expect(data.itemsFor(ProcessStage.sorted), isEmpty);
     expect(item.useType, ProcessUseType.mixed);
     expect(item.plans.map((plan) => plan.id), ['lot-1', 'lot-2']);
     expect(item.orderNumbers, ['ORD-1']);

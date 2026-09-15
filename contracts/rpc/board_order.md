@@ -8,7 +8,7 @@
 {"scheduled_ship_date":"2027-06-01","variety_id":"UUID","grade_id":"UUID","ordered_weight_kg":2.5}
 ```
 
-候補配列を返す。各要素は `kind`（container / lot）、`id`、`display_id`、`stage`（sorted / ripening / resting / shippable）、`available_weight_kg`、`planned_ethylene_at`、`planned_completion_at`、`location_id`、`container_ids`（表示用文字列）、`version`（不透明な比較トークン）。検索は業務データを変更しない。エラーはPostgRESTエラーとして返す。
+候補配列を返す。各要素は `kind`（container / lot）、`id`、`display_id`、`stage`（sorted / waiting / ripening / resting / shippable）、`use_type`（unassigned / reserve / mixed。候補の元ロットに未出荷受注がある場合はmixed）、`available_weight_kg`、`planned_ethylene_at`、`planned_completion_at`、`location_id`、`container_ids`（表示用文字列）、`version`（不透明な比較トークン）。検索は業務データを変更しない。エラーはPostgRESTエラーとして返す。
 
 ## board_order_confirm(req jsonb)
 

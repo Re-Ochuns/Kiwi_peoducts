@@ -42,7 +42,7 @@ void main() {
     expect(find.text('CONT-2026-0104'), findsNothing);
     expect(find.text('20.50 kg'), findsNothing);
     expect(find.text('15.75 kg'), findsNothing);
-    expect(find.text('0.00 kg'), findsNWidgets(2));
+    expect(find.text('0.00 kg'), findsNWidgets(3));
     await tester.tap(find.text('一覧').first);
     await tester.pumpAndSettle();
     expect(tester.state(find.byType(ProcessBoardPage)), same(boardState));

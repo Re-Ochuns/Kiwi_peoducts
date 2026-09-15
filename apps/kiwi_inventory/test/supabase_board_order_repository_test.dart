@@ -10,6 +10,62 @@ import 'package:kiwi_inventory/process_board/process_board_repository.dart';
 
 void main() {
   test(
+    'master RPC identifiers populate customer and destination selections',
+    () async {
+      final client = SupabaseClient(
+        'https://example.test',
+        'key',
+        httpClient: MockClient((request) async {
+          final rows = switch (request.url.path.split('/').last) {
+            'varieties' => [
+              {'id': 'v', 'name': 'Hayward'},
+            ],
+            'grades' => [
+              {'id': 'g', 'code': 'L'},
+            ],
+            'storage_locations' => [
+              {'id': 'loc', 'name': 'Room A'},
+            ],
+            'workers' => [
+              {'id': 'w', 'display_name': 'Worker A'},
+            ],
+            'customer_list' => [
+              {'customer_id': 'c', 'name': 'Customer A'},
+            ],
+            'shipping_destination_list' => [
+              {
+                'shipping_destination_id': 'd',
+                'destination_name': 'Destination A',
+              },
+            ],
+            _ => throw StateError('Unexpected request'),
+          };
+          if (request.url.path.endsWith('shipping_destination_list')) {
+            expect(jsonDecode(request.body)['customer_id_value'], 'c');
+          }
+          return http.Response(
+            jsonEncode(rows),
+            200,
+            headers: {'content-type': 'application/json'},
+            request: request,
+          );
+        }),
+      );
+      addTearDown(client.dispose);
+      final repository = SupabaseBoardOrderRepository(client);
+      final options = await repository.loadOptions();
+      expect(options.customers.single.id, 'c');
+      expect(options.customers.single.label, 'Customer A');
+      expect(options.workers.single.id, 'w');
+      final destinations = await repository.destinations(
+        options.customers.single.id,
+      );
+      expect(destinations.single.id, 'd');
+      expect(destinations.single.label, 'Destination A');
+    },
+  );
+
+  test(
     'search sends criteria and parses lot balances without apportionment',
     () async {
       final client = SupabaseClient(
@@ -26,8 +82,9 @@ void main() {
               {
                 'id': 'lot',
                 'kind': 'lot',
+                'use_type': 'mixed',
                 'display_id': 'LOT-1',
-                'stage': 'resting',
+                'stage': 'waiting',
                 'available_weight_kg': 7.75,
                 'planned_ethylene_at': '2027-05-20T00:00:00Z',
                 'planned_completion_at': '2027-05-30T00:00:00Z',
@@ -52,7 +109,9 @@ void main() {
         ),
       );
       expect(rows.single.availableHundredths, 775);
-      expect(rows.single.stage, ProcessStage.resting);
+      expect(rows.single.stage, ProcessStage.waiting);
+      expect(rows.single.item('Hayward', 'L').date, rows.single.start);
+      expect(rows.single.item('Hayward', 'L').useType, ProcessUseType.mixed);
       expect(rows.single.containerIds, 'C1、C2');
       await client.dispose();
     },

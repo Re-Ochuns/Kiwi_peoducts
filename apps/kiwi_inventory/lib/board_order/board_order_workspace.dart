@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../orders/order_management_repository.dart';
 import '../process_board/process_board_page.dart';
@@ -78,6 +79,39 @@ class _BoardOrderWorkspaceState extends State<BoardOrderWorkspace> {
     _candidates = null;
     _error = null;
   });
+
+  Future<void> _pickShipDate() async {
+    final today = DateUtils.dateOnly(widget.currentDate ?? DateTime.now());
+    final selected = DateTime.tryParse(_date.text);
+    final lastDate = DateTime(today.year + 10, 12, 31);
+    final initialDate = selected == null || selected.isBefore(today)
+        ? today
+        : selected.isAfter(lastDate)
+        ? lastDate
+        : selected;
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: today,
+      lastDate: lastDate,
+      currentDate: today,
+      initialEntryMode: DatePickerEntryMode.calendarOnly,
+      helpText: '出荷予定日を選択',
+      cancelText: 'キャンセル',
+      confirmText: '選択',
+      builder: (context, child) => Localizations.override(
+        context: context,
+        locale: const Locale('ja'),
+        delegates: GlobalMaterialLocalizations.delegates,
+        child: child!,
+      ),
+    );
+    if (!mounted || date == null) return;
+    final value = date.toIso8601String().substring(0, 10);
+    if (value == _date.text) return;
+    _date.text = value;
+    _invalidate();
+  }
 
   Future<void> _search() async {
     if (!_form.currentState!.validate()) return;
@@ -174,11 +208,15 @@ class _BoardOrderWorkspaceState extends State<BoardOrderWorkspace> {
                                 controller: _date,
                                 key: const Key('board-order-date'),
                                 enabled: !_loading,
+                                readOnly: true,
+                                onTap: _loading ? null : _pickShipDate,
                                 decoration: const InputDecoration(
                                   labelText: '出荷予定日',
-                                  hintText: 'YYYY-MM-DD',
+                                  hintText: '日付を選択',
+                                  suffixIcon: Icon(
+                                    Icons.calendar_month_outlined,
+                                  ),
                                 ),
-                                onChanged: (_) => _invalidate(),
                                 validator: (value) {
                                   final date = DateTime.tryParse(
                                     value?.trim() ?? '',
