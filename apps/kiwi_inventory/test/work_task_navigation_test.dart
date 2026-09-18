@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:kiwi_inventory/auth/supabase_auth_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kiwi_inventory/main.dart';
@@ -19,7 +18,7 @@ class SignedOutAuth implements AuthRepository {
   @override
   Stream<AuthUser?> get authStateChanges => changes.stream;
   @override
-  Future<void> signInWithGoogle() async {
+  Future<void> signInAnonymously() async {
     user = const AuthUser(id: 'user-1');
     changes.add(user);
   }
@@ -73,29 +72,9 @@ void main() {
     expect(tasks.reads, 2);
     expect(find.text('追熟-2026-001'), findsOneWidget);
   });
-  test('OAuth return retains task route for hash and path URLs', () {
-    expect(
-      authRedirectTo(Uri.parse('https://example.test/#/work-tasks/task-1')),
-      'https://example.test/#/work-tasks/task-1',
-    );
-    expect(
-      authRedirectTo(Uri.parse('https://example.test/work-tasks/task-1')),
-      'https://example.test/#/work-tasks/task-1',
-    );
-    expect(
-      authRedirectTo(Uri.parse('https://example.test/?code=secret')),
-      'https://example.test',
-    );
-    expect(
-      authRedirectTo(
-        Uri.parse(
-          'https://example.test/sorting/e6000000-0000-4000-8000-000000000001',
-        ),
-      ),
-      'https://example.test/#/sorting/e6000000-0000-4000-8000-000000000001',
-    );
-  });
-  testWidgets('signed-out deep link should expose login', (tester) async {
+  testWidgets('signed-out deep link should start an anonymous session', (
+    tester,
+  ) async {
     tester.binding.platformDispatcher.defaultRouteNameTestValue =
         '/work-tasks/task-overdue';
     addTearDown(
@@ -107,10 +86,6 @@ void main() {
     await tester.pumpWidget(
       KiwiInventoryApp(authRepository: auth, workTaskRepository: tasks),
     );
-    await tester.pumpAndSettle();
-    expect(find.text('Googleでログイン'), findsOneWidget);
-    expect(tasks.detailReads, 0);
-    await tester.tap(find.text('Googleでログイン'));
     await tester.pumpAndSettle();
     expect(find.text('作業確認'), findsOneWidget);
     expect(tasks.detailReads, 1);
@@ -132,8 +107,6 @@ void main() {
         ripeningWorkRepository: ripeningWork,
       ),
     );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Googleでログイン'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('エチレン注入へ進む'));
     await tester.tap(find.text('エチレン注入へ進む'));

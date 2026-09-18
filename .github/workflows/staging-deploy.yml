@@ -111,6 +111,8 @@ jobs:
         run: supabase db push --linked --dry-run
       - name: Apply pending database migrations
         run: supabase db push --linked
+      - name: Enable anonymous application sessions
+        run: python3 scripts/enable_anonymous_auth.py
       - name: Deploy label PDF function including Japanese font
         run: supabase functions deploy label-pdf --project-ref "$SUPABASE_PROJECT_REF"
       - name: Deploy calendar synchronization function
@@ -136,5 +138,5 @@ jobs:
             echo "- Commit: $GITHUB_SHA"
             echo "- URL: https://$FIREBASE_PROJECT_ID.web.app"
             echo "- Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-            echo "- Google OAuth, user approval, PDF/CSV/calendar and rollback require the acceptance record."
+            echo "- Anonymous session, member RLS, PDF/CSV/calendar and rollback require the acceptance record."
           } >> "$GITHUB_STEP_SUMMARY"

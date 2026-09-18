@@ -38,39 +38,37 @@ class AuthController extends ChangeNotifier {
   Future<void> restoreSession() async {
     final user = _repository.currentUser;
     if (user == null) {
-      _setState(AuthViewState.signedOut);
+      await signInAnonymously();
       return;
     }
     await _checkAccess(user);
   }
 
-  Future<void> signInWithGoogle() async {
+  Future<void> signInAnonymously() async {
     _setState(AuthViewState.authenticating);
     try {
-      await _repository.signInWithGoogle();
+      await _repository.signInAnonymously();
     } catch (_) {
       _retryAction = _RetryAction.signIn;
-      _showError('Googleログインを開始できませんでした。通信状況を確認して再試行してください。');
+      _showError('利用セッションを開始できませんでした。通信状況を確認して再試行してください。');
     }
   }
 
   Future<void> retry() => switch (_retryAction) {
     _RetryAction.restore => restoreSession(),
-    _RetryAction.signIn => signInWithGoogle(),
+    _RetryAction.signIn => signInAnonymously(),
     _RetryAction.signOut => signOut(),
   };
 
   Future<void> signOut() async {
-    final requestId = ++_requestId;
+    ++_requestId;
     _setState(AuthViewState.restoring);
     try {
       await _repository.signOut();
-      if (requestId == _requestId) _setState(AuthViewState.signedOut);
+      await signInAnonymously();
     } catch (_) {
-      if (requestId == _requestId) {
-        _retryAction = _RetryAction.signOut;
-        _showError('ログアウトできませんでした。通信状況を確認して再試行してください。');
-      }
+      _retryAction = _RetryAction.signOut;
+      _showError('利用セッションを更新できませんでした。通信状況を確認して再試行してください。');
     }
   }
 

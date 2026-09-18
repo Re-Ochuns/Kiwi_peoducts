@@ -12,7 +12,7 @@ abstract interface class AuthRepository {
 
   Stream<AuthUser?> get authStateChanges;
 
-  Future<void> signInWithGoogle();
+  Future<void> signInAnonymously();
 
   Future<UserAccessStatus> loadAccessStatus(String userId);
 

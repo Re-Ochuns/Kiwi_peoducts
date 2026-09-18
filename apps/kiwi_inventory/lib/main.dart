@@ -215,7 +215,7 @@ class KiwiInventoryApp extends StatelessWidget {
     );
   }
 
-  Widget _authenticated(Widget Function(BuildContext, VoidCallback) builder) {
+  Widget _authenticated(Widget Function(BuildContext, VoidCallback?) builder) {
     final repository = authRepository;
     if (repository == null) return _buildHome();
     return ChangeNotifierProvider(

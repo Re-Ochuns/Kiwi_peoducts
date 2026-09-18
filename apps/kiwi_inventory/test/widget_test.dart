@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kiwi_inventory/auth/auth_repository.dart';
 import 'package:kiwi_inventory/main.dart';
@@ -70,24 +69,14 @@ void main() {
   });
 
   group('認証後ルーティング', () {
-    testWidgets('未認証ではログイン画面だけを表示する', (tester) async {
+    testWidgets('未認証でも匿名セッションを自動開始する', (tester) async {
+      await _setSurface(tester, const Size(390, 844));
       final repository = FakeAuthRepository.signedOut();
       await tester.pumpWidget(KiwiInventoryApp(authRepository: repository));
-      await tester.pump();
-
-      expect(find.text('Googleでログイン'), findsOneWidget);
-      expect(find.text('ToDo'), findsNothing);
-    });
-
-    testWidgets('キーボードでGoogleログインを開始できる', (tester) async {
-      final repository = FakeAuthRepository.signedOut();
-      await tester.pumpWidget(KiwiInventoryApp(authRepository: repository));
-      await tester.pump();
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
 
+      expect(find.text('ToDo'), findsOneWidget);
+      expect(find.text('Googleでログイン'), findsNothing);
       expect(repository.signInCalls, 1);
     });
 
@@ -101,19 +90,6 @@ void main() {
       expect(repository.accessChecks, 1);
     });
 
-    testWidgets('Googleログイン後に利用状況を確認してホームへ進む', (tester) async {
-      await _setSurface(tester, const Size(390, 844));
-      final repository = FakeAuthRepository.signedOut();
-      await tester.pumpWidget(KiwiInventoryApp(authRepository: repository));
-      await tester.pump();
-
-      await tester.tap(find.text('Googleでログイン'));
-      await tester.pumpAndSettle();
-
-      expect(repository.signInCalls, 1);
-      expect(find.text('ToDo'), findsOneWidget);
-    });
-
     testWidgets('利用承認を確認できないユーザーをホームへ通さない', (tester) async {
       final repository = FakeAuthRepository.restricted();
       await tester.pumpWidget(KiwiInventoryApp(authRepository: repository));
@@ -121,21 +97,18 @@ void main() {
 
       expect(find.text('利用承認を確認できません'), findsOneWidget);
       expect(find.text('ToDo'), findsNothing);
-      expect(find.text('ログイン画面に戻る'), findsOneWidget);
+      expect(find.text('利用セッションを更新'), findsOneWidget);
     });
 
     testWidgets('認証失敗を日本語で表示して再試行できる', (tester) async {
       final repository = FakeAuthRepository.signedOut(signInFails: true);
       await tester.pumpWidget(KiwiInventoryApp(authRepository: repository));
-      await tester.pump();
-
-      await tester.tap(find.text('Googleでログイン'));
       await tester.pumpAndSettle();
 
       expect(find.text('認証状態を確認できません'), findsOneWidget);
       expect(find.text('再試行'), findsOneWidget);
       expect(
-        find.text('Googleログインを開始できませんでした。通信状況を確認して再試行してください。'),
+        find.text('利用セッションを開始できませんでした。通信状況を確認して再試行してください。'),
         findsOneWidget,
       );
 
@@ -205,7 +178,7 @@ class FakeAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> signInWithGoogle() async {
+  Future<void> signInAnonymously() async {
     signInCalls++;
     if (signInFails) throw Exception('sign in failed');
     _user = const AuthUser(id: 'signed-in-user');

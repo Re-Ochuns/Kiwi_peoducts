@@ -1,26 +1,20 @@
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
-import '../core/app_deep_link.dart';
 import '../core/app_config.dart';
 import 'auth_repository.dart';
 
 class SupabaseAuthRepository implements AuthRepository {
-  SupabaseAuthRepository._(this._client, this._redirectTo);
+  SupabaseAuthRepository._(this._client);
 
   static Future<SupabaseAuthRepository> initialize(AppConfig config) async {
     await supabase.Supabase.initialize(
       url: config.supabaseUrl,
       publishableKey: config.supabaseKey,
     );
-    final redirectTo = authRedirectTo(Uri.base);
-    return SupabaseAuthRepository._(
-      supabase.Supabase.instance.client,
-      redirectTo,
-    );
+    return SupabaseAuthRepository._(supabase.Supabase.instance.client);
   }
 
   final supabase.SupabaseClient _client;
-  final String _redirectTo;
 
   @override
   AuthUser? get currentUser => _toAuthUser(_client.auth.currentUser);
@@ -31,14 +25,8 @@ class SupabaseAuthRepository implements AuthRepository {
   );
 
   @override
-  Future<void> signInWithGoogle() async {
-    final started = await _client.auth.signInWithOAuth(
-      supabase.OAuthProvider.google,
-      redirectTo: _redirectTo,
-    );
-    if (!started) {
-      throw const supabase.AuthException('Googleログインを開始できませんでした。');
-    }
+  Future<void> signInAnonymously() async {
+    await _client.auth.signInAnonymously(data: const {'display_name': 'ゲスト'});
   }
 
   @override
@@ -61,13 +49,4 @@ class SupabaseAuthRepository implements AuthRepository {
     if (user == null) return null;
     return AuthUser(id: user.id, email: user.email);
   }
-}
-
-// Preserve task deep links across the full-page OAuth round trip.
-String authRedirectTo(Uri uri) {
-  final route = uri.fragment.startsWith('/') ? uri.fragment : uri.path;
-  if (appInitialRoute(uri) != null) {
-    return Uri.parse('${uri.origin}/').replace(fragment: route).toString();
-  }
-  return uri.origin;
 }
