@@ -41,9 +41,8 @@ select is(
   'active',
   'anonymous profile is active immediately'
 );
-select like(
-  (select email from public.profiles where id = '19000000-0000-4000-8000-000000000001'),
-  'anonymous+%@local.invalid',
+select ok(
+  (select email like 'anonymous+%@local.invalid' from public.profiles where id = '19000000-0000-4000-8000-000000000001'),
   'anonymous profile receives a non-personal unique email placeholder'
 );
 select is(
